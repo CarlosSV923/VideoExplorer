@@ -1,6 +1,6 @@
 # VideoExplorer — Guía para asistentes de IA
 
-Self-hosted web app (TrueNAS SCALE) to upload, extract, classify (movies and series via TMDB), rename and organize video files so Jellyfin and Plex recognize them, with a Netflix / Prime Video style UI. It never plays content. Public portfolio project with a backend-less demo on Vercel. Sister project of GameExplorer (`../GameExplorer`), whose architecture, tooling and conventions it reuses.
+Self-hosted web app (TrueNAS SCALE) to upload, extract, classify (movies and series via TMDB), rename and organize video files so Jellyfin recognizes them (file names and ID tags follow the Jellyfin convention; Plex is out of scope for this version, spec §8), with a Netflix / Prime Video style UI. It never plays content. Public portfolio project with a backend-less demo on Vercel. Sister project of GameExplorer (`../GameExplorer`), whose architecture, tooling and conventions it reuses.
 
 ## Source of truth
 - Requirements: [`docs/spec.md`](docs/spec.md). Do not assume requirements that are not documented there; ask the user (one question at a time, with options and a recommendation) and document first. Open points live in spec §9.
@@ -25,12 +25,12 @@ Self-hosted web app (TrueNAS SCALE) to upload, extract, classify (movies and ser
 | `contracts/` | Golden test vectors |
 | `docs/` | Spec, tasks, design handoff |
 
-Bounded contexts: `catalog` (library, unassigned section and trash; every library change goes through the journaled operation engine), `ingestion` (uploads, extraction, filtering, filename analysis, probing), `metadata` (TMDB anti-corruption layer), `mediaservers` (Jellyfin/Plex refresh), `identity`, `platform` (shared kernel).
+Bounded contexts: `catalog` (library, unassigned section and trash; every library change goes through the journaled operation engine), `ingestion` (uploads, extraction, filtering, filename analysis, probing), `metadata` (TMDB anti-corruption layer), `mediaservers` (Jellyfin refresh), `identity`, `platform` (shared kernel).
 
 ## Rules
 - DDD: `domain` packages are pure (no I/O, no framework imports). Cross-context calls go through application ports.
 - Huge files (tens of GB): never buffer file contents in memory. Stream, `rename`, delegate to `7zz` and `ffprobe` child processes, serve with `http.ServeContent`.
-- Paths are built server-side from IDs; never trust client paths. TMDB, Jellyfin and Plex secrets never reach the browser.
+- Paths are built server-side from IDs; never trust client paths. TMDB and Jellyfin secrets never reach the browser.
 - Nothing is assigned to the library without explicit user confirmation.
 - The frontend never knows which adapter set is active; `VITE_DATA_SOURCE` is read only in `src/app`.
 - Mouse, keyboard, touch and gamepad must all work; gamepad glyphs only when a gamepad is detected.

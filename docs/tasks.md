@@ -11,11 +11,12 @@ Depende de: — · Base: GameExplorer
 - [x] `golangci-lint` v2, `task check`, CI en GitHub Actions
 - [x] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano) validado en `task check` y CI, y `contracts/` (README con los vectores previstos)
 - [x] README EN/ES, LICENSE (MIT), `.env.example`
+- [~] Quitar Plex de `README.md`, `README.es.md`, `.env.example` y `contracts/README.md`, y decir que los nombres y la etiqueta de ID siguen la convención de Jellyfin (decisión 2026-10-09, spec §1, §5, §8)
 
-## Fase 0.5 — Spike de nombres en Jellyfin y Plex
+## Fase 0.5 — Spike de nombres en Jellyfin
 Depende de: 0 · Cubre: §5, RF-45, §9.1–9.3
 - [ ] Biblioteca de prueba con archivos ficticios: película simple, con versiones, con partes; serie con especiales, varios capítulos por archivo, versiones y subtítulos (`.es.srt`, `.es-MX.srt`, `.en.forced.srt`, `.sdh`)
-- [ ] Probar cada caso en Jellyfin y Plex reales, sin etiquetas de ID, con `{tmdb-}`, con `[tmdbid-]` y con ambas
+- [ ] Probar cada caso en un Jellyfin real, sin etiqueta de ID y con `[tmdbid-]`
 - [ ] Probar títulos saneados (`Mission - Impossible`) y títulos ambiguos o remakes
 - [ ] Registrar los resultados en `docs/spike-results.md` y ajustar §5
 
@@ -68,14 +69,14 @@ Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
 ## Fase 7 — Edición, papelera, etiquetas de ID y descargas
 Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [ ] Editar/reasignar con vista previa y renombrado reversible
-- [ ] Etiquetas de ID por título (RF-45)
+- [ ] Etiqueta de ID `[tmdbid-]` por título (RF-45)
 - [ ] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días
 - [ ] Descargas: archivo con Range y zip *store* (de GameExplorer)
 - [ ] Info técnica (ffprobe)
 
-## Fase 8 — Integración Jellyfin / Plex
+## Fase 8 — Integración con Jellyfin
 Depende de: 7 · Cubre: RF-50
-- [ ] Puerto `MediaServerNotifier` + adaptadores Jellyfin y Plex (refresco por carpeta, agrupado en 30 s)
+- [ ] Puerto `MediaServerNotifier` + adaptador Jellyfin (refresco por carpeta, agrupado en 30 s); el puerto deja abierta la puerta a otros servidores en el futuro
 - [ ] Estado en Ajustes y en `/api/health`
 
 ## Fase 9 — Diseño → código
@@ -100,4 +101,4 @@ Depende de: 10 · Cubre: RF-70 a RF-72
 Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
 - [ ] Dockerfile de producción (node → golang → debian-slim con `7zz` y `ffprobe`), publicación en GHCR con tags `v*`
 - [ ] `deploy/truenas/compose.yaml` y guía en README
-- [ ] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente, Jellyfin y Plex reconociéndolo todo
+- [ ] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente y Jellyfin reconociéndolo todo

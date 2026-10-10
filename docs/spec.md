@@ -6,9 +6,9 @@
 
 ## 1. Problema y objetivo
 
-Las películas y series se guardan en un TrueNAS SCALE compartido por SMB y se reproducen con Jellyfin y Plex. Agregar contenido exige descargar, descomprimir, buscar el nombre correcto, crear carpetas por temporada y renombrar cada capítulo con el formato que esos servidores reconocen; además se olvida qué hay guardado y qué falta.
+Las películas y series se guardan en un TrueNAS SCALE compartido por SMB y se reproducen con Jellyfin. Agregar contenido exige descargar, descomprimir, buscar el nombre correcto, crear carpetas por temporada y renombrar cada capítulo con el formato que Jellyfin reconoce; además se olvida qué hay guardado y qué falta.
 
-VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video, que desde cualquier navegador (escritorio, móvil o tablet táctil y gamepad) permite **subir, descomprimir, clasificar, renombrar y organizar** películas y series con datos de TMDB, y luego explorarlas, editarlas y descargarlas. **No reproduce contenido.** La subida no pide nombre: los archivos se suben y descomprimen directamente y el usuario los asigna al terminar. Es también un proyecto público de portfolio con una demo sin backend.
+VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video, que desde cualquier navegador (escritorio, móvil o tablet táctil y gamepad) permite **subir, descomprimir, clasificar, renombrar y organizar** películas y series con datos de TMDB, y luego explorarlas, editarlas y descargarlas. **No reproduce contenido.** Los nombres de carpetas y archivos y las etiquetas de ID siguen la convención de **Jellyfin**; Plex queda fuera de esta versión (§8, decisión 2026-10-09). La subida no pide nombre: los archivos se suben y descomprimen directamente y el usuario los asigna al terminar. Es también un proyecto público de portfolio con una demo sin backend.
 
 ## 2. Glosario
 
@@ -18,11 +18,11 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 | Película | Título de tipo película: `Movies/<Película (Año)>/` |
 | Serie | Título de tipo serie, con temporadas y capítulos: `TV Shows/<Serie (Año)>/Season NN/` |
 | Capítulo | Un episodio de una serie (temporada + número). Un archivo puede contener varios capítulos consecutivos (§5) |
-| Especial | Capítulo de la temporada 0 (`Season 00`), como en TMDB, Plex y Jellyfin |
+| Especial | Capítulo de la temporada 0 (`Season 00`), como en TMDB y Jellyfin |
 | Versión | Otro archivo del mismo destino (película o capítulo) que el usuario decidió conservar, distinguido por una etiqueta (`- 2160p`) |
 | Parte | Un trozo de una película repartida en varios archivos (`- part1`, `- part2`) |
 | Subtítulo externo | `.srt`, `.ass`, `.ssa`, `.sub`/`.idx`, `.vtt` que acompaña a un video y se renombra con él |
-| Etiquetas de ID | Sufijos opcionales con el id de TMDB en el nombre de la carpeta: `{tmdb-ID}` (Plex) y `[tmdbid-ID]` (Jellyfin) |
+| Etiquetas de ID | Sufijo opcional con el id de TMDB en el nombre de la carpeta, en el formato de Jellyfin: `[tmdbid-ID]` |
 | No asignados | Carpeta `_unassigned/` con lo que todavía no pertenece a ningún título: subidas recién procesadas y lo copiado por Samba |
 | Entrada | Elemento de No asignados: una carpeta de primer nivel o un archivo suelto de `_unassigned/` |
 | Lote | Conjunto de archivos soltados juntos en el navegador, con la relación que eligió el usuario (RF-03) |
@@ -86,24 +86,24 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 - **RF-43** **Ficha de película**: backdrop, póster, título en español y original, año, duración, géneros, sinopsis, colección; archivos (versiones y partes) con sus subtítulos. **Ficha de serie**: lo mismo más selector de temporada y lista de capítulos (presentes y faltantes según TMDB, con miniatura, título y sinopsis).
 - **RF-44** **Acciones** en la ficha (todo reversible si falla a mitad):
   - **Editar y reasignar**: cambiar la coincidencia de TMDB, el tipo, la temporada/capítulo de un archivo, la etiqueta de versión, el número de parte o el idioma de un subtítulo; renombra en disco. Si el destino choca, aplica RF-24.
-  - **Etiquetas de ID** (RF-45).
+  - **Etiqueta de ID** (RF-45).
   - **Mover a No asignados**: el título completo, una temporada o un archivo.
   - **Mandar a la papelera**: el título completo, una temporada, un capítulo o una versión concreta.
   - **Descargar**: un archivo (HTTP Range) o una temporada/serie/película completa como zip *store* en streaming con tamaño exacto anunciado.
   - **Info técnica** (ffprobe, cacheada): resolución, códecs de video y audio, pistas de audio y de subtítulos internos con idioma, duración, tamaño y ruta en el NAS.
-- **RF-45** **Etiquetas de ID.** Por defecto las carpetas **no** llevan id: `Iron Man (2008)`. Desde la ficha se puede activar la etiqueta de **Plex**, la de **Jellyfin** o **ambas** para ese título, lo que renombra su carpeta (y, en películas, sus archivos): `Iron Man (2008) {tmdb-1726} [tmdbid-1726]`. Se puede volver a quitar.
+- **RF-45** **Etiqueta de ID.** Por defecto las carpetas **no** llevan id: `Iron Man (2008)`. Desde la ficha se puede activar para ese título la etiqueta de Jellyfin, lo que renombra su carpeta (y, en películas, sus archivos): `Iron Man (2008) [tmdbid-1726]`. Se puede volver a quitar.
 
 ### Papelera
 - **RF-30** Lo eliminado (títulos, temporadas, archivos, entradas de No asignados, comprimidos originales y descartes del filtrado) se mueve a `.videoexplorer/trash` con su metadata y se purga tras `TRASH_RETENTION_DAYS` (**30** por defecto). Se puede borrar una entrada para siempre o **vaciar la papelera** (con confirmación).
 - **RF-31** **Restaurar** devuelve cada cosa a su **ubicación original** con su vínculo de TMDB; lo que venía de No asignados, de una subida o del filtrado vuelve a No asignados. Si el lugar está ocupado, aplica RF-24 (Reemplazar / Conservar ambos / Cancelar).
 
 ### Integración con servidores multimedia
-- **RF-50** Si se configuran `JELLYFIN_URL` + `JELLYFIN_API_KEY` y/o `PLEX_URL` + `PLEX_TOKEN`, cada cambio en la biblioteca (asignar, renombrar, papelera, restaurar) pide a ese servidor refrescar **solo la carpeta afectada**, agrupando los cambios en ventanas de 30 s. Sin variables, no hace nada. Un fallo del servidor multimedia se registra y se muestra en Ajustes, pero nunca bloquea la operación.
+- **RF-50** Si se configuran `JELLYFIN_URL` + `JELLYFIN_API_KEY`, cada cambio en la biblioteca (asignar, renombrar, papelera, restaurar) pide a Jellyfin refrescar **solo la carpeta afectada**, agrupando los cambios en ventanas de 30 s. Sin variables, no hace nada. Un fallo de Jellyfin se registra y se muestra en Ajustes, pero nunca bloquea la operación.
 
 ### Acceso y preferencias
 - **RF-60** Contraseña única (`APP_PASSWORD_HASH` argon2id o `APP_PASSWORD`), sesión en cookie httpOnly firmada `SameSite=Strict`, rate-limit en el login; si la sesión vence, se vuelve al login y luego a donde se estaba. Reutiliza el contexto `identity` de GameExplorer.
 - **RF-61** Interfaz en español (por defecto) e inglés; la elección se recuerda en el navegador. Los datos de TMDB se muestran en `TMDB_LANGUAGE` (por defecto `es-MX`) con respaldo en inglés si falta la traducción.
-- **RF-62** **Ajustes**: General (idioma, escaneo con última revisión y «Escanear ahora», estado de Jellyfin/Plex, cerrar sesión, atribución a TMDB) y Papelera.
+- **RF-62** **Ajustes**: General (idioma, escaneo con última revisión y «Escanear ahora», estado de Jellyfin, cerrar sesión, atribución a TMDB) y Papelera.
 
 ### Modo demo
 - **RF-70** Con `VITE_DATA_SOURCE=demo` el frontend funciona sin backend con adaptadores en memoria (estado de la sesión). Biblioteca sembrada con películas, series (con temporadas incompletas), colecciones y entradas en No asignados.
@@ -113,7 +113,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 ## 4. Requisitos no funcionales
 
 - **RNF-01 Archivos grandes**: los bytes de los videos nunca se cargan en memoria; streams y `rename`; extracción con `7zz` en proceso hijo; ffprobe en proceso hijo; descargas con `http.ServeContent` o zip *store* en streaming. Objetivo: RAM estable < 300 MB saturando la red.
-- **RNF-02 Seguridad**: rutas construidas en el servidor a partir de IDs, nunca del cliente; zip-slip; nombres saneados; ningún secreto versionado. Las claves de TMDB, Jellyfin y Plex nunca llegan al navegador.
+- **RNF-02 Seguridad**: rutas construidas en el servidor a partir de IDs, nunca del cliente; zip-slip; nombres saneados; ningún secreto versionado. Las claves de TMDB y Jellyfin nunca llegan al navegador.
 - **RNF-03 Permisos**: igual que GameExplorer: `PUID/PGID`, ACL heredada del dataset (*Modify*, *Inherit*); si la app no puede escribir al arrancar lo muestra en la UI.
 - **RNF-03a Binarios externos**: `7zz` oficial (versión fijada y SHA-256 verificado, con RAR) y `ffprobe` estático (versión fijada y SHA-256 verificado) en la imagen.
 - **RNF-04 Atomicidad**: staging, papelera y `_unassigned/` viven en el mismo dataset que `Movies/` y `TV Shows/`, así que mover es `rename`; ante `EXDEV`, copiar y borrar. Todo cambio de la biblioteca pasa por el motor con journal.
@@ -125,6 +125,8 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 - **RNF-10 Legal**: la app no distribuye contenido. Muestra la atribución exigida por TMDB («This product uses the TMDB API but is not endorsed or certified by TMDB.» y su logo). Las imágenes de TMDB se sirven desde una caché local: el navegador nunca contacta a terceros (salvo la demo, que no usa TMDB). Licencia MIT.
 
 ## 5. Nomenclatura (vectores: `contracts/naming-cases.json`)
+
+Los nombres siguen la convención de **Jellyfin** (películas, series, especiales, versiones, partes, subtítulos y etiqueta de ID). No se garantiza que otros servidores, como Plex, los reconozcan (§8).
 
 Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurables con `MOVIES_DIR` y `SERIES_DIR`):
 
@@ -157,7 +159,7 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 
 - `<T>`: título del disco. Es el **título original** de TMDB si está en alfabeto latino; si no (japonés, coreano, ruso…), el **título en inglés** (`en-US`). `Amélie`, `The Godfather`, `Spirited Away`.
 - `<A>`: año del estreno (película) o de la primera emisión (serie).
-- `<ids>`: vacío por defecto; ` {tmdb-ID}`, ` [tmdbid-ID]` o ` {tmdb-ID} [tmdbid-ID]` según RF-45. En series solo va en la carpeta; en películas también en los archivos (Jellyfin exige que los archivos de versiones empiecen como la carpeta).
+- `<ids>`: vacío por defecto; ` [tmdbid-ID]` (formato de Jellyfin) si se activa según RF-45. En series solo va en la carpeta; en películas también en los archivos (Jellyfin exige que los archivos de versiones empiecen como la carpeta).
 - `<SS>`, `<EE>`: dos dígitos como mínimo (`S01E05`, `S01E105`). Temporada 0 → `Season 00`.
 - `<título cap.>`: de TMDB, en el idioma original de la serie si es latino, si no en inglés. Con varios capítulos, los títulos se unen con ` + ` (`Pilot + Cat's in the Bag`); si solo difieren en un número final o entre paréntesis (`The Finale (1)`, `The Finale, Part 2`), se colapsan en el título común (`The Finale`). Si TMDB no tiene título, se omite el segmento ` - <título cap.>`.
 - `<versión>`: etiqueta de RF-24 (`2160p`, `1080p HEVC`, o texto libre del usuario, saneado).
@@ -194,17 +196,17 @@ Una ruta cuyo componente supere 255 bytes recorta primero el título del capítu
 | Datos | `./.dev/` | Datasets `/library` (SMB) y `/data` (SQLite y caché) | Memoria de la sesión |
 | TMDB | Clave de desarrollo | Clave de producción | Catálogo fijo sin imágenes de TMDB |
 
-Variables: `PORT`, `LIBRARY_PATH`, `DATA_PATH`, `MOVIES_DIR`, `SERIES_DIR`, `APP_PASSWORD[_HASH]`, `SESSION_SECRET`, `SESSION_TTL`, `COOKIE_SECURE`, `TMDB_API_KEY`/`TMDB_READ_TOKEN`, `TMDB_LANGUAGE`, `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `PLEX_URL`, `PLEX_TOKEN`, `PUID`, `PGID`, `TRASH_RETENTION_DAYS`, `EXTRACT_CONCURRENCY`, `UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`, `VIDEO_EXTENSIONS`, `SUBTITLE_EXTENSIONS`, `LOG_LEVEL`; en el front, `VITE_DATA_SOURCE` (`http` por defecto o `demo`) y, solo en desarrollo, `API_PROXY_TARGET` (destino del proxy `/api` de Vite). Ver `.env.example`.
+Variables: `PORT`, `LIBRARY_PATH`, `DATA_PATH`, `MOVIES_DIR`, `SERIES_DIR`, `APP_PASSWORD[_HASH]`, `SESSION_SECRET`, `SESSION_TTL`, `COOKIE_SECURE`, `TMDB_API_KEY`/`TMDB_READ_TOKEN`, `TMDB_LANGUAGE`, `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `PUID`, `PGID`, `TRASH_RETENTION_DAYS`, `EXTRACT_CONCURRENCY`, `UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`, `VIDEO_EXTENSIONS`, `SUBTITLE_EXTENSIONS`, `LOG_LEVEL`; en el front, `VITE_DATA_SOURCE` (`http` por defecto o `demo`) y, solo en desarrollo, `API_PROXY_TARGET` (destino del proxy `/api` de Vite). Ver `.env.example`.
 
 ## 8. Fuera de alcance del MVP
 
-Reproducción · descarga de contenido desde internet (torrents, Usenet) · anime con numeración absoluta (se asigna a mano por temporada y capítulo) · capítulos repartidos en varias partes · bibliotecas adicionales (anime, documentales, conciertos) · usuarios y roles · TV con control remoto como objetivo de diseño · extras (trailers, detrás de cámaras) · edición de metadatos fuera de TMDB.
+Reproducción · **Plex** (nombres, etiquetas de ID y refresco; se descartó el 2026-10-09 tras pruebas con el servidor del usuario y podrá retomarse en el futuro) · descarga de contenido desde internet (torrents, Usenet) · anime con numeración absoluta (se asigna a mano por temporada y capítulo) · capítulos repartidos en varias partes · bibliotecas adicionales (anime, documentales, conciertos) · usuarios y roles · TV con control remoto como objetivo de diseño · extras (trailers, detrás de cámaras) · edición de metadatos fuera de TMDB.
 
 ## 9. Puntos abiertos
 
 Se resuelven con el usuario, uno a uno, antes de la fase que los necesita.
 
-1. **Etiquetas de ID** (Fase 0.5): verificar en Jellyfin y Plex reales que `{tmdb-ID} [tmdbid-ID]` juntos funcionan en ambos.
+1. **Etiqueta de ID** (Fase 0.5): verificar en un Jellyfin real que `[tmdbid-ID]` en la carpeta (y en los archivos de películas) se reconoce. Plex ya no aplica (§8).
 2. ~~Versión + parte~~ **Resuelto**: son excluyentes (RF-22).
 3. ~~Título con varios capítulos~~ **Resuelto**: unidos con ` + `, colapsando partes numeradas (§5).
 4. ~~Importación ambigua~~ **Resuelto**: queda en su sitio como «Sin vincular» (RF-29).

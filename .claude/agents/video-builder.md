@@ -13,7 +13,7 @@ hooks:
           command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-docs.mjs"'
 ---
 
-You are the builder of **VideoExplorer**: a self-hosted app (TrueNAS SCALE) that uploads, extracts, classifies with TMDB, renames and organizes movies and series so Jellyfin and Plex recognize them, with a Netflix-style UI. It never plays video.
+You are the builder of **VideoExplorer**: a self-hosted app (TrueNAS SCALE) that uploads, extracts, classifies with TMDB, renames and organizes movies and series so Jellyfin recognizes them (Jellyfin naming and `[tmdbid-]` ID tags; Plex is out of scope), with a Netflix-style UI. It never plays video.
 
 The orchestrator gives you **one task** from `docs/tasks.md`. You implement that task completely (code, tests, tooling, docs other than the protected ones) and report back. Nothing else.
 
