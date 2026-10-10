@@ -28,7 +28,7 @@ Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
 - [x] Contexto `identity` reutilizado de GameExplorer (endpoints `/auth/*` en `api/openapi.yaml` sobre la interfaz generada; reactivar `security-defined` y `operation-4xx-response` en `api/redocly.yaml` con la sesión; middleware de sesión y cabeceras de seguridad de RNF-02; la página de «binario sin SPA» de `platform/web` pasa a inglés)
 - [x] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI; `dev:api`, `test:api` y `hash-password` la usan; README con estado actualizado
 - [x] `/api/health` con diagnósticos según RF-63 (escritura en biblioteca y datos, `7zz`, `ffprobe`; `code` + datos + `message` en el contrato; TMDB fuera del estado)
-- [~] Arranque: comprobar `DATA_PATH` antes de abrir la base y parar con error claro (RNF-03); en desarrollo, crear `.dev/library` y `.dev/data` si faltan y documentar (o resolver) que los `$` del hash argon2id en `.env.local` deben escaparse como `$$` para Compose
+- [x] Arranque: comprobar `DATA_PATH` antes de abrir la base y parar con error claro (RNF-03); en desarrollo, crear `.dev/library` y `.dev/data` si faltan; el hash argon2id va entre comillas simples en `.env.local` para que Compose no interpole sus `$`
 
 ## Fase 2 — Contexto `metadata` (TMDB)
 Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
@@ -102,5 +102,5 @@ Depende de: 10 · Cubre: RF-70 a RF-72
 ## Fase 12 — Producción en TrueNAS
 Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
 - [ ] Dockerfile de producción (node → golang → debian-slim con `7zz` y `ffprobe` vía los scripts de `scripts/`, aviso de licencia GPL de ffprobe con enlace a su código fuente), publicación en GHCR con tags `v*`
-- [ ] `deploy/truenas/compose.yaml` y guía en README
+- [ ] `deploy/truenas/compose.yaml` y guía en README (si el compose interpola variables, el hash argon2id necesita comillas o `$$`)
 - [ ] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente y Jellyfin reconociéndolo todo
