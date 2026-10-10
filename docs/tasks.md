@@ -35,7 +35,7 @@ Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 - [x] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
 - [x] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [x] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
-- [ ] Catálogo fijo para la demo (RF-70, RF-71): generador `cmd/demo-catalog` como GameExplorer que toma de TMDB solo la estructura (títulos, años, géneros, colecciones, temporadas, capítulos) y sinopsis propias en un archivo aparte; necesita la clave de TMDB
+- [x] Catálogo fijo para la demo (RF-70, RF-71): generador `cmd/demo-catalog` como GameExplorer que toma de TMDB solo la estructura (títulos, años, géneros, colecciones, temporadas, capítulos) y sinopsis propias en un archivo aparte; necesita la clave de TMDB
 - [ ] Logo oficial de atribución de TMDB en el repo (RNF-10; descargarlo requiere confirmación del usuario), para la UI de las fases 9 y 10
 
 ## Fase 3 — Contexto `ingestion` I: subidas
@@ -97,7 +97,7 @@ Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 
 ## Fase 11 — Demo
 Depende de: 10 · Cubre: RF-70 a RF-72
-- [ ] Adaptadores `demo/`, biblioteca sembrada, archivos de ejemplo, placeholders generados
+- [ ] Adaptadores `demo/`, biblioteca sembrada (lee `apps/web/src/modules/metadata/infrastructure/demo/catalog.json`; decide qué títulos están en la biblioteca y qué capítulos tiene cada serie), archivos de ejemplo, placeholders generados, atribución de TMDB en Ajustes
 - [ ] Despliegue en Vercel; Playwright E2E sobre la demo; en CI, build en modo demo y job E2E
 
 ## Fase 12 — Producción en TrueNAS
