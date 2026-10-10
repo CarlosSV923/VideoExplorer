@@ -31,7 +31,9 @@ import (
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpserver"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/system"
 )
 
 const shutdownTimeout = 30 * time.Second
@@ -53,10 +55,36 @@ func main() {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 
+	// Before the database is opened: without a writable DATA_PATH the app
+	// cannot keep its state, so it stops here and says why (RNF-03).
+	if !dataPathWritable(cfg.DataPath, log) {
+		os.Exit(1)
+	}
+
 	if err := run(cfg, log); err != nil {
 		log.Error("server stopped with error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// dataPathWritable reports whether this process can write in DATA_PATH. When
+// it cannot, it logs an error that names the folder, the uid and gid of the
+// process and the Modify permission to grant on the dataset (RNF-03, RF-63).
+// It never opens the database.
+func dataPathWritable(dataPath string, log *slog.Logger) bool {
+	failure := system.WritableDir("data", httpapi.DataNotWritable, dataPath).Run(context.Background())
+	if failure == nil {
+		return true
+	}
+	attrs := []any{"path", failure.Path, "error", failure.Message}
+	if failure.UID != nil {
+		attrs = append(attrs, "uid", *failure.UID)
+	}
+	if failure.GID != nil {
+		attrs = append(attrs, "gid", *failure.GID)
+	}
+	log.Error("DATA_PATH is not writable, the app does not start", attrs...)
+	return false
 }
 
 // run opens the database, serves until SIGINT or SIGTERM, then shuts down in order.
