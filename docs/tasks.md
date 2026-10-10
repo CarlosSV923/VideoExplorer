@@ -10,7 +10,7 @@ Depende de: — · Base: GameExplorer
 - [x] API mínima (`/api/health`, apagado ordenado) y web mínima (React + Vite + TS estricto, Vitest, ESLint, Prettier, `VITE_DATA_SOURCE`)
 - [x] `golangci-lint` v2, `task check`, CI en GitHub Actions
 - [x] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano) validado en `task check` y CI, y `contracts/` (README con los vectores previstos)
-- [ ] README EN/ES, LICENSE (MIT), `.env.example`
+- [x] README EN/ES, LICENSE (MIT), `.env.example`
 
 ## Fase 0.5 — Spike de nombres en Jellyfin y Plex
 Depende de: 0 · Cubre: §5, RF-45, §9.1–9.3
@@ -20,11 +20,11 @@ Depende de: 0 · Cubre: §5, RF-45, §9.1–9.3
 - [ ] Registrar los resultados en `docs/spike-results.md` y ajustar §5
 
 ## Fase 1 — API base
-Depende de: 0.5 · Cubre: RF-60, RNF-02, RNF-03
-- [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`), `slog`, SQLite (modernc, WAL) + goose + sqlc; en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
+Depende de: 0.5 · Cubre: RF-60, RNF-02, RNF-03, §9.11, §9.12
+- [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`, defaults de §9.11 resueltos y reflejados en `.env.example`), `slog`, SQLite (modernc, WAL) + goose + sqlc; `task dev:api` recibe `.env.local` (p. ej. `compose.dev.yaml` como GameExplorer); en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
 - [ ] Contexto `identity` reutilizado de GameExplorer
 - [ ] oapi-codegen + cliente TS (`task gen`, el handler de `/api/health` pasa a la interfaz generada, comprobación en CI de código generado al día; reactivar `security-defined` y `operation-4xx-response` en `api/redocly.yaml` con la sesión); SPA incrustada
-- [ ] `/api/health` con diagnósticos (escritura en biblioteca y datos, `7zz`, `ffprobe`, TMDB). Antes, definir en la spec los estados de salud (¿`degraded` como en GameExplorer?) y qué ve el usuario; `api/openapi.yaml` ya lo anticipa en su descripción
+- [ ] `/api/health` con diagnósticos (escritura en biblioteca y datos, `7zz`, `ffprobe`, TMDB), con los estados de §9.12 (`api/openapi.yaml` ya anticipa `degraded` en su descripción)
 - [ ] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI
 
 ## Fase 2 — Contexto `metadata` (TMDB)
@@ -33,6 +33,7 @@ Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 - [ ] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [ ] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
 - [ ] Catálogo fijo para la demo, sin imágenes de TMDB (RF-71)
+- [ ] Logo oficial de atribución de TMDB en el repo (RNF-10; descargarlo requiere confirmación del usuario), para la UI de las fases 9 y 10
 
 ## Fase 3 — Contexto `ingestion` I: subidas
 Depende de: 1 · Cubre: RF-01 a RF-03, RF-09, RF-10, §9.6

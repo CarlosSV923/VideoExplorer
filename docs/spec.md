@@ -194,7 +194,7 @@ Una ruta cuyo componente supere 255 bytes recorta primero el título del capítu
 | Datos | `./.dev/` | Datasets `/library` (SMB) y `/data` (SQLite y caché) | Memoria de la sesión |
 | TMDB | Clave de desarrollo | Clave de producción | Catálogo fijo sin imágenes de TMDB |
 
-Variables: `PORT`, `LIBRARY_PATH`, `DATA_PATH`, `MOVIES_DIR`, `SERIES_DIR`, `APP_PASSWORD[_HASH]`, `SESSION_SECRET`, `SESSION_TTL`, `COOKIE_SECURE`, `TMDB_API_KEY`/`TMDB_READ_TOKEN`, `TMDB_LANGUAGE`, `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `PLEX_URL`, `PLEX_TOKEN`, `PUID`, `PGID`, `TRASH_RETENTION_DAYS`, `EXTRACT_CONCURRENCY`, `UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`, `VIDEO_EXTENSIONS`, `SUBTITLE_EXTENSIONS`, `LOG_LEVEL`. Ver `.env.example`.
+Variables: `PORT`, `LIBRARY_PATH`, `DATA_PATH`, `MOVIES_DIR`, `SERIES_DIR`, `APP_PASSWORD[_HASH]`, `SESSION_SECRET`, `SESSION_TTL`, `COOKIE_SECURE`, `TMDB_API_KEY`/`TMDB_READ_TOKEN`, `TMDB_LANGUAGE`, `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `PLEX_URL`, `PLEX_TOKEN`, `PUID`, `PGID`, `TRASH_RETENTION_DAYS`, `EXTRACT_CONCURRENCY`, `UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`, `VIDEO_EXTENSIONS`, `SUBTITLE_EXTENSIONS`, `LOG_LEVEL`; en el front, `VITE_DATA_SOURCE` (`http` por defecto o `demo`) y, solo en desarrollo, `API_PROXY_TARGET` (destino del proxy `/api` de Vite). Ver `.env.example`.
 
 ## 8. Fuera de alcance del MVP
 
@@ -214,3 +214,5 @@ Se resuelven con el usuario, uno a uno, antes de la fase que los necesita.
 8. ~~Nombre de las carpetas raíz~~ **Resuelto**: `Movies/` y `TV Shows/` (§5).
 9. ~~Idioma de los subtítulos~~ **Resuelto**: ISO 639-1 con región opcional (§5); verificar en el spike de la Fase 0.5.
 10. ~~Repositorio e imagen~~ **Resuelto**: `github.com/CarlosSV923/VideoExplorer` público (MIT) e imagen `ghcr.io/carlossv923/videoexplorer`.
+11. **Valores por defecto de las variables** (Fase 1): `LIBRARY_PATH` y `DATA_PATH`, comportamiento sin `APP_PASSWORD[_HASH]`, `SESSION_SECRET` (obligatorio y longitud), `SESSION_TTL`, `COOKIE_SECURE`, `PUID`/`PGID`, `EXTRACT_CONCURRENCY` y separador de las listas de extensiones.
+12. **Estados de `/api/health`** (Fase 1): si existe `degraded` como en GameExplorer y qué ve el usuario cuando falla un diagnóstico.
