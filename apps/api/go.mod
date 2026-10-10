@@ -8,7 +8,9 @@ require (
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pressly/goose/v3 v3.28.0
+	github.com/tus/tusd/v2 v2.10.1
 	golang.org/x/crypto v0.57.0
+	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa
 	golang.org/x/time v0.16.0
 	modernc.org/sqlite v1.60.1
 )
@@ -32,6 +34,7 @@ require (
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/speakeasy-api/jsonpath v0.6.3 // indirect
 	github.com/speakeasy-api/openapi v1.24.0 // indirect
+	github.com/tus/lockfile v1.2.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
