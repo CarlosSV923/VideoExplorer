@@ -84,6 +84,8 @@ Otras tareas: `task gen` (regenera el código desde `api/openapi.yaml` y las con
 
 Todas las variables de entorno están en [`.env.example`](.env.example), con su valor por defecto cuando lo tienen. Cópialo a `.env.local` para sobrescribir valores en local, y nunca subas valores reales.
 
+El acceso usa una única contraseña. Define `APP_PASSWORD_HASH` con un hash argon2id, que imprime `echo 'tu contraseña' | task hash-password` (o `APP_PASSWORD` en texto plano), y `SESSION_SECRET` (al menos 32 bytes) para firmar la cookie de sesión. Toda operación de la API salvo `GET /api/health` y `POST /api/auth/login` exige sesión; sin ella la API responde `401` como problema RFC 9457.
+
 ## Atribución y aviso legal
 
 Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.

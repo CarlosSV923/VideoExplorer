@@ -38,6 +38,12 @@ tasks:
     cmds:
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go mod tidy'
 
+  hash-password:
+    desc: 'Hash a password for APP_PASSWORD_HASH (usage: echo "pw" | task hash-password)'
+    interactive: true
+    cmds:
+      - docker run --rm -i -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod -v ve-gocache:/root/.cache/go-build -w /src/{{.API_DIR}} {{.GO_IMAGE}} go run ./cmd/videoexplorer hash-password
+
   # ---------- development ----------
   dev:api:
     desc: Run the Go API in Docker (http://localhost:8080) with the variables of .env.local
