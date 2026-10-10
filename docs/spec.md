@@ -206,7 +206,7 @@ Reproducción · **Plex** (nombres, etiquetas de ID y refresco; se descartó el 
 
 Se resuelven con el usuario, uno a uno, antes de la fase que los necesita.
 
-1. **Etiqueta de ID** (Fase 0.5): verificar en un Jellyfin real que `[tmdbid-ID]` en la carpeta (y en los archivos de películas) se reconoce. Plex ya no aplica (§8).
+1. ~~Etiqueta de ID~~ **Resuelto** (2026-10-09, prueba del usuario en su Jellyfin): `[tmdbid-ID]` en la carpeta identifica el título correcto. En el spike solo se comprueba combinada con versiones de película (los archivos también la llevan, §5).
 2. ~~Versión + parte~~ **Resuelto**: son excluyentes (RF-22).
 3. ~~Título con varios capítulos~~ **Resuelto**: unidos con ` + `, colapsando partes numeradas (§5).
 4. ~~Importación ambigua~~ **Resuelto**: queda en su sitio como «Sin vincular» (RF-29).

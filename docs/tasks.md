@@ -11,12 +11,12 @@ Depende de: — · Base: GameExplorer
 - [x] `golangci-lint` v2, `task check`, CI en GitHub Actions
 - [x] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano) validado en `task check` y CI, y `contracts/` (README con los vectores previstos)
 - [x] README EN/ES, LICENSE (MIT), `.env.example`
-- [~] Quitar Plex de `README.md`, `README.es.md`, `.env.example` y `contracts/README.md`, y decir que los nombres y la etiqueta de ID siguen la convención de Jellyfin (decisión 2026-10-09, spec §1, §5, §8)
+- [x] Quitar Plex de `README.md`, `README.es.md`, `.env.example` y `contracts/README.md`, y decir que los nombres y la etiqueta de ID siguen la convención de Jellyfin (decisión 2026-10-09, spec §1, §5, §8)
 
 ## Fase 0.5 — Spike de nombres en Jellyfin
-Depende de: 0 · Cubre: §5, RF-45, §9.1–9.3
+Depende de: 0 · Cubre: §5, RF-45
 - [ ] Biblioteca de prueba con archivos ficticios: película simple, con versiones, con partes; serie con especiales, varios capítulos por archivo, versiones y subtítulos (`.es.srt`, `.es-MX.srt`, `.en.forced.srt`, `.sdh`)
-- [ ] Probar cada caso en un Jellyfin real, sin etiqueta de ID y con `[tmdbid-]`
+- [ ] Probar cada caso en un Jellyfin real; la etiqueta `[tmdbid-]` en carpeta ya está verificada (§9.1), solo se prueba con versiones de película
 - [ ] Probar títulos saneados (`Mission - Impossible`) y títulos ambiguos o remakes
 - [ ] Registrar los resultados en `docs/spike-results.md` y ajustar §5
 
