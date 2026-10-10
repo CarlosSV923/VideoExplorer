@@ -60,12 +60,17 @@ negros y sin sonido; solo importa el nombre, la resolución y el códec.
 
 Cómo usarla:
 
-1. Copia `Movies/` a la carpeta de películas del NAS y `TV Shows/` a la de series
-   (por SMB). No copies este archivo.
-2. En Jellyfin, crea una biblioteca de Películas sobre `Movies/` y otra de Series
-   sobre `TV Shows/`, y lanza el escaneo.
+1. Copia la carpeta `spike-library` completa (con `Movies/` y `TV Shows/`) por SMB a
+   una carpeta NUEVA del NAS, fuera de tu biblioteca real (p. ej. `videoexplorer-spike/`).
+   No la mezcles con tus `Movies/` ni `TV Shows/` reales.
+2. En Jellyfin, crea dos bibliotecas NUEVAS: Películas sobre `.../videoexplorer-spike/Movies`
+   y Series sobre `.../videoexplorer-spike/TV Shows`. Deja activados los metadatos de TMDB
+   y desactiva el guardado de `.nfo` e imágenes en la carpeta de medios, para no ensuciarla.
+   Lanza el escaneo.
 3. Marca cada fila en la columna «Resultado» (`[x]` si coincide con lo esperado)
    o anota lo que muestra Jellyfin.
+4. Al terminar, borra en Jellyfin esas dos bibliotecas y la carpeta
+   `videoexplorer-spike/` del NAS.
 
 Resoluciones reales: `h264-1080` 1920x1080 H.264, `h264-2160` 3840x2160 H.264,
 `hevc-1080` 1920x1080 HEVC. Las versiones etiquetadas `2160p` son `h264-2160` y
