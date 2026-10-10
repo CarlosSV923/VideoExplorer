@@ -5,8 +5,8 @@
 
 ## Fase 0 — Base del repositorio
 Depende de: — · Base: GameExplorer
-- [ ] Repositorio git y remoto público `CarlosSV923/VideoExplorer` (confirmar con el usuario antes del primer push)
-- [ ] Monorepo copiado de la estructura de GameExplorer: Go (`apps/api`) + pnpm (`apps/web`), `Taskfile.yml`, `.editorconfig`, `.gitattributes`, `.gitignore`
+- [x] Repositorio git y remoto público `CarlosSV923/VideoExplorer` (confirmar con el usuario antes del primer push)
+- [x] Monorepo copiado de la estructura de GameExplorer: Go (`apps/api`) + pnpm (`apps/web`), `Taskfile.yml`, `.editorconfig`, `.gitattributes`, `.gitignore`
 - [ ] API mínima (`/api/health`, apagado ordenado) y web mínima (React + Vite + TS estricto, Vitest, ESLint, Prettier, `VITE_DATA_SOURCE`)
 - [ ] `golangci-lint` v2, `task check`, CI en GitHub Actions (incluye código generado al día)
 - [ ] Esqueleto de `api/openapi.yaml` y `contracts/`
