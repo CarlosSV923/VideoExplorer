@@ -11,3 +11,12 @@ sql:
         out: internal/platform/database/sqlcgen
         emit_interface: false
         emit_json_tags: false
+  - engine: sqlite
+    schema: db/migrations
+    queries: internal/metadata/infrastructure/sqlite/queries
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/metadata/infrastructure/sqlite/sqlcgen
+        emit_interface: false
+        emit_json_tags: false

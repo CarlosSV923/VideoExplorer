@@ -3,3 +3,9 @@
 //   sqlc v1.31.1
 
 package sqlcgen
+
+type MetadataCache struct {
+	Key       string
+	Payload   []byte
+	ExpiresAt int64
+}
