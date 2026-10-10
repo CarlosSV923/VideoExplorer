@@ -2,5 +2,8 @@
   "app": {
     "name": "VideoExplorer",
     "tagline": "Tu biblioteca de películas y series en el NAS"
+  },
+  "attribution": {
+    "tmdb": "Este producto usa la API de TMDB, pero no está avalado ni certificado por TMDB."
   }
 }
