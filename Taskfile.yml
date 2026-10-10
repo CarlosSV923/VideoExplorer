@@ -47,6 +47,11 @@ tasks:
     cmds:
       - pnpm dev:web
 
+  spike:library:
+    desc: Generate the throwaway Jellyfin naming library in .dev/spike-library (needs Docker and Git Bash)
+    cmds:
+      - bash scripts/spike/make-library.sh
+
   # ---------- quality ----------
   lint:
     desc: Lint the OpenAPI contract, Go and TypeScript code
