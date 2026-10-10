@@ -205,6 +205,9 @@ Valores por defecto (decisión 2026-10-10, como GameExplorer):
 - `SESSION_SECRET`: obligatoria, 32 bytes como mínimo. `SESSION_TTL`: `720h`. `COOKIE_SECURE`: `false` (`true` si se sirve por HTTPS).
 - `EXTRACT_CONCURRENCY`: `1`. `VIDEO_EXTENSIONS` y `SUBTITLE_EXTENSIONS`: listas separadas por comas.
 - El resto, como indica cada RF (`PORT` 8080, `LOG_LEVEL` info, `TRASH_RETENTION_DAYS` 30, `TMDB_LANGUAGE` es-MX, intervalos de escaneo de RF-28).
+- `TMDB_API_KEY` o `TMDB_READ_TOKEN`: una de las dos o ninguna; las dos a la vez es error. `JELLYFIN_URL` (http o https) y `JELLYFIN_API_KEY`: las dos o ninguna.
+- Rangos: `EXTRACT_CONCURRENCY` 1–8, `TRASH_RETENTION_DAYS` 1–3650, intervalos de escaneo ≥ 1 min. `MOVIES_DIR` y `SERIES_DIR` distintos, sin punto inicial y distintos de `_unassigned`. Las extensiones se normalizan (minúsculas, con punto, sin duplicados) y ninguna puede estar en las dos listas.
+- Desarrollo: `task dev:api` (`compose.dev.yaml`) fija `LIBRARY_PATH`/`DATA_PATH` en `./.dev/` y lee el resto de `.env.local`, que debe traer contraseña y `SESSION_SECRET` (el repositorio no trae credenciales por defecto). `API_PROXY_TARGET` vale `http://localhost:8080` por defecto.
 
 ## 8. Fuera de alcance del MVP
 

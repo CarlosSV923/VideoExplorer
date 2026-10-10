@@ -23,7 +23,7 @@ Depende de: 0 · Cubre: §5, RF-45
 
 ## Fase 1 — API base
 Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
-- [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`, defaults de §7 reflejados en `.env.example`, sin `PUID`/`PGID`), `slog`, SQLite (modernc, WAL) + goose + sqlc; `task dev:api` recibe `.env.local` (p. ej. `compose.dev.yaml` como GameExplorer); en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
+- [x] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`, defaults de §7 reflejados en `.env.example`, sin `PUID`/`PGID`), `slog`, SQLite (modernc, WAL) + goose + sqlc; `task dev:api` recibe `.env.local` (p. ej. `compose.dev.yaml` como GameExplorer); en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
 - [ ] Contexto `identity` reutilizado de GameExplorer
 - [ ] oapi-codegen + cliente TS (`task gen`, el handler de `/api/health` pasa a la interfaz generada, comprobación en CI de código generado al día; reactivar `security-defined` y `operation-4xx-response` en `api/redocly.yaml` con la sesión); SPA incrustada
 - [ ] `/api/health` con diagnósticos según RF-63 (escritura en biblioteca y datos, `7zz`, `ffprobe`; estado `degraded` en el contrato; TMDB fuera del estado)

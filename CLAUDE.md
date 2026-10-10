@@ -37,7 +37,7 @@ Bounded contexts: `catalog` (library, unassigned section and trash; every librar
 - UI copy: Spanish default, English available, via i18n keys (ESLint `i18next/no-literal-string`).
 
 ## Commands
-Same Taskfile as GameExplorer: `task check` runs everything CI runs. Go tooling runs in Docker (Windows Application Control blocks freshly compiled Go binaries on the dev machine). After editing `api/openapi.yaml` or SQL queries run `task gen`.
+Same Taskfile as GameExplorer: `task check` runs everything CI runs except the generated-code drift check, which is CI-only (it compares against git). Go tooling runs in Docker (Windows Application Control blocks freshly compiled Go binaries on the dev machine). After editing `api/openapi.yaml` or SQL queries run `task gen`.
 
 ## Conventions
 - Go: gofumpt + goimports, golangci-lint v2, table tests, `t.Parallel()`.
