@@ -14,7 +14,7 @@ Guía de atribución de TMDB: `https://www.themoviedb.org/about/logos-attributio
 - **No se modifican.** Son copias byte a byte de los archivos oficiales: ni colores, ni proporciones, ni texto. El SHA-256 de cada archivo coincide con el que TMDB incluye en el nombre de su URL. Si hace falta actualizarlos, se vuelven a descargar de la guía y se comprueba ese hash.
 - **Colores del archivo:** degradado `#00b3e5`, `#3cbec9` y `#90cea1`. Se usan tal cual.
 - **Dónde aparece (RNF-10, §6, RF-62, RF-71):** la atribución (texto y logo) se muestra en Ajustes solo si TMDB está configurado (`TMDB_API_KEY` o `TMDB_READ_TOKEN`), y en la demo (`VITE_DATA_SOURCE=demo`), porque sus datos derivan de TMDB.
-- **Texto:** la clave i18n `attribution.tmdb` (en `shared/i18n/en.json` y `es.json`). En inglés es la frase exacta de RNF-10: «This product uses the TMDB API but is not endorsed or certified by TMDB.».
+- **Texto:** la clave i18n `attribution.tmdb` (en `shared/i18n/en.json` y `es.json`). La frase es la exacta de RNF-10 en inglés y se muestra igual en las dos lenguas, también con la interfaz en español (decisión 2026-10-10): «This product uses the TMDB API but is not endorsed or certified by TMDB.».
 - **Sin peticiones a terceros:** los logos se empaquetan con la app, así que el navegador no contacta a TMDB para mostrarlos (RNF-10).
 
 La constante tipada que los exporta está en `index.ts`.

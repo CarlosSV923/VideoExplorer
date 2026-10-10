@@ -37,10 +37,9 @@ describe('TMDB attribution logos (RNF-10)', () => {
     expect(svg).not.toMatch(/<script|<foreignObject|<image|href="(?!#)|url\((?!#)/i)
   })
 
-  it('keeps the attribution text that RNF-10 requires in English', () => {
-    expect(en.attribution.tmdb).toBe(
+  it.each([en, es])('shows the exact RNF-10 attribution text in every language', (messages) => {
+    expect(messages.attribution.tmdb).toBe(
       'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     )
-    expect(es.attribution.tmdb).not.toBe(en.attribution.tmdb)
   })
 })
