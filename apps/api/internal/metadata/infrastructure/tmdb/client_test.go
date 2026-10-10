@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -457,6 +458,19 @@ func TestRejectedCredentialsAreUpstreamErrors(t *testing.T) {
 	}
 }
 
+// countingTransport counts the attempts that leave the client. A 30 ms attempt
+// timeout can fire before a request reaches the fake server, so counting on
+// the server side would depend on how fast the machine is.
+type countingTransport struct {
+	next  http.RoundTripper
+	calls atomic.Int32
+}
+
+func (c *countingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	c.calls.Add(1)
+	return c.next.RoundTrip(r)
+}
+
 func TestTimeoutIsRetriedAndReported(t *testing.T) {
 	t.Parallel()
 
@@ -467,13 +481,18 @@ func TestTimeoutIsRetriedAndReported(t *testing.T) {
 		}
 	}
 	f := newFakeTMDB(t, map[string]http.HandlerFunc{"/3/movie/2": slow})
-	c := newClient(t, f, tmdb.Config{RequestTimeout: 30 * time.Millisecond, MaxAttempts: 2})
+	transport := &countingTransport{next: http.DefaultTransport}
+	c := newClient(t, f, tmdb.Config{
+		RequestTimeout: 30 * time.Millisecond,
+		MaxAttempts:    2,
+		HTTPClient:     &http.Client{Transport: transport},
+	})
 
 	_, err := c.Movie(t.Context(), "es-MX", 2)
 	if !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("err = %v, want ErrUpstream", err)
 	}
-	if got := f.hitCount("/3/movie/2"); got != 2 {
+	if got := transport.calls.Load(); got != 2 {
 		t.Errorf("attempts = %d, want 2", got)
 	}
 }
