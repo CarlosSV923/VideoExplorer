@@ -11,6 +11,9 @@ import (
 
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/application"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/infrastructure/imagecache"
+	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/system"
 )
@@ -23,8 +26,15 @@ const (
 )
 
 // newTestRoutes builds the production routes with a real password hash and a
-// session of one hour.
+// session of one hour. Images come from an empty cache with no TMDB source.
 func newTestRoutes(t *testing.T, cookieSecure bool) http.Handler {
+	t.Helper()
+
+	return newTestRoutesWith(t, cookieSecure, imagecache.New(t.TempDir(), nil))
+}
+
+// newTestRoutesWith is newTestRoutes with the image store of the test.
+func newTestRoutesWith(t *testing.T, cookieSecure bool, images application.ImageStore) http.Handler {
 	t.Helper()
 
 	hash, err := identityinfra.HashPassword(testPassword)
@@ -40,7 +50,8 @@ func newTestRoutes(t *testing.T, cookieSecure bool) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return routes(slog.New(slog.DiscardHandler), identity, system.NewHandler())
+	log := slog.New(slog.DiscardHandler)
+	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log))
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {

@@ -84,10 +84,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/images/{kind}/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Title image served from the local cache
+         * @description A poster, backdrop, logo or episode still of TMDB. The file is downloaded
+         *     from TMDB's image CDN on first use, at the size that spec §6 sets for its
+         *     kind, and kept under DATA_PATH/cache/images. The browser never contacts
+         *     TMDB (RNF-10). Images do not expire. Without TMDB configured, only the
+         *     images already cached are served; the others answer 404.
+         */
+        get: operations["getImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Kind of title image. Each kind has the TMDB size of spec §6: poster w500,
+         *     backdrop w1280, logo w500, still w300.
+         * @enum {string}
+         */
+        ImageKind: "poster" | "backdrop" | "logo" | "still";
         /** @description Status of the process and of its startup diagnostics. */
         Health: {
             /**
@@ -168,6 +198,33 @@ export interface components {
         };
         /** @description Too many login attempts from this client; retry later. */
         TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request does not name a valid resource. */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The resource is not available, and TMDB cannot provide it either. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The image is not cached and TMDB could not provide it. */
+        BadGateway: {
             headers: {
                 [name: string]: unknown;
             };
@@ -268,6 +325,37 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["ImageKind"];
+                /** @description File name of the TMDB image path, without its leading slash. */
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image. Range and conditional requests are honoured. */
+            200: {
+                headers: {
+                    /** @description Exception to RNF-02 for images (RNF-02, §6). */
+                    "Cache-Control"?: "private, max-age=2592000, immutable";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["BadGateway"];
         };
     };
 }

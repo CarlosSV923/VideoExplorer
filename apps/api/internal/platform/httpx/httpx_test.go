@@ -32,6 +32,34 @@ func TestWriteProblem(t *testing.T) {
 	}
 }
 
+func TestWithRequestStoresTheRequest(t *testing.T) {
+	t.Parallel()
+
+	var got *http.Request
+	h := httpx.WithRequest(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got, _ = httpx.Request(r.Context())
+	}))
+
+	in := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/images/poster/a.jpg", nil)
+	in.Header.Set("Range", "bytes=0-9")
+	h.ServeHTTP(httptest.NewRecorder(), in)
+
+	if got == nil {
+		t.Fatal("Request found no request in the context")
+	}
+	if got.Header.Get("Range") != "bytes=0-9" || got.URL.Path != "/api/images/poster/a.jpg" {
+		t.Errorf("stored request = %s %s (Range %q), want the original one", got.Method, got.URL.Path, got.Header.Get("Range"))
+	}
+}
+
+func TestRequestMissingFromContext(t *testing.T) {
+	t.Parallel()
+
+	if r, ok := httpx.Request(t.Context()); ok || r != nil {
+		t.Fatalf("Request on a bare context = (%v, %v), want (nil, false)", r, ok)
+	}
+}
+
 func TestWithClientIP(t *testing.T) {
 	t.Parallel()
 

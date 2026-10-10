@@ -24,6 +24,8 @@ tags:
     description: Process-level endpoints, such as the liveness probe.
   - name: auth
     description: Sign-in with the shared password and the session cookie.
+  - name: images
+    description: Title images (posters, backdrops, logos, stills) from the local cache.
 security:
   - sessionCookie: []
 paths:
@@ -110,6 +112,58 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /images/{kind}/{file}:
+    get:
+      tags: [images]
+      operationId: getImage
+      summary: Title image served from the local cache
+      description: |
+        A poster, backdrop, logo or episode still of TMDB. The file is downloaded
+        from TMDB's image CDN on first use, at the size that spec §6 sets for its
+        kind, and kept under DATA_PATH/cache/images. The browser never contacts
+        TMDB (RNF-10). Images do not expire. Without TMDB configured, only the
+        images already cached are served; the others answer 404.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ImageKind'
+        - name: file
+          in: path
+          required: true
+          description: File name of the TMDB image path, without its leading slash.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{1,128}\.(jpe?g|png)$'
+            example: 9ZmWNo1wq1y9vSIt7iGlVAtsgXB.jpg
+      responses:
+        '200':
+          description: The image. Range and conditional requests are honoured.
+          headers:
+            Cache-Control:
+              description: Exception to RNF-02 for images (RNF-02, §6).
+              schema:
+                type: string
+                enum: ['private, max-age=2592000, immutable']
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -130,8 +184,32 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    BadRequest:
+      description: The request does not name a valid resource.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: The resource is not available, and TMDB cannot provide it either.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    BadGateway:
+      description: The image is not cached and TMDB could not provide it.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
 
   schemas:
+    ImageKind:
+      type: string
+      description: |
+        Kind of title image. Each kind has the TMDB size of spec §6: poster w500,
+        backdrop w1280, logo w500, still w300.
+      enum: [poster, backdrop, logo, still]
     Health:
       type: object
       description: Status of the process and of its startup diagnostics.

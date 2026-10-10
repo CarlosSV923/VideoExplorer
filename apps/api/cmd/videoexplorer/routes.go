@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
+	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpx"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/system"
@@ -15,6 +16,7 @@ import (
 type (
 	systemAPI   = system.Handler
 	identityAPI = identityhttp.Handler
+	metadataAPI = metadatahttp.Handler
 )
 
 // api assembles the bounded contexts' handlers into the generated interface.
@@ -22,6 +24,7 @@ type (
 type api struct {
 	*systemAPI
 	*identityAPI
+	*metadataAPI
 }
 
 var _ httpapi.StrictServerInterface = api{}
@@ -31,10 +34,13 @@ var _ httpapi.StrictServerInterface = api{}
 // protects every operation except the public ones (RF-60). The order matters:
 // the /api/ fallback is registered before "/" so the SPA never answers API paths.
 // Security headers, request logging and panic recovery wrap everything (RNF-02).
-func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler) http.Handler {
+// WithRequest puts the request in the context: the image operation needs it for
+// http.ServeContent (Range and conditional requests).
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler) http.Handler {
 	server := api{
 		systemAPI:   health,
 		identityAPI: identity,
+		metadataAPI: metadata,
 	}
 
 	mux := http.NewServeMux()
@@ -66,5 +72,6 @@ func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Han
 		httpx.Logging(log),
 		httpx.SecurityHeaders,
 		httpx.WithClientIP,
+		httpx.WithRequest,
 	)
 }

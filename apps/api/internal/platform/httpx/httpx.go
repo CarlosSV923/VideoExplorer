@@ -50,6 +50,23 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+type requestKey struct{}
+
+// Request returns the request stored by WithRequest. Generated strict handlers
+// only receive a context; the operations that stream a file need the request
+// itself for its Range and conditional headers (http.ServeContent).
+func Request(ctx context.Context) (*http.Request, bool) {
+	r, ok := ctx.Value(requestKey{}).(*http.Request)
+	return r, ok
+}
+
+// WithRequest stores the request in the context of the handlers below it.
+func WithRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestKey{}, r)))
+	})
+}
+
 type clientIPKey struct{}
 
 // ClientIP returns the client address stored by WithClientIP.
