@@ -52,9 +52,9 @@ components:
         status:
           type: string
           description: |
-            `ok` while every check passes. `degraded` joins this enumeration
-            together with the first diagnostic that can fail.
-          enum: [ok]
+            `ok` while every check passes. `degraded` when a check fails: the
+            process keeps running and the UI explains the problem (RF-63).
+          enum: [ok, degraded]
         checks:
           type: array
           description: Diagnostics in the order they run. Empty until the diagnostics are implemented.

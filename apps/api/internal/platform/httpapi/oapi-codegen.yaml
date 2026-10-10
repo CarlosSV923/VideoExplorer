@@ -1,0 +1,11 @@
+# Generates the HTTP contract types and the strict server interface from
+# api/openapi.yaml. Run `task gen:api`; never edit gen.go by hand.
+package: httpapi
+output: gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  embedded-spec: false
+output-options:
+  skip-prune: true
