@@ -22,11 +22,11 @@ Depende de: 0 · Cubre: §5, RF-45
 - [x] Registrar los resultados en `docs/spike-results.md` y ajustar §5 (etiqueta de ID por defecto, regiones de subtítulos, importación sin renombrar, regla 6 de saneamiento)
 
 ## Fase 1 — API base
-Depende de: 0.5 · Cubre: RF-60, RNF-02, RNF-03, §9.11, §9.12
-- [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`, defaults de §9.11 resueltos y reflejados en `.env.example`), `slog`, SQLite (modernc, WAL) + goose + sqlc; `task dev:api` recibe `.env.local` (p. ej. `compose.dev.yaml` como GameExplorer); en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
+Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
+- [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`, defaults de §7 reflejados en `.env.example`, sin `PUID`/`PGID`), `slog`, SQLite (modernc, WAL) + goose + sqlc; `task dev:api` recibe `.env.local` (p. ej. `compose.dev.yaml` como GameExplorer); en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
 - [ ] Contexto `identity` reutilizado de GameExplorer
 - [ ] oapi-codegen + cliente TS (`task gen`, el handler de `/api/health` pasa a la interfaz generada, comprobación en CI de código generado al día; reactivar `security-defined` y `operation-4xx-response` en `api/redocly.yaml` con la sesión); SPA incrustada
-- [ ] `/api/health` con diagnósticos (escritura en biblioteca y datos, `7zz`, `ffprobe`, TMDB), con los estados de §9.12 (`api/openapi.yaml` ya anticipa `degraded` en su descripción)
+- [ ] `/api/health` con diagnósticos según RF-63 (escritura en biblioteca y datos, `7zz`, `ffprobe`; estado `degraded` en el contrato; TMDB fuera del estado)
 - [ ] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI
 
 ## Fase 2 — Contexto `metadata` (TMDB)

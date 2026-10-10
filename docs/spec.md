@@ -104,6 +104,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 - **RF-60** Contraseña única (`APP_PASSWORD_HASH` argon2id o `APP_PASSWORD`), sesión en cookie httpOnly firmada `SameSite=Strict`, rate-limit en el login; si la sesión vence, se vuelve al login y luego a donde se estaba. Reutiliza el contexto `identity` de GameExplorer.
 - **RF-61** Interfaz en español (por defecto) e inglés; la elección se recuerda en el navegador. Los datos de TMDB se muestran en `TMDB_LANGUAGE` (por defecto `es-MX`) con respaldo en inglés si falta la traducción.
 - **RF-62** **Ajustes**: General (idioma, escaneo con última revisión y «Escanear ahora», estado de Jellyfin, cerrar sesión, atribución a TMDB) y Papelera.
+- **RF-63** **Salud** (`GET /api/health`, decisión 2026-10-10, como GameExplorer): responde siempre 200 con estado `ok` o `degraded` y la lista de comprobaciones (nombre, si pasa y el motivo si falla). Comprobaciones: escritura en `LIBRARY_PATH` y en `DATA_PATH` (el motivo indica el uid/gid y que falta la ACL *Modify*), y presencia de `7zz` y `ffprobe`. Si alguna falla, el estado es `degraded`, el contenedor no se reinicia y la UI muestra un **aviso rojo** fijo arriba con un texto según el caso (sin escritura en la biblioteca: se puede explorar y descargar, pero no subir ni cambiar nada) y un botón «Detalles» con cada comprobación fallida. **TMDB** no afecta al estado: sin configurar no es un fallo, y si está configurado pero no responde se muestra en Ajustes (RF-62) y la app sigue con nombres libres (§6).
 
 ### Modo demo
 - **RF-70** Con `VITE_DATA_SOURCE=demo` el frontend funciona sin backend con adaptadores en memoria (estado de la sesión). Biblioteca sembrada con películas, series (con temporadas incompletas), colecciones y entradas en No asignados.
@@ -114,7 +115,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 
 - **RNF-01 Archivos grandes**: los bytes de los videos nunca se cargan en memoria; streams y `rename`; extracción con `7zz` en proceso hijo; ffprobe en proceso hijo; descargas con `http.ServeContent` o zip *store* en streaming. Objetivo: RAM estable < 300 MB saturando la red.
 - **RNF-02 Seguridad**: rutas construidas en el servidor a partir de IDs, nunca del cliente; zip-slip; nombres saneados; ningún secreto versionado. Las claves de TMDB y Jellyfin nunca llegan al navegador.
-- **RNF-03 Permisos**: igual que GameExplorer: `PUID/PGID`, ACL heredada del dataset (*Modify*, *Inherit*); si la app no puede escribir al arrancar lo muestra en la UI.
+- **RNF-03 Permisos**: igual que GameExplorer: el usuario del contenedor se fija con `user:` en el compose (no hay variables `PUID`/`PGID`), ACL heredada del dataset (*Modify*, *Inherit*); si la app no puede escribir al arrancar lo muestra en la UI.
 - **RNF-03a Binarios externos**: `7zz` oficial (versión fijada y SHA-256 verificado, con RAR) y `ffprobe` estático (versión fijada y SHA-256 verificado) en la imagen.
 - **RNF-04 Atomicidad**: staging, papelera y `_unassigned/` viven en el mismo dataset que `Movies/` y `TV Shows/`, así que mover es `rename`; ante `EXDEV`, copiar y borrar. Todo cambio de la biblioteca pasa por el motor con journal.
 - **RNF-05 Táctil y responsive**: objetivos de 44 px, nada que dependa solo del hover, swipe en las filas, layouts para móvil, tablet y escritorio.
@@ -196,7 +197,14 @@ Una ruta cuyo componente supere 255 bytes recorta primero el título del capítu
 | Datos | `./.dev/` | Datasets `/library` (SMB) y `/data` (SQLite y caché) | Memoria de la sesión |
 | TMDB | Clave de desarrollo | Clave de producción | Catálogo fijo sin imágenes de TMDB |
 
-Variables: `PORT`, `LIBRARY_PATH`, `DATA_PATH`, `MOVIES_DIR`, `SERIES_DIR`, `APP_PASSWORD[_HASH]`, `SESSION_SECRET`, `SESSION_TTL`, `COOKIE_SECURE`, `TMDB_API_KEY`/`TMDB_READ_TOKEN`, `TMDB_LANGUAGE`, `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `PUID`, `PGID`, `TRASH_RETENTION_DAYS`, `EXTRACT_CONCURRENCY`, `UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`, `VIDEO_EXTENSIONS`, `SUBTITLE_EXTENSIONS`, `LOG_LEVEL`; en el front, `VITE_DATA_SOURCE` (`http` por defecto o `demo`) y, solo en desarrollo, `API_PROXY_TARGET` (destino del proxy `/api` de Vite). Ver `.env.example`.
+Variables: `PORT`, `LIBRARY_PATH`, `DATA_PATH`, `MOVIES_DIR`, `SERIES_DIR`, `APP_PASSWORD[_HASH]`, `SESSION_SECRET`, `SESSION_TTL`, `COOKIE_SECURE`, `TMDB_API_KEY`/`TMDB_READ_TOKEN`, `TMDB_LANGUAGE`, `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `TRASH_RETENTION_DAYS`, `EXTRACT_CONCURRENCY`, `UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`, `VIDEO_EXTENSIONS`, `SUBTITLE_EXTENSIONS`, `LOG_LEVEL`; en el front, `VITE_DATA_SOURCE` (`http` por defecto o `demo`) y, solo en desarrollo, `API_PROXY_TARGET` (destino del proxy `/api` de Vite). Ver `.env.example`.
+
+Valores por defecto (decisión 2026-10-10, como GameExplorer):
+- `LIBRARY_PATH` y `DATA_PATH`: obligatorias; sin ellas la app no arranca (la imagen de producción usa `/library` y `/data`).
+- `APP_PASSWORD_HASH` (recomendada) o `APP_PASSWORD`: exactamente una; si falta o están las dos, no arranca y lo explica en el log.
+- `SESSION_SECRET`: obligatoria, 32 bytes como mínimo. `SESSION_TTL`: `720h`. `COOKIE_SECURE`: `false` (`true` si se sirve por HTTPS).
+- `EXTRACT_CONCURRENCY`: `1`. `VIDEO_EXTENSIONS` y `SUBTITLE_EXTENSIONS`: listas separadas por comas.
+- El resto, como indica cada RF (`PORT` 8080, `LOG_LEVEL` info, `TRASH_RETENTION_DAYS` 30, `TMDB_LANGUAGE` es-MX, intervalos de escaneo de RF-28).
 
 ## 8. Fuera de alcance del MVP
 
@@ -216,5 +224,5 @@ Se resuelven con el usuario, uno a uno, antes de la fase que los necesita.
 8. ~~Nombre de las carpetas raíz~~ **Resuelto**: `Movies/` y `TV Shows/` (§5).
 9. ~~Idioma de los subtítulos~~ **Resuelto**: ISO 639-1 con región opcional, solo regiones que Jellyfin reconoce (§5, spike 2026-10-10).
 10. ~~Repositorio e imagen~~ **Resuelto**: `github.com/CarlosSV923/VideoExplorer` público (MIT) e imagen `ghcr.io/carlossv923/videoexplorer`.
-11. **Valores por defecto de las variables** (Fase 1): `LIBRARY_PATH` y `DATA_PATH`, comportamiento sin `APP_PASSWORD[_HASH]`, `SESSION_SECRET` (obligatorio y longitud), `SESSION_TTL`, `COOKIE_SECURE`, `PUID`/`PGID`, `EXTRACT_CONCURRENCY` y separador de las listas de extensiones.
-12. **Estados de `/api/health`** (Fase 1): si existe `degraded` como en GameExplorer y qué ve el usuario cuando falla un diagnóstico.
+11. ~~Valores por defecto de las variables~~ **Resuelto** (2026-10-10): como GameExplorer (§7).
+12. ~~Estados de `/api/health`~~ **Resuelto** (2026-10-10): RF-63.
