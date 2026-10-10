@@ -252,9 +252,10 @@ func TestMovieLocalizesWithEnglishFallback(t *testing.T) {
 	if m.Collection == nil || m.Collection.ID != 86311 || m.Collection.Name != "Colección" {
 		t.Errorf("collection = %+v", m.Collection)
 	}
-	wantLogos := []domain.Logo{{Path: "/logo-es.png", Language: "es"}, {Path: "/logo-en.png", Language: "en"}, {Path: "/logo-none.svg"}}
+	// The SVG logo and the malformed path are dropped: the app serves only JPEG and PNG (spec §6).
+	wantLogos := []domain.Logo{{Path: "/logo-es.png", Language: "es"}, {Path: "/logo-en.png", Language: "en"}}
 	if len(m.Images.Logos) != len(wantLogos) {
-		t.Fatalf("logos = %+v, want %+v (the malformed path is dropped)", m.Images.Logos, wantLogos)
+		t.Fatalf("logos = %+v, want %+v (SVG and malformed paths are dropped)", m.Images.Logos, wantLogos)
 	}
 	for i, l := range wantLogos {
 		if m.Images.Logos[i] != l {
@@ -609,6 +610,7 @@ func TestImageURLBuildsSizesOfSpec(t *testing.T) {
 		{"backdrop w1280", domain.ImageBackdrop, "/b.jpg", "https://image.tmdb.org/t/p/w1280/b.jpg", true},
 		{"logo w500", domain.ImageLogo, "/l.png", "https://image.tmdb.org/t/p/w500/l.png", true},
 		{"still w300", domain.ImageStill, "/s.jpg", "https://image.tmdb.org/t/p/w300/s.jpg", true},
+		{"svg rejected", domain.ImageLogo, "/l.svg", "", false},
 		{"query injection", domain.ImagePoster, "/p.jpg?api_key=x", "", false},
 		{"path traversal", domain.ImagePoster, "/../p.jpg", "", false},
 		{"no leading slash", domain.ImagePoster, "p.jpg", "", false},

@@ -66,7 +66,9 @@ type Logo struct {
 // logo wins; ties go to the one with more votes, then to the lower path so the
 // choice is stable. Logos in other languages are never chosen. TMDB logos only
 // carry ISO 639-1, so for a language with a region the exact group is empty and
-// the same-language group does the work. ok is false when no logo qualifies.
+// the same-language group does the work. Logos that are not JPEG or PNG (SVG)
+// are never chosen: the app does not serve them (spec §6), and the hero falls
+// back to the title. ok is false when no logo qualifies.
 func PickLogo(logos []Logo, language string) (logo Logo, ok bool) {
 	groups := []func(Logo) bool{
 		func(l Logo) bool { return l.Language != "" && strings.EqualFold(l.Language, language) },
@@ -78,7 +80,7 @@ func PickLogo(logos []Logo, language string) (logo Logo, ok bool) {
 		var best Logo
 		found := false
 		for _, l := range logos {
-			if l.Path == "" || !inGroup(l) {
+			if !isServablePath(l.Path) || !inGroup(l) {
 				continue
 			}
 			if !found || betterLogo(l, best) {

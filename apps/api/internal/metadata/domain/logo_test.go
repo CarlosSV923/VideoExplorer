@@ -73,10 +73,37 @@ func TestPickLogo(t *testing.T) {
 			name: "text-less logo when there is no logo in the language or in English",
 			logos: []domain.Logo{
 				{Path: "/fr.png", Language: "fr", VoteAverage: 10},
-				{Path: "/none.svg", Language: "", VoteAverage: 1},
+				{Path: "/none.png", Language: "", VoteAverage: 1},
 			},
 			language: "es-MX",
-			wantPath: "/none.svg",
+			wantPath: "/none.png",
+		},
+		{
+			name: "SVG logo in the request language is skipped for a raster one",
+			logos: []domain.Logo{
+				{Path: "/es.svg", Language: "es", VoteAverage: 10, VoteCount: 500},
+				{Path: "/es.png", Language: "es", VoteAverage: 1, VoteCount: 1},
+			},
+			language: "es-MX",
+			wantPath: "/es.png",
+		},
+		{
+			name: "SVG logos are never chosen, even when they are the only ones",
+			logos: []domain.Logo{
+				{Path: "/none.svg", Language: "", VoteAverage: 10, VoteCount: 500},
+				{Path: "/en.svg", Language: "en", VoteAverage: 9, VoteCount: 500},
+			},
+			language: "es-MX",
+			wantPath: "",
+		},
+		{
+			name: "a path that is not a plain image name is never chosen",
+			logos: []domain.Logo{
+				{Path: "/a b.png", Language: "es", VoteAverage: 10, VoteCount: 500},
+				{Path: "../x.png", Language: "es", VoteAverage: 9, VoteCount: 500},
+			},
+			language: "es-MX",
+			wantPath: "",
 		},
 		{
 			name: "logos in other languages are never chosen",

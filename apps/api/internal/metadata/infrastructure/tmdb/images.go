@@ -22,7 +22,7 @@ var imageSizes = map[domain.ImageKind]string{
 // imagePathPattern accepts only the path shape TMDB uses (for example
 // /9ZmWNo1wq1y9vSIt7iGlVAtsgXB.jpg). Anything else is dropped, so a path can
 // never add segments or query parameters to a URL.
-var imagePathPattern = regexp.MustCompile(`^/[A-Za-z0-9_-]+\.(jpg|jpeg|png|svg)$`)
+var imagePathPattern = regexp.MustCompile(`^/[A-Za-z0-9_-]+\.(jpg|jpeg|png)$`)
 
 // ImageURL returns the CDN URL of an image path at the size of its kind. ok is
 // false for an unknown kind or a path that is not a TMDB image path.
