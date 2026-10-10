@@ -62,6 +62,20 @@ func (h *Handler) Middleware() httpapi.StrictMiddlewareFunc {
 	}
 }
 
+// RequireSession protects plain HTTP handlers that live outside the generated
+// contract, such as the tus upload endpoint (RF-60). The rejection is the same
+// RFC 9457 401 as the rest of the API.
+func (h *Handler) RequireSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, ok := h.authenticate(r)
+		if !ok {
+			writeUnauthorized(w)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, session)))
+	})
+}
+
 func (h *Handler) authenticate(r *http.Request) (domain.Session, bool) {
 	var token string
 	if c, err := r.Cookie(CookieName); err == nil {

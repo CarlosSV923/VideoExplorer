@@ -33,8 +33,18 @@ func newTestRoutes(t *testing.T, cookieSecure bool) http.Handler {
 	return newTestRoutesWith(t, cookieSecure, imagecache.New(t.TempDir(), nil))
 }
 
-// newTestRoutesWith is newTestRoutes with the image store of the test.
+// newTestRoutesWith is newTestRoutes with the image store of the test. Uploads
+// go to a fresh library folder.
 func newTestRoutesWith(t *testing.T, cookieSecure bool, images application.ImageStore) http.Handler {
+	t.Helper()
+
+	log := slog.New(slog.DiscardHandler)
+	uploads := newUploads(config.Config{LibraryPath: t.TempDir()}, log)
+	return newTestRoutesWithUploads(t, cookieSecure, images, uploads.handler)
+}
+
+// newTestRoutesWithUploads is newTestRoutesWith with the upload endpoint of the test.
+func newTestRoutesWithUploads(t *testing.T, cookieSecure bool, images application.ImageStore, uploads http.Handler) http.Handler {
 	t.Helper()
 
 	hash, err := identityinfra.HashPassword(testPassword)
@@ -51,7 +61,7 @@ func newTestRoutesWith(t *testing.T, cookieSecure bool, images application.Image
 		t.Fatal(err)
 	}
 	log := slog.New(slog.DiscardHandler)
-	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log))
+	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), uploads)
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {

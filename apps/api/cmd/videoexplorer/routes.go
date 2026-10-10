@@ -29,14 +29,15 @@ type api struct {
 
 var _ httpapi.StrictServerInterface = api{}
 
-// routes mounts the generated API contract, the JSON fallback for unknown
-// /api paths and the embedded SPA on everything else. The session check
-// protects every operation except the public ones (RF-60). The order matters:
-// the /api/ fallback is registered before "/" so the SPA never answers API paths.
-// Security headers, request logging and panic recovery wrap everything (RNF-02).
-// WithRequest puts the request in the context: the image operation needs it for
+// routes mounts the generated API contract, the upload endpoint, the JSON
+// fallback for unknown /api paths and the embedded SPA on everything else. The
+// session check protects every operation except the public ones, and the
+// upload endpoint as a whole (RF-60). The order matters: the /api/ fallback is
+// registered before "/" so the SPA never answers API paths. Security headers,
+// request logging and panic recovery wrap everything (RNF-02). WithRequest puts
+// the request in the context: the image operation needs it for
 // http.ServeContent (Range and conditional requests).
-func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler) http.Handler {
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, uploads http.Handler) http.Handler {
 	server := api{
 		systemAPI:   health,
 		identityAPI: identity,
@@ -62,6 +63,7 @@ func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Han
 			httpx.WriteProblem(w, http.StatusBadRequest, "Bad Request", err.Error())
 		},
 	})
+	mux.Handle(uploadsPath, identity.RequireSession(uploads))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteProblem(w, http.StatusNotFound, "Not Found", "")
 	})

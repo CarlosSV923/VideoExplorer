@@ -14,6 +14,19 @@ info:
     Every operation requires the session cookie (`ve_session`) unless it
     declares `security: []`: only `/health` and `/auth/login` are public
     (RF-60, RNF-02). Errors use RFC 9457 problem details.
+
+    Uploads are NOT described here: they use the tus resumable upload protocol
+    (https://tus.io/protocols/resumable-upload) mounted at /api/uploads/, behind
+    the same session cookie (RF-02, RF-60). Upload-Length is required: the size
+    is declared up front. Upload-Metadata keys: `filename` (required, the file
+    name without folders), `relativePath` (optional, the file's path inside a
+    folder dropped in the browser, ending with `filename`, RF-01a) and `batchId`
+    (optional, a client-made id of 1 to 64 letters, digits, `-` or `_`, shared
+    by the files dropped together, RF-03). Names are trimmed; separators, `.`,
+    `..` and control characters are refused. Refusals: 400 for bad metadata
+    (`ERR_INVALID_METADATA`), 507 when the library has no room for the file plus
+    1 GiB (`ERR_INSUFFICIENT_STORAGE`, RF-05); 503 when the library is not
+    writable (RFC 9457 problem).
   license:
     name: MIT
     url: https://opensource.org/license/mit
