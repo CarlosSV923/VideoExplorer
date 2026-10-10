@@ -20,6 +20,8 @@ func TestLocalize(t *testing.T) {
 
 	tests := []struct {
 		name         string
+		original     string // default "Il Padrino", an Italian title that never matches the languages below
+		origLanguage string // default "it"
 		translations []domain.Translation
 		language     string
 		wantTitle    string
@@ -102,12 +104,87 @@ func TestLocalize(t *testing.T) {
 			wantTitle:    "El padrino",
 			wantOverview: "Resumen en España",
 		},
+		{
+			name:         "Spanish original is the Spanish title when TMDB has no Spanish one",
+			original:     "La casa de papel",
+			origLanguage: "es",
+			translations: []domain.Translation{{Language: "en-US", Title: "Money Heist", Overview: "English overview"}},
+			language:     "es-MX",
+			wantTitle:    "La casa de papel",
+			wantOverview: "English overview",
+		},
+		{
+			name:         "Spanish original with a regional translation: the translation wins",
+			original:     "La casa de papel",
+			origLanguage: "es",
+			translations: []domain.Translation{{Language: "es-ES", Title: "La casa de papel (ES)"}, {Language: "en-US", Title: "Money Heist"}},
+			language:     "es-MX",
+			wantTitle:    "La casa de papel (ES)",
+			wantOverview: "",
+		},
+		{
+			name:         "region-tagged original language counts by its language",
+			original:     "La casa de papel",
+			origLanguage: "es-ES",
+			translations: []domain.Translation{{Language: "en-US", Title: "Money Heist"}},
+			language:     "es-MX",
+			wantTitle:    "La casa de papel",
+			wantOverview: "",
+		},
+		{
+			name:         "Spanish original is not a candidate for English",
+			original:     "La casa de papel",
+			origLanguage: "es",
+			translations: []domain.Translation{{Language: "en-US", Title: "Money Heist"}},
+			language:     "en-US",
+			wantTitle:    "Money Heist",
+			wantOverview: "",
+		},
+		{
+			name:         "Spanish original is not a candidate for another language",
+			original:     "La casa de papel",
+			origLanguage: "es",
+			translations: []domain.Translation{{Language: "en-US", Title: "Money Heist"}},
+			language:     "fr-FR",
+			wantTitle:    "Money Heist",
+			wantOverview: "",
+		},
+		{
+			name:         "Japanese original keeps the normal order for es-MX: English before the original",
+			original:     "千と千尋の神隠し",
+			origLanguage: "ja",
+			translations: []domain.Translation{{Language: "en-US", Title: "Spirited Away"}},
+			language:     "es-MX",
+			wantTitle:    "Spirited Away",
+			wantOverview: "",
+		},
+		{
+			name:         "Japanese original without any translation is the last fallback",
+			original:     "千と千尋の神隠し",
+			origLanguage: "ja",
+			language:     "es-MX",
+			wantTitle:    "千と千尋の神隠し",
+			wantOverview: "",
+		},
+		{
+			name:         "no original language means the original is not a candidate",
+			original:     "La casa de papel",
+			origLanguage: "",
+			translations: []domain.Translation{{Language: "en-US", Title: "Money Heist"}},
+			language:     "es-MX",
+			wantTitle:    "Money Heist",
+			wantOverview: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			title, overview := domain.Localize("Il Padrino", tt.translations, tt.language)
+			original, origLanguage := tt.original, tt.origLanguage
+			if original == "" {
+				original, origLanguage = "Il Padrino", "it"
+			}
+			title, overview := domain.Localize(original, origLanguage, tt.translations, tt.language)
 			if title != tt.wantTitle || overview != tt.wantOverview {
 				t.Errorf("Localize = (%q, %q), want (%q, %q)", title, overview, tt.wantTitle, tt.wantOverview)
 			}

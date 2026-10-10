@@ -142,8 +142,9 @@ type SeriesSummary struct {
 }
 
 // Movie is a movie with its localized text (RF-61), original title and images.
-// Title falls back to the English title and then to the original one; Overview
-// falls back to English. EnglishTitle is empty when TMDB has no English title,
+// Title falls back to the original title when it is in the requested language,
+// then to the English title, then to the original one; Overview falls back to
+// English. EnglishTitle is empty when TMDB has no English title,
 // which the naming rule of spec §5 needs.
 type Movie struct {
 	ID               int64
@@ -228,19 +229,33 @@ type CollectionPart struct {
 	PosterPath    string
 }
 
-// Localize returns the title and overview to show in language (RF-61). Each
-// field takes the first of: the translation in exactly that language, another
-// variant of the same language (the first one TMDB lists), English (en-US, or
-// another English variant), and for the title the original title. Missing text
-// stays empty when no translation has it.
-func Localize(original string, translations []Translation, language string) (title, overview string) {
-	title = firstNonEmpty(textIn(translations, language, titleOf), original)
-	overview = textIn(translations, language, overviewOf)
+// Localize returns the title and overview to show in language (RF-61). The
+// title takes the first of: the translation in exactly that language, another
+// variant of the same language (the first one TMDB lists), the original title
+// when its own language (originalLanguage, ISO 639-1 or BCP 47) is that same
+// language, English (en-US, or another English variant), and finally the
+// original title. The overview has no original-language step: it takes the
+// same translations and then English. Missing text stays empty when no
+// translation has it.
+func Localize(original, originalLanguage string, translations []Translation, language string) (title, overview string) {
+	title = firstNonEmpty(textIn(translations, language, titleOf, originalIn(original, originalLanguage, language)), original)
+	overview = textIn(translations, language, overviewOf, "")
 	return title, overview
 }
 
-// textIn applies the RF-61 order to one field of the translations.
-func textIn(translations []Translation, language string, field func(Translation) string) string {
+// originalIn returns the original title when its language is the requested
+// one, so that it counts as a candidate of that language (RF-61). Otherwise "".
+func originalIn(original, originalLanguage, language string) string {
+	if originalLanguage == "" || primaryLanguage(originalLanguage) != primaryLanguage(language) {
+		return ""
+	}
+	return original
+}
+
+// textIn applies the RF-61 order to one field of the translations. original is
+// the candidate of the requested language that TMDB does not translate ("" when
+// there is none); it goes before English.
+func textIn(translations []Translation, language string, field func(Translation) string, original string) string {
 	if v := field(translationFor(translations, language)); v != "" {
 		return v
 	}
@@ -248,6 +263,9 @@ func textIn(translations []Translation, language string, field func(Translation)
 		if primaryLanguage(t.Language) == primaryLanguage(language) && field(t) != "" {
 			return field(t)
 		}
+	}
+	if original != "" {
+		return original
 	}
 	return englishField(translations, field)
 }

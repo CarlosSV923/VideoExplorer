@@ -142,7 +142,7 @@ func (c *Client) Movie(ctx context.Context, language string, id int64) (domain.M
 	if err != nil {
 		return domain.Movie{}, err
 	}
-	title, overview := domain.Localize(raw.OriginalTitle, translations, language)
+	title, overview := domain.Localize(raw.OriginalTitle, raw.OriginalLanguage, translations, language)
 
 	m := domain.Movie{
 		ID:               raw.ID,
@@ -212,7 +212,7 @@ func (c *Client) Series(ctx context.Context, language string, id int64) (domain.
 	if err != nil {
 		return domain.Series{}, err
 	}
-	title, overview := domain.Localize(raw.OriginalName, translations, language)
+	title, overview := domain.Localize(raw.OriginalName, raw.OriginalLanguage, translations, language)
 
 	seasons := make([]domain.SeasonSummary, 0, len(raw.Seasons))
 	for _, s := range raw.Seasons {

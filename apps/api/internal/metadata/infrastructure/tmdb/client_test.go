@@ -673,3 +673,29 @@ func TestImageURLBuildsSizesOfSpec(t *testing.T) {
 		})
 	}
 }
+
+// A series whose original language is the requested one, and that TMDB does
+// not translate, keeps its original title in es-MX (RF-61), not the English one.
+func TestSeriesKeepsSpanishOriginalTitle(t *testing.T) {
+	t.Parallel()
+
+	f := newFakeTMDB(t, map[string]http.HandlerFunc{
+		"/3/tv/71446": jsonOK(`{"id":71446,"original_name":"La casa de papel","original_language":"es",
+			"first_air_date":"2017-05-02","number_of_episodes":0,"genres":[],"seasons":[]}`),
+		"/3/tv/71446/translations": jsonOK(`{"id":71446,"translations":[
+			{"iso_639_1":"en","iso_3166_1":"US","data":{"name":"Money Heist","overview":"English synopsis"}}]}`),
+		"/3/tv/71446/images": jsonOK(`{"logos":[]}`),
+	})
+	c := newClient(t, f, tmdb.Config{})
+
+	s, err := c.Series(t.Context(), "es-MX", 71446)
+	if err != nil {
+		t.Fatalf("Series: %v", err)
+	}
+	if s.Title != "La casa de papel" || s.EnglishTitle != "Money Heist" || s.OriginalTitle != "La casa de papel" {
+		t.Errorf("titles = %q / %q / %q", s.Title, s.EnglishTitle, s.OriginalTitle)
+	}
+	if s.Overview != "English synopsis" {
+		t.Errorf("overview = %q, want the English one", s.Overview)
+	}
+}
