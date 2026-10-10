@@ -22,7 +22,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 | Versión | Otro archivo del mismo destino (película o capítulo) que el usuario decidió conservar, distinguido por una etiqueta (`- 2160p`) |
 | Parte | Un trozo de una película repartida en varios archivos (`- part1`, `- part2`) |
 | Subtítulo externo | `.srt`, `.ass`, `.ssa`, `.sub`/`.idx`, `.vtt` que acompaña a un video y se renombra con él |
-| Etiquetas de ID | Sufijo opcional con el id de TMDB en el nombre de la carpeta, en el formato de Jellyfin: `[tmdbid-ID]` |
+| Etiquetas de ID | Sufijo con el id de TMDB en el nombre de la carpeta, en el formato de Jellyfin: `[tmdbid-ID]`. Activo por defecto en títulos vinculados a TMDB; se puede quitar por título (RF-45) |
 | No asignados | Carpeta `_unassigned/` con lo que todavía no pertenece a ningún título: subidas recién procesadas y lo copiado por Samba |
 | Entrada | Elemento de No asignados: una carpeta de primer nivel o un archivo suelto de `_unassigned/` |
 | Lote | Conjunto de archivos soltados juntos en el navegador, con la relación que eligió el usuario (RF-03) |
@@ -69,7 +69,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 - **RF-27a** **Comprimidos copiados por Samba.** Un comprimido estable en `_unassigned/` se procesa igual que una subida (RF-04 a RF-08): se descomprime (pidiendo contraseña si hace falta), se filtra, el original va a la papelera y el resultado queda como entrada. Mientras tanto la entrada muestra el progreso del trabajo.
 - **RF-28** **Escaneo de la biblioteca**: `_unassigned/` cada `UNASSIGNED_SCAN_INTERVAL` (5 min por defecto) y la biblioteca completa cada `LIBRARY_SCAN_INTERVAL` (1 h por defecto), además de al arrancar y a pedido («Escanear ahora», con la hora de la última revisión). Un archivo solo se procesa o mueve si no cambió (tamaño y fecha) desde el escaneo anterior. Se ignoran `.videoexplorer/`, dotfiles, nombres que empiezan por `@`, `#` o `$`, `Thumbs.db`, `desktop.ini` y `.DS_Store`.
 - **RF-29** **Importar lo existente.** Al escanear `Movies/` y `TV Shows/`:
-  - lo que **sigue el formato de §5** se registra solo, buscando en TMDB por título y año (o por id si la carpeta trae etiqueta de ID) para traer póster y datos;
+  - lo que **sigue el formato de §5** (con o sin etiqueta de ID) se registra solo, buscando en TMDB por título y año (o por id si la carpeta trae etiqueta de ID) para traer póster y datos. **No se renombra**: un título importado sin etiqueta la conserva así (queda como «quitada», RF-45) hasta que el usuario la añada desde la ficha (decisión 2026-10-10);
   - lo que **no lo sigue** se mueve a `_unassigned/` conservando su ruta relativa, para clasificarlo;
   - un archivo **borrado** por Samba desaparece de la biblioteca; si era el último de su título, el título también.
   - lo que sigue el formato pero **no tiene una coincidencia única** en TMDB (o no hay clave de TMDB) se registra **en su sitio** como título libre «Sin vincular», sin mover nada; aparece en Pendientes (RF-40) como «N sin vincular» con la acción **Vincular**, que muestra los candidatos de TMDB.
@@ -91,7 +91,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
   - **Mandar a la papelera**: el título completo, una temporada, un capítulo o una versión concreta.
   - **Descargar**: un archivo (HTTP Range) o una temporada/serie/película completa como zip *store* en streaming con tamaño exacto anunciado.
   - **Info técnica** (ffprobe, cacheada): resolución, códecs de video y audio, pistas de audio y de subtítulos internos con idioma, duración, tamaño y ruta en el NAS.
-- **RF-45** **Etiqueta de ID.** Por defecto las carpetas **no** llevan id: `Iron Man (2008)`. Desde la ficha se puede activar para ese título la etiqueta de Jellyfin, lo que renombra su carpeta (y, en películas, sus archivos): `Iron Man (2008) [tmdbid-1726]`. Se puede volver a quitar.
+- **RF-45** **Etiqueta de ID.** Todo título vinculado a TMDB lleva **por defecto** la etiqueta de Jellyfin en su carpeta (y, en películas, en sus archivos): `Iron Man (2008) [tmdbid-1726]`, para que Jellyfin no lo confunda con otra ficha (spike: `Spirited Away (2001)` sin etiqueta se identificó como otro título del mismo año). Desde la ficha se puede **quitar** para ese título, y volver a ponerla; ambas cosas renombran. Los títulos libres (sin TMDB) no la llevan; al vincularlos a TMDB la reciben. Lo importado de la biblioteca existente conserva su nombre (RF-29) (decisión 2026-10-10).
 
 ### Papelera
 - **RF-30** Lo eliminado (títulos, temporadas, archivos, entradas de No asignados, comprimidos originales y descartes del filtrado) se mueve a `.videoexplorer/trash` con su metadata y se purga tras `TRASH_RETENTION_DAYS` (**30** por defecto). Se puede borrar una entrada para siempre o **vaciar la papelera** (con confirmación).
@@ -133,11 +133,11 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 ```
 /library
 ├── Movies/
-│   └── Iron Man (2008)/
-│       ├── Iron Man (2008).mkv
-│       └── Iron Man (2008).es.srt
+│   └── Iron Man (2008) [tmdbid-1726]/
+│       ├── Iron Man (2008) [tmdbid-1726].mkv
+│       └── Iron Man (2008) [tmdbid-1726].es.srt
 ├── TV Shows/
-│   └── Breaking Bad (2008)/
+│   └── Breaking Bad (2008) [tmdbid-1396]/
 │       ├── Season 00/
 │       │   └── Breaking Bad (2008) - S00E01 - Good Cop Bad Cop.mkv
 │       └── Season 01/
@@ -159,11 +159,11 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 
 - `<T>`: título del disco. Es el **título original** de TMDB si está en alfabeto latino; si no (japonés, coreano, ruso…), el **título en inglés** (`en-US`). `Amélie`, `The Godfather`, `Spirited Away`.
 - `<A>`: año del estreno (película) o de la primera emisión (serie).
-- `<ids>`: vacío por defecto; ` [tmdbid-ID]` (formato de Jellyfin) si se activa según RF-45. En series solo va en la carpeta; en películas también en los archivos (Jellyfin exige que los archivos de versiones empiecen como la carpeta).
+- `<ids>`: ` [tmdbid-ID]` (formato de Jellyfin) en todo título vinculado a TMDB, salvo que el usuario lo haya quitado (RF-45); vacío en títulos libres o sin etiqueta. En series solo va en la carpeta; en películas también en los archivos (Jellyfin exige que los archivos de versiones empiecen como la carpeta).
 - `<SS>`, `<EE>`: dos dígitos como mínimo (`S01E05`, `S01E105`). Temporada 0 → `Season 00`.
 - `<título cap.>`: de TMDB, en el idioma original de la serie si es latino, si no en inglés. Con varios capítulos, los títulos se unen con ` + ` (`Pilot + Cat's in the Bag`); si solo difieren en un número final o entre paréntesis (`The Finale (1)`, `The Finale, Part 2`), se colapsan en el título común (`The Finale`). Si TMDB no tiene título, se omite el segmento ` - <título cap.>`.
 - `<versión>`: etiqueta de RF-24 (`2160p`, `1080p HEVC`, o texto libre del usuario, saneado).
-- `<idioma>`: ISO 639-1 (`es`, `en`, `ja`…) con región opcional elegida por el usuario (`es-MX`, `es-ES`, `pt-BR`, `pt-PT`).
+- `<idioma>`: ISO 639-1 (`es`, `en`, `ja`…) con región opcional, **solo de las que reconoce Jellyfin** (spike 12.2: `es-419`, `pt-BR`, `pt-PT`, `fr-CA`, `zh-TW`; vectores en `naming-cases.json`). En la UI, `es-419` se presenta como «Español (Latinoamérica)». Regiones que Jellyfin no reconoce se normalizan al escribir: `es-MX` y demás variantes latinoamericanas → `es-419`; `es-ES` → `es`; `en-US`, `en-GB` → `en` (decisión 2026-10-10).
 - `<ext>`: la del archivo, en minúsculas.
 
 **Saneamiento** (títulos de disco, de capítulo y etiquetas), en este orden (convención Radarr/Sonarr):
@@ -172,7 +172,7 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 3. `/` y `\` → `-`.
 4. `"` → `'`.
 5. Se eliminan `? * < > |` y los caracteres de control (`What If...?` → `What If...`).
-6. Bloques de espacios → uno; se recortan espacios iniciales y espacios y puntos finales.
+6. Bloques de espacios → uno; se recortan espacios iniciales y espacios y puntos finales **de cada componente de la ruta completo** (carpeta o nombre de archivo sin extensión), no de cada título: `What If... (2021)` y `… - Cat's in the Bag... - 2160p` conservan sus puntos.
 
 Una ruta cuyo componente supere 255 bytes recorta primero el título del capítulo.
 
@@ -214,7 +214,7 @@ Se resuelven con el usuario, uno a uno, antes de la fase que los necesita.
 6. ~~Soltar carpetas~~ **Resuelto**: se permiten al arrastrar (RF-01a).
 7. ~~Título destacado del hero~~ **Resuelto**: rotativo entre los 5 recientes (RF-40).
 8. ~~Nombre de las carpetas raíz~~ **Resuelto**: `Movies/` y `TV Shows/` (§5).
-9. ~~Idioma de los subtítulos~~ **Resuelto**: ISO 639-1 con región opcional (§5); verificar en el spike de la Fase 0.5.
+9. ~~Idioma de los subtítulos~~ **Resuelto**: ISO 639-1 con región opcional, solo regiones que Jellyfin reconoce (§5, spike 2026-10-10).
 10. ~~Repositorio e imagen~~ **Resuelto**: `github.com/CarlosSV923/VideoExplorer` público (MIT) e imagen `ghcr.io/carlossv923/videoexplorer`.
 11. **Valores por defecto de las variables** (Fase 1): `LIBRARY_PATH` y `DATA_PATH`, comportamiento sin `APP_PASSWORD[_HASH]`, `SESSION_SECRET` (obligatorio y longitud), `SESSION_TTL`, `COOKIE_SECURE`, `PUID`/`PGID`, `EXTRACT_CONCURRENCY` y separador de las listas de extensiones.
 12. **Estados de `/api/health`** (Fase 1): si existe `degraded` como en GameExplorer y qué ve el usuario cuando falla un diagnóstico.

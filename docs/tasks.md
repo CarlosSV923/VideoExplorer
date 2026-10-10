@@ -17,9 +17,9 @@ Depende de: — · Base: GameExplorer
 Depende de: 0 · Cubre: §5, RF-45
 - [x] Biblioteca de prueba con archivos ficticios: película simple, con versiones, con partes; serie con especiales, varios capítulos por archivo, versiones y subtítulos (`.es.srt`, `.es-MX.srt`, `.en.forced.srt`, `.sdh`)
 - [x] Jellyfin local en Docker con la misma versión que el NAS del usuario (12.2, imagen `jellyfin/jellyfin:12.2.20261005-225228`; biblioteca montada en solo lectura; decisión 2026-10-10) y `CASES.md` adaptado a ese flujo
-- [ ] Probar cada caso en ese Jellyfin; la etiqueta `[tmdbid-]` en carpeta ya está verificada (§9.1), solo se prueba con versiones de película
-- [ ] Probar títulos saneados (`Mission - Impossible`) y títulos ambiguos o remakes
-- [ ] Registrar los resultados en `docs/spike-results.md` y ajustar §5
+- [x] Probar cada caso en ese Jellyfin (incluida la etiqueta `[tmdbid-]` en archivos de versiones de película)
+- [x] Probar títulos saneados (`Mission - Impossible`) y títulos ambiguos o remakes
+- [x] Registrar los resultados en `docs/spike-results.md` y ajustar §5 (etiqueta de ID por defecto, regiones de subtítulos, importación sin renombrar, regla 6 de saneamiento)
 
 ## Fase 1 — API base
 Depende de: 0.5 · Cubre: RF-60, RNF-02, RNF-03, §9.11, §9.12
@@ -55,7 +55,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
-- [ ] Nombres y saneamiento (§5) + vectores `naming-cases.json`
+- [ ] Nombres y saneamiento (§5, incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos) + vectores `naming-cases.json`
 - [ ] Motor de operaciones con journal (de GameExplorer) y papelera mínima
 - [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»
 - [ ] `plan` (vista previa) y `commit` de una entrada de No asignados
@@ -70,7 +70,7 @@ Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
 ## Fase 7 — Edición, papelera, etiquetas de ID y descargas
 Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [ ] Editar/reasignar con vista previa y renombrado reversible
-- [ ] Etiqueta de ID `[tmdbid-]` por título (RF-45)
+- [ ] Etiqueta de ID `[tmdbid-]`: activa por defecto al asignar o vincular, quitar/poner desde la ficha (RF-45)
 - [ ] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días
 - [ ] Descargas: archivo con Range y zip *store* (de GameExplorer)
 - [ ] Info técnica (ffprobe)
