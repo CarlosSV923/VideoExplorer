@@ -11,6 +11,8 @@ vars:
   GO_IMAGE: golang:1.27.2
   # Official golangci-lint image (v2), same version as the CI lint job.
   LINT_IMAGE: golangci/golangci-lint:v2.14.0
+  # Official Redocly CLI image (entrypoint `redocly`), used to lint api/openapi.yaml.
+  REDOCLY_IMAGE: redocly/cli:2.62.1
   DOCKER_GO: >-
     docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod
     -v ve-gocache:/root/.cache/go-build -w /src/{{.API_DIR}}
@@ -47,8 +49,9 @@ tasks:
 
   # ---------- quality ----------
   lint:
-    desc: Lint Go and TypeScript code
+    desc: Lint the OpenAPI contract, Go and TypeScript code
     cmds:
+      - task: lint:openapi
       - task: lint:api
       - task: lint:web
 
@@ -57,6 +60,11 @@ tasks:
     cmds:
       - docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod -v ve-lintcache:/root/.cache -w /src/{{.API_DIR}} {{.LINT_IMAGE}} golangci-lint fmt ./...
       - pnpm format
+
+  lint:openapi:
+    desc: Redocly CLI lint of api/openapi.yaml (in Docker; rules in api/redocly.yaml)
+    cmds:
+      - docker run --rm -v "{{.ROOT_DIR}}:/spec" -w /spec {{.REDOCLY_IMAGE}} lint --config api/redocly.yaml api/openapi.yaml
 
   lint:api:
     desc: golangci-lint v2 (in Docker; config in apps/api/.golangci.yml)

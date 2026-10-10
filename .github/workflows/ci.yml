@@ -13,6 +13,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  openapi:
+    name: OpenAPI contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Same pinned image as REDOCLY_IMAGE in Taskfile.yml (`task lint:openapi`).
+      - name: Redocly lint
+        run: docker run --rm -v "$PWD:/spec" -w /spec redocly/cli:2.62.1 lint --config api/redocly.yaml api/openapi.yaml
+
   api:
     name: API (Go)
     runs-on: ubuntu-latest

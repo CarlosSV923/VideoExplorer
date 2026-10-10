@@ -10,8 +10,8 @@ import (
 // StatusOK is the health status of a process whose checks all pass.
 const StatusOK = "ok"
 
-// Health is the body of GET /api/health. Its shape is the one GameExplorer
-// uses; until the diagnostics arrive in phase 1 the list of checks is empty.
+// Health is the body of GET /api/health; its schema is Health in api/openapi.yaml.
+// Until the diagnostics arrive in phase 1 the list of checks is empty.
 type Health struct {
 	Status string  `json:"status"`
 	Checks []Check `json:"checks"`

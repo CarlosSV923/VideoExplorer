@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: VideoExplorer API
+  version: 0.0.0
+  description: |
+    Single source of truth for the VideoExplorer HTTP contract.
+    Go handlers (oapi-codegen strict server) and the TypeScript client
+    (openapi-typescript) are generated from this file from phase 1 on; never
+    edit generated code.
+
+    This file describes only the endpoints that are implemented; the rest are
+    added as they are built.
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+  - url: /api
+tags:
+  - name: system
+    description: Process-level endpoints, such as the liveness probe.
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness probe and startup diagnostics
+      description: |
+        Always answers 200 while the process is up. The list of checks is empty
+        until the startup diagnostics are implemented. When a check fails,
+        `status` becomes `degraded` so the UI can explain the problem instead
+        of the container crash-looping.
+      responses:
+        '200':
+          description: The process is up.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+components:
+  schemas:
+    Health:
+      type: object
+      description: Status of the process and of its startup diagnostics.
+      required: [status, checks]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          description: |
+            `ok` while every check passes. `degraded` joins this enumeration
+            together with the first diagnostic that can fail.
+          enum: [ok]
+        checks:
+          type: array
+          description: Diagnostics in the order they run. Empty until the diagnostics are implemented.
+          items:
+            $ref: '#/components/schemas/Check'
+    Check:
+      type: object
+      description: One named diagnostic.
+      required: [name, ok]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          example: library
+        ok:
+          type: boolean
+        message:
+          type: string
+          description: Why the check failed. Omitted when it passes.
+          example: the library directory is not writable
