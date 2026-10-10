@@ -52,6 +52,21 @@ tasks:
     cmds:
       - bash scripts/spike/make-library.sh
 
+  spike:jellyfin:up:
+    desc: Start the local Jellyfin 12.2 (same as the NAS) on http://localhost:8096 with the spike library read-only (needs Docker and Git Bash)
+    cmds:
+      - bash scripts/spike/jellyfin.sh up
+
+  spike:jellyfin:down:
+    desc: Stop and remove the spike Jellyfin container (keeps its config)
+    cmds:
+      - bash scripts/spike/jellyfin.sh down
+
+  spike:jellyfin:reset:
+    desc: Stop the spike Jellyfin container and delete its config and cache in .dev/spike-jellyfin
+    cmds:
+      - bash scripts/spike/jellyfin.sh reset
+
   # ---------- quality ----------
   lint:
     desc: Lint the OpenAPI contract, Go and TypeScript code
