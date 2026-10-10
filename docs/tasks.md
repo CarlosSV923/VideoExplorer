@@ -9,7 +9,7 @@ Depende de: — · Base: GameExplorer
 - [x] Monorepo copiado de la estructura de GameExplorer: Go (`apps/api`) + pnpm (`apps/web`), `Taskfile.yml`, `.editorconfig`, `.gitattributes`, `.gitignore`
 - [x] API mínima (`/api/health`, apagado ordenado) y web mínima (React + Vite + TS estricto, Vitest, ESLint, Prettier, `VITE_DATA_SOURCE`)
 - [x] `golangci-lint` v2, `task check`, CI en GitHub Actions
-- [ ] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano), `task gen`, comprobación en CI de código generado al día, y `contracts/`
+- [x] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano) validado en `task check` y CI, y `contracts/` (README con los vectores previstos)
 - [ ] README EN/ES, LICENSE (MIT), `.env.example`
 
 ## Fase 0.5 — Spike de nombres en Jellyfin y Plex
@@ -23,14 +23,14 @@ Depende de: 0 · Cubre: §5, RF-45, §9.1–9.3
 Depende de: 0.5 · Cubre: RF-60, RNF-02, RNF-03
 - [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`), `slog`, SQLite (modernc, WAL) + goose + sqlc; en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
 - [ ] Contexto `identity` reutilizado de GameExplorer
-- [ ] oapi-codegen + cliente TS; SPA incrustada
-- [ ] `/api/health` con diagnósticos (escritura en biblioteca y datos, `7zz`, `ffprobe`, TMDB)
+- [ ] oapi-codegen + cliente TS (`task gen`, el handler de `/api/health` pasa a la interfaz generada, comprobación en CI de código generado al día; reactivar `security-defined` y `operation-4xx-response` en `api/redocly.yaml` con la sesión); SPA incrustada
+- [ ] `/api/health` con diagnósticos (escritura en biblioteca y datos, `7zz`, `ffprobe`, TMDB). Antes, definir en la spec los estados de salud (¿`degraded` como en GameExplorer?) y qué ve el usuario; `api/openapi.yaml` ya lo anticipa en su descripción
 - [ ] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI
 
 ## Fase 2 — Contexto `metadata` (TMDB)
 Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 - [ ] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
-- [ ] Regla de título de disco (original latino o inglés) y de títulos de capítulo + vectores
+- [ ] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [ ] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
 - [ ] Catálogo fijo para la demo, sin imágenes de TMDB (RF-71)
 
