@@ -1,0 +1,31 @@
+# Local development: the Go API runs in a container (same Linux paths as
+# production; also sidesteps Windows Application Control blocking freshly
+# built Go binaries). The SPA runs natively with `task dev:web`.
+#
+# Every variable of .env.local (optional, see .env.example) reaches the
+# container. LIBRARY_PATH and DATA_PATH are fixed to ./.dev, the local stand-in
+# for the production datasets.
+services:
+  api:
+    image: golang:1.27.2
+    working_dir: /src/apps/api
+    # `exec` makes the binary PID 1, so Ctrl+C and `docker stop` trigger the graceful shutdown.
+    command: sh -c "go build -o /tmp/videoexplorer ./cmd/videoexplorer && exec /tmp/videoexplorer"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      PORT: '8080'
+      LIBRARY_PATH: /dev-data/library
+      DATA_PATH: /dev-data/data
+    ports:
+      - '8080:8080'
+    volumes:
+      - .:/src
+      - ./.dev:/dev-data
+      - ve-gomod:/go/pkg/mod
+      - ve-gocache:/root/.cache/go-build
+
+volumes:
+  ve-gomod:
+  ve-gocache:

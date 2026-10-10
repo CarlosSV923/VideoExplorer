@@ -78,7 +78,7 @@ task check         # everything CI runs
 
 Other tasks: `task fmt` (formatters), `task build:api` and `task build:web` (builds), `task tidy` (`go mod tidy`). `task --list` shows them all. To check the API: `curl http://localhost:8080/api/health`.
 
-For now, `task dev:api` does not pass the variables of `.env.local` into the container, so the API runs with its defaults.
+`task dev:api` passes every variable of `.env.local` into the container (it is optional, but without `SESSION_SECRET` and a password the API does not start). `LIBRARY_PATH` and `DATA_PATH` are always `./.dev/library` and `./.dev/data` in development, whatever `.env.local` says.
 
 ## Configuration
 

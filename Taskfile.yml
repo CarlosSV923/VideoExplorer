@@ -13,6 +13,10 @@ vars:
   LINT_IMAGE: golangci/golangci-lint:v2.14.0
   # Official Redocly CLI image (entrypoint `redocly`), used to lint api/openapi.yaml.
   REDOCLY_IMAGE: redocly/cli:2.62.1
+  # Official sqlc image, same version as the CI check of the generated code.
+  SQLC_IMAGE: sqlc/sqlc:1.31.1
+  # Latest stable govulncheck; the same version runs in CI.
+  GOVULNCHECK_VERSION: v1.8.0
   DOCKER_GO: >-
     docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod
     -v ve-gocache:/root/.cache/go-build -w /src/{{.API_DIR}}
@@ -36,11 +40,9 @@ tasks:
 
   # ---------- development ----------
   dev:api:
-    desc: Run the Go API in Docker (http://localhost:8080)
+    desc: Run the Go API in Docker (http://localhost:8080) with the variables of .env.local
     cmds:
-      # `exec` makes the binary PID 1's process: `go run` does not forward SIGTERM,
-      # so docker stop / Ctrl+C would skip the graceful shutdown.
-      - '{{.DOCKER_GO}} -p 8080:8080 {{.GO_IMAGE}} sh -c "go build -o /tmp/videoexplorer ./cmd/videoexplorer && exec /tmp/videoexplorer"'
+      - docker compose -f compose.dev.yaml up api
 
   dev:web:
     desc: Run the Vite dev server (http://localhost:5173), proxying /api to the Go API
@@ -66,6 +68,17 @@ tasks:
     desc: Stop the spike Jellyfin container and delete its config and cache in .dev/spike-jellyfin
     cmds:
       - bash scripts/spike/jellyfin.sh reset
+
+  # ---------- code generation ----------
+  gen:
+    desc: Regenerate code from the SQL queries (sqlc)
+    cmds:
+      - task: gen:sql
+
+  gen:sql:
+    desc: Typed Go queries from SQL (sqlc, in Docker)
+    cmds:
+      - docker run --rm -v "{{.ROOT_DIR}}/{{.API_DIR}}:/src" -w /src {{.SQLC_IMAGE}} generate
 
   # ---------- quality ----------
   lint:
@@ -114,6 +127,11 @@ tasks:
     cmds:
       - pnpm test:web
 
+  vuln:
+    desc: Known vulnerabilities in the Go dependencies (govulncheck, pinned, in Docker)
+    cmds:
+      - '{{.DOCKER_GO}} {{.GO_IMAGE}} go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...'
+
   # ---------- build ----------
   build:web:
     desc: Build the SPA (apps/web/dist)
@@ -127,9 +145,10 @@ tasks:
 
   # ---------- everything CI runs ----------
   check:
-    desc: Everything CI runs (lint, tests, builds)
+    desc: Everything CI runs except the generated-code check, which is CI-only (lint, tests, vulnerability check, builds)
     cmds:
       - task: lint
       - task: test
+      - task: vuln
       - task: build:api
       - task: build:web
