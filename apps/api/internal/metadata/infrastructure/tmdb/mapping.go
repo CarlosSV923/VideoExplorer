@@ -414,8 +414,10 @@ func (c *Client) logos(ctx context.Context, endpoint, language string) ([]domain
 	langs = append(langs, "null")
 	var raw struct {
 		Logos []struct {
-			FilePath string `json:"file_path"`
-			ISO639   string `json:"iso_639_1"`
+			FilePath    string  `json:"file_path"`
+			ISO639      string  `json:"iso_639_1"`
+			VoteAverage float64 `json:"vote_average"`
+			VoteCount   int     `json:"vote_count"`
 		} `json:"logos"`
 	}
 	query := url.Values{"include_image_language": {strings.Join(langs, ",")}}
@@ -425,7 +427,7 @@ func (c *Client) logos(ctx context.Context, endpoint, language string) ([]domain
 	var out []domain.Logo
 	for _, l := range raw.Logos {
 		if path := validPath(l.FilePath); path != "" {
-			out = append(out, domain.Logo{Path: path, Language: l.ISO639})
+			out = append(out, domain.Logo{Path: path, Language: l.ISO639, VoteAverage: l.VoteAverage, VoteCount: l.VoteCount})
 		}
 	}
 	return out, nil

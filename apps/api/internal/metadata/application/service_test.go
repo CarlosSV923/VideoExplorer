@@ -3,6 +3,8 @@ package application_test
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -20,20 +22,28 @@ type fakeProvider struct {
 	genres      map[string][]domain.Genre
 	movie       domain.Movie
 	err         error
+	failures    map[string]error // "method:language" -> error for that call only
 	searchQuery string
 	searchYear  *int
 }
 
-func (f *fakeProvider) record(method, language string) {
+func (f *fakeProvider) record(method, language string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, method+":"+language)
+	if err := f.failures[method+":"+language]; err != nil {
+		return err
+	}
+	return f.err
 }
 
+// callsTo returns the recorded calls of one method, in order.
 func (f *fakeProvider) callsTo(method string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var out []string
 	for _, c := range f.calls {
-		if len(c) > len(method) && c[:len(method)] == method {
+		if name, _, _ := strings.Cut(c, ":"); name == method {
 			out = append(out, c)
 		}
 	}
@@ -41,47 +51,46 @@ func (f *fakeProvider) callsTo(method string) []string {
 }
 
 func (f *fakeProvider) SearchMovies(_ context.Context, language, query string, year *int) ([]domain.MovieSummary, error) {
-	f.record("SearchMovies", language)
 	f.searchQuery, f.searchYear = query, year
-	return []domain.MovieSummary{{ID: 1, Title: "Iron Man"}}, f.err
+	if err := f.record("SearchMovies", language); err != nil {
+		return nil, err
+	}
+	return []domain.MovieSummary{{ID: 1, Title: "Iron Man"}}, nil
 }
 
 func (f *fakeProvider) SearchSeries(_ context.Context, language, query string, year *int) ([]domain.SeriesSummary, error) {
-	f.record("SearchSeries", language)
 	f.searchQuery, f.searchYear = query, year
-	return nil, f.err
+	return nil, f.record("SearchSeries", language)
 }
 
 func (f *fakeProvider) Movie(_ context.Context, language string, _ int64) (domain.Movie, error) {
-	f.record("Movie", language)
-	return f.movie, f.err
+	if err := f.record("Movie", language); err != nil {
+		return domain.Movie{}, err
+	}
+	return f.movie, nil
 }
 
 func (f *fakeProvider) Series(_ context.Context, language string, _ int64) (domain.Series, error) {
-	f.record("Series", language)
-	return domain.Series{}, f.err
+	return domain.Series{}, f.record("Series", language)
 }
 
 func (f *fakeProvider) Season(_ context.Context, language string, _ int64, _ int) (domain.Season, error) {
-	f.record("Season", language)
-	if f.err != nil {
-		return domain.Season{}, f.err
+	if err := f.record("Season", language); err != nil {
+		return domain.Season{}, err
 	}
 	return f.seasons[language], nil
 }
 
 func (f *fakeProvider) Collection(_ context.Context, language string, _ int64) (domain.Collection, error) {
-	f.record("Collection", language)
-	if f.err != nil {
-		return domain.Collection{}, f.err
+	if err := f.record("Collection", language); err != nil {
+		return domain.Collection{}, err
 	}
 	return f.collections[language], nil
 }
 
 func (f *fakeProvider) Genres(_ context.Context, language string, _ domain.MediaKind) ([]domain.Genre, error) {
-	f.record("Genres", language)
-	if f.err != nil {
-		return nil, f.err
+	if err := f.record("Genres", language); err != nil {
+		return nil, err
 	}
 	return f.genres[language], nil
 }
@@ -138,7 +147,7 @@ func TestNonPositiveIDIsNotFound(t *testing.T) {
 	}
 }
 
-func TestSeasonFillsMissingTextFromEnglish(t *testing.T) {
+func TestSeasonFillsMissingTextFromFallbacks(t *testing.T) {
 	t.Parallel()
 
 	f := &fakeProvider{seasons: map[string]domain.Season{
@@ -163,8 +172,53 @@ func TestSeasonFillsMissingTextFromEnglish(t *testing.T) {
 	if s.Episodes[1].Title != "Cat's in the Bag" || s.Episodes[1].Overview != "Resumen" {
 		t.Errorf("episode 2 = %+v, want English title and own overview", s.Episodes[1])
 	}
+	// The bare language "es" is asked before en-US; one request per season, not per episode.
+	want := []string{"Season:es-MX", "Season:es", "Season:en-US"}
+	if got := f.callsTo("Season"); !slices.Equal(got, want) {
+		t.Errorf("season calls = %v, want %v", got, want)
+	}
+}
+
+func TestSeasonUsesSameLanguageBeforeEnglish(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{seasons: map[string]domain.Season{
+		"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto", Overview: ""}}},
+		"es":    {Episodes: []domain.Episode{{Number: 1, Title: "Otro", Overview: "Resumen en español"}}},
+		"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot", Overview: "English"}}},
+	}}
+	svc := application.NewService(f, "es-MX")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season: %v", err)
+	}
+	if s.Episodes[0].Title != "Piloto" || s.Episodes[0].Overview != "Resumen en español" {
+		t.Errorf("episode = %+v, want own title and the es overview", s.Episodes[0])
+	}
 	if got := f.callsTo("Season"); len(got) != 2 {
-		t.Errorf("season calls = %v, want es-MX then en-US", got)
+		t.Errorf("season calls = %v, want es-MX and es only (en-US not needed)", got)
+	}
+}
+
+func TestSeasonFallbackFailureIsSkipped(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{
+		seasons: map[string]domain.Season{
+			"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto"}}},
+			"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot", Overview: "English"}}},
+		},
+		failures: map[string]error{"Season:es": domain.ErrUpstream},
+	}
+	svc := application.NewService(f, "es-MX")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season with a failing bare-language fallback: %v", err)
+	}
+	if s.Episodes[0].Title != "Piloto" || s.Episodes[0].Overview != "English" {
+		t.Errorf("episode = %+v, want the English overview after the skipped fallback", s.Episodes[0])
 	}
 }
 
@@ -196,7 +250,7 @@ func TestSeasonSkipsFallbackWhenTextIsComplete(t *testing.T) {
 		t.Fatalf("Season: %v", err)
 	}
 	if got := f.callsTo("Season"); len(got) != 1 {
-		t.Errorf("season calls = %v, want one (no English needed)", got)
+		t.Errorf("season calls = %v, want one (no fallback needed)", got)
 	}
 }
 
@@ -218,14 +272,18 @@ func TestCollectionFillsNameAndPartTitles(t *testing.T) {
 	if c.Name != "Iron Man Collection" || c.Overview != "Saga" || c.Parts[1].Title != "Iron Man 2" {
 		t.Errorf("collection = %+v, want English name, overview and part title", c)
 	}
+	if got := f.callsTo("Collection"); !slices.Equal(got, []string{"Collection:es-MX", "Collection:es", "Collection:en-US"}) {
+		t.Errorf("collection calls = %v", got)
+	}
 }
 
-func TestMovieNamesUnnamedGenresInEnglish(t *testing.T) {
+func TestMovieNamesUnnamedGenresFromFallbacks(t *testing.T) {
 	t.Parallel()
 
 	f := &fakeProvider{
 		movie: domain.Movie{ID: 1726, Genres: []domain.Genre{{ID: 28, Name: ""}, {ID: 878, Name: "Ciencia ficción"}}},
 		genres: map[string][]domain.Genre{
+			"es":    {{ID: 28, Name: "Acción"}},
 			"en-US": {{ID: 28, Name: "Action"}, {ID: 878, Name: "Science Fiction"}},
 		},
 	}
@@ -235,8 +293,12 @@ func TestMovieNamesUnnamedGenresInEnglish(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Movie: %v", err)
 	}
-	if m.Genres[0].Name != "Action" || m.Genres[1].Name != "Ciencia ficción" {
+	if m.Genres[0].Name != "Acción" || m.Genres[1].Name != "Ciencia ficción" {
 		t.Errorf("genres = %+v", m.Genres)
+	}
+	// "es" named the only unnamed genre, so en-US is not asked.
+	if got := f.callsTo("Genres"); !slices.Equal(got, []string{"Genres:es"}) {
+		t.Errorf("genre calls = %v, want only es", got)
 	}
 }
 

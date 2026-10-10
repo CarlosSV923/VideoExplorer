@@ -3,6 +3,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -23,13 +24,16 @@ type Provider interface {
 	Genres(ctx context.Context, language string, kind domain.MediaKind) ([]domain.Genre, error)
 }
 
-// englishLanguage is the fallback of RF-61 for text TMDB does not have in the
-// configured language.
+// englishLanguage is the last fallback of RF-61 for text TMDB does not have in
+// the configured language.
 const englishLanguage = "en-US"
 
 // Service implements the metadata use cases. Text comes in the configured
-// language (TMDB_LANGUAGE); where TMDB has no translation endpoint (seasons,
-// collections, genres) the English text fills the fields left empty.
+// language (TMDB_LANGUAGE). Movies and series get their translations from
+// TMDB's translations endpoints, so the domain resolves every variant at once.
+// Seasons, collections and genres have no such endpoint, so for them the
+// service asks, one request per list, for the fallback languages (see
+// fallbackLanguages) and fills the fields left empty.
 //
 // A nil provider means no TMDB credentials: every call fails with
 // domain.ErrNotConfigured and the app keeps working with free names (spec §6).
@@ -47,6 +51,7 @@ func NewService(provider Provider, language string) *Service {
 func (s *Service) Configured() bool { return s.provider != nil }
 
 // SearchMovies returns the movies that match the title, optionally from one year.
+// Titles are the ones TMDB returns in the configured language (RF-61).
 func (s *Service) SearchMovies(ctx context.Context, query string, year *int) ([]domain.MovieSummary, error) {
 	q, err := s.searchInput(query, year)
 	if err != nil {
@@ -95,7 +100,7 @@ func (s *Service) Series(ctx context.Context, id int64) (domain.Series, error) {
 }
 
 // Season returns the episodes of one season. Episodes without a title or an
-// overview in the configured language take the English text.
+// overview in the configured language take the text of the fallback languages.
 func (s *Service) Season(ctx context.Context, seriesID int64, number int) (domain.Season, error) {
 	if err := s.ready(seriesID); err != nil {
 		return domain.Season{}, err
@@ -104,35 +109,24 @@ func (s *Service) Season(ctx context.Context, seriesID int64, number int) (domai
 	if err != nil {
 		return domain.Season{}, err
 	}
-	if s.isEnglish() || !slices.ContainsFunc(season.Episodes, missingEpisodeText) {
-		return season, nil
-	}
-	english, err := s.provider.Season(ctx, englishLanguage, seriesID, number)
-	if err != nil {
-		return domain.Season{}, err
-	}
-	byNumber := make(map[int]domain.Episode, len(english.Episodes))
-	for _, e := range english.Episodes {
-		byNumber[e.Number] = e
-	}
-	for i := range season.Episodes {
-		ep := &season.Episodes[i]
-		src, ok := byNumber[ep.Number]
-		if !ok {
-			continue
+	for _, language := range s.fallbackLanguages() {
+		if !slices.ContainsFunc(season.Episodes, missingEpisodeText) {
+			break
 		}
-		if ep.Title == "" {
-			ep.Title = src.Title
+		src, err := s.provider.Season(ctx, language, seriesID, number)
+		if err != nil {
+			if skipFallback(err) {
+				continue
+			}
+			return domain.Season{}, err
 		}
-		if ep.Overview == "" {
-			ep.Overview = src.Overview
-		}
+		fillEpisodes(season.Episodes, src.Episodes)
 	}
 	return season, nil
 }
 
-// Collection returns a collection. Its name and the titles of its movies take
-// the English text where the configured language has none.
+// Collection returns a collection. Its name, overview and the titles of its
+// movies take the text of the fallback languages where the configured one has none.
 func (s *Service) Collection(ctx context.Context, id int64) (domain.Collection, error) {
 	if err := s.ready(id); err != nil {
 		return domain.Collection{}, err
@@ -141,27 +135,18 @@ func (s *Service) Collection(ctx context.Context, id int64) (domain.Collection, 
 	if err != nil {
 		return domain.Collection{}, err
 	}
-	if s.isEnglish() || (c.Name != "" && !slices.ContainsFunc(c.Parts, func(p domain.CollectionPart) bool { return p.Title == "" })) {
-		return c, nil
-	}
-	english, err := s.provider.Collection(ctx, englishLanguage, id)
-	if err != nil {
-		return domain.Collection{}, err
-	}
-	if c.Name == "" {
-		c.Name = english.Name
-	}
-	if c.Overview == "" {
-		c.Overview = english.Overview
-	}
-	titles := make(map[int64]string, len(english.Parts))
-	for _, p := range english.Parts {
-		titles[p.ID] = p.Title
-	}
-	for i := range c.Parts {
-		if c.Parts[i].Title == "" {
-			c.Parts[i].Title = titles[c.Parts[i].ID]
+	for _, language := range s.fallbackLanguages() {
+		if !missingCollectionText(c) {
+			break
 		}
+		src, err := s.provider.Collection(ctx, language, id)
+		if err != nil {
+			if skipFallback(err) {
+				continue
+			}
+			return domain.Collection{}, err
+		}
+		fillCollection(&c, src)
 	}
 	return c, nil
 }
@@ -178,27 +163,100 @@ func (s *Service) Genres(ctx context.Context, kind domain.MediaKind) ([]domain.G
 	return s.fillGenreNames(ctx, kind, genres)
 }
 
-// fillGenreNames gives the English name to the genres left unnamed in the
-// configured language. It asks TMDB for English only when one is missing.
+// fillGenreNames names the genres left unnamed in the configured language, one
+// request per fallback language and only while some name is still missing.
 func (s *Service) fillGenreNames(ctx context.Context, kind domain.MediaKind, genres []domain.Genre) ([]domain.Genre, error) {
-	if s.isEnglish() || !slices.ContainsFunc(genres, func(g domain.Genre) bool { return g.Name == "" }) {
-		return genres, nil
-	}
-	english, err := s.provider.Genres(ctx, englishLanguage, kind)
-	if err != nil {
-		return nil, err
-	}
-	names := make(map[int64]string, len(english))
-	for _, g := range english {
-		names[g.ID] = g.Name
-	}
 	out := slices.Clone(genres)
-	for i := range out {
-		if out[i].Name == "" {
-			out[i].Name = names[out[i].ID]
+	for _, language := range s.fallbackLanguages() {
+		if !slices.ContainsFunc(out, func(g domain.Genre) bool { return g.Name == "" }) {
+			break
+		}
+		src, err := s.provider.Genres(ctx, language, kind)
+		if err != nil {
+			if skipFallback(err) {
+				continue
+			}
+			return nil, err
+		}
+		names := make(map[int64]string, len(src))
+		for _, g := range src {
+			names[g.ID] = g.Name
+		}
+		for i := range out {
+			if out[i].Name == "" {
+				out[i].Name = names[out[i].ID]
+			}
 		}
 	}
 	return out, nil
+}
+
+// fallbackLanguages lists, in order, the languages tried after the configured
+// one when it has no text: the bare language of a regional tag (es-MX -> es),
+// then en-US. English needs no fallback. Each entry costs one request per list
+// (season, collection, genre list), never one per element.
+func (s *Service) fallbackLanguages() []string {
+	if s.isEnglish() {
+		return nil
+	}
+	primary, _, hasRegion := strings.Cut(s.language, "-")
+	var out []string
+	if hasRegion {
+		out = append(out, strings.ToLower(primary))
+	}
+	return append(out, englishLanguage)
+}
+
+// skipFallback reports whether a failed fallback request should be ignored:
+// TMDB does not know the list in that language, or it failed. The configured
+// language already gave the primary text, so the field just stays empty.
+func skipFallback(err error) bool {
+	return errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrUpstream)
+}
+
+// fillEpisodes copies the title and overview of the matching episodes of src
+// into the empty fields of dst. Episodes are matched by number.
+func fillEpisodes(dst, src []domain.Episode) {
+	byNumber := make(map[int]domain.Episode, len(src))
+	for _, e := range src {
+		byNumber[e.Number] = e
+	}
+	for i := range dst {
+		from, ok := byNumber[dst[i].Number]
+		if !ok {
+			continue
+		}
+		if dst[i].Title == "" {
+			dst[i].Title = from.Title
+		}
+		if dst[i].Overview == "" {
+			dst[i].Overview = from.Overview
+		}
+	}
+}
+
+// missingCollectionText reports whether a collection lacks a name or a movie title.
+func missingCollectionText(c domain.Collection) bool {
+	return c.Name == "" || slices.ContainsFunc(c.Parts, func(p domain.CollectionPart) bool { return p.Title == "" })
+}
+
+// fillCollection copies the empty name, overview and movie titles of src into c.
+func fillCollection(c *domain.Collection, src domain.Collection) {
+	if c.Name == "" {
+		c.Name = src.Name
+	}
+	if c.Overview == "" {
+		c.Overview = src.Overview
+	}
+	titles := make(map[int64]string, len(src.Parts))
+	for _, p := range src.Parts {
+		titles[p.ID] = p.Title
+	}
+	for i := range c.Parts {
+		if c.Parts[i].Title == "" {
+			c.Parts[i].Title = titles[c.Parts[i].ID]
+		}
+	}
 }
 
 // ready checks that a provider exists and the id is positive.

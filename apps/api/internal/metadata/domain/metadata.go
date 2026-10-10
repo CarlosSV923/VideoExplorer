@@ -52,9 +52,55 @@ type Genre struct {
 }
 
 // Logo is a title logo. Language is ISO 639-1, or "" for a logo without text.
+// VoteAverage and VoteCount are TMDB's rating of the logo, used to choose one.
 type Logo struct {
-	Path     string
-	Language string
+	Path        string
+	Language    string
+	VoteAverage float64
+	VoteCount   int
+}
+
+// PickLogo chooses the logo of a title for language (RF-61, the hero). Groups
+// are tried in order: the exact language, another variant of the same
+// language, English, and logos without text. Inside a group the best rated
+// logo wins; ties go to the one with more votes, then to the lower path so the
+// choice is stable. Logos in other languages are never chosen. TMDB logos only
+// carry ISO 639-1, so for a language with a region the exact group is empty and
+// the same-language group does the work. ok is false when no logo qualifies.
+func PickLogo(logos []Logo, language string) (logo Logo, ok bool) {
+	groups := []func(Logo) bool{
+		func(l Logo) bool { return l.Language != "" && strings.EqualFold(l.Language, language) },
+		func(l Logo) bool { return l.Language != "" && primaryLanguage(l.Language) == primaryLanguage(language) },
+		func(l Logo) bool { return l.Language != "" && primaryLanguage(l.Language) == "en" },
+		func(l Logo) bool { return l.Language == "" },
+	}
+	for _, inGroup := range groups {
+		var best Logo
+		found := false
+		for _, l := range logos {
+			if l.Path == "" || !inGroup(l) {
+				continue
+			}
+			if !found || betterLogo(l, best) {
+				best, found = l, true
+			}
+		}
+		if found {
+			return best, true
+		}
+	}
+	return Logo{}, false
+}
+
+// betterLogo reports whether a outranks b: higher average, then more votes, then a lower path.
+func betterLogo(a, b Logo) bool {
+	if a.VoteAverage != b.VoteAverage {
+		return a.VoteAverage > b.VoteAverage
+	}
+	if a.VoteCount != b.VoteCount {
+		return a.VoteCount > b.VoteCount
+	}
+	return a.Path < b.Path
 }
 
 // Images holds the TMDB path of each image type ("" when missing). The
@@ -180,14 +226,28 @@ type CollectionPart struct {
 	PosterPath    string
 }
 
-// Localize returns the title and overview to show in language (RF-61): the
-// translation in that language, then the English one, and for the title the
-// original title last. Missing text stays empty when no translation has it.
+// Localize returns the title and overview to show in language (RF-61). Each
+// field takes the first of: the translation in exactly that language, another
+// variant of the same language (the first one TMDB lists), English (en-US, or
+// another English variant), and for the title the original title. Missing text
+// stays empty when no translation has it.
 func Localize(original string, translations []Translation, language string) (title, overview string) {
-	own := translationFor(translations, language)
-	title = firstNonEmpty(own.Title, englishField(translations, titleOf), original)
-	overview = firstNonEmpty(own.Overview, englishField(translations, overviewOf))
+	title = firstNonEmpty(textIn(translations, language, titleOf), original)
+	overview = textIn(translations, language, overviewOf)
 	return title, overview
+}
+
+// textIn applies the RF-61 order to one field of the translations.
+func textIn(translations []Translation, language string, field func(Translation) string) string {
+	if v := field(translationFor(translations, language)); v != "" {
+		return v
+	}
+	for _, t := range translations {
+		if primaryLanguage(t.Language) == primaryLanguage(language) && field(t) != "" {
+			return field(t)
+		}
+	}
+	return englishField(translations, field)
 }
 
 // EnglishTitle returns the English title (en-US, or another English variant),
