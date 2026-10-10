@@ -36,7 +36,7 @@ Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 - [x] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [x] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
 - [x] Catálogo fijo para la demo (RF-70, RF-71): generador `cmd/demo-catalog` como GameExplorer que toma de TMDB solo la estructura (títulos, años, géneros, colecciones, temporadas, capítulos) y sinopsis propias en un archivo aparte; necesita la clave de TMDB
-- [ ] Logo oficial de atribución de TMDB en el repo (RNF-10; descargarlo requiere confirmación del usuario), para la UI de las fases 9 y 10
+- [x] Logo oficial de atribución de TMDB en el repo (RNF-10; descargarlo requiere confirmación del usuario), para la UI de las fases 9 y 10
 
 ## Fase 3 — Contexto `ingestion` I: subidas
 Depende de: 1 · Cubre: RF-01 a RF-03, RF-09, RF-10, §9.6

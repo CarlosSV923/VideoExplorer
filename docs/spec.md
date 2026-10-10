@@ -125,7 +125,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 - **RNF-07 Accesibilidad**: WCAG 2.1 AA.
 - **RNF-08 Arquitectura**: la de GameExplorer: DDD back y front, OpenAPI spec-first, reglas compartidas Go/TS fijadas con vectores dorados en `contracts/` (nombres, saneamiento, análisis de nombres de archivo, etiquetas de versión).
 - **RNF-09 Calidad**: lint, tipos estrictos, tests unitarios, de integración y E2E en CI; `task check` igual que CI.
-- **RNF-10 Legal**: la app no distribuye contenido. Muestra la atribución exigida por TMDB («This product uses the TMDB API but is not endorsed or certified by TMDB.» y su logo). Las imágenes de TMDB se sirven desde una caché local: el navegador nunca contacta a terceros (salvo la demo, que no usa TMDB). Licencia MIT.
+- **RNF-10 Legal**: la app no distribuye contenido. Muestra la atribución exigida por TMDB («This product uses the TMDB API but is not endorsed or certified by TMDB.» y su logo oficial, en `apps/web/src/shared/assets/tmdb/`). La frase se muestra en inglés, exacta, también con la interfaz en español (decisión 2026-10-10). Las imágenes de TMDB se sirven desde una caché local: el navegador nunca contacta a terceros (salvo la demo, que no usa TMDB). Licencia MIT.
 
 ## 5. Nomenclatura (vectores: `contracts/naming-cases.json`)
 
