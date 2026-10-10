@@ -33,7 +33,7 @@ Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
 ## Fase 2 — Contexto `metadata` (TMDB)
 Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 - [x] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
-- [~] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
+- [x] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [x] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
 - [ ] Catálogo fijo para la demo (RF-70, RF-71): generador `cmd/demo-catalog` como GameExplorer que toma de TMDB solo la estructura (títulos, años, géneros, colecciones, temporadas, capítulos) y sinopsis propias en un archivo aparte; necesita la clave de TMDB
 - [ ] Logo oficial de atribución de TMDB en el repo (RNF-10; descargarlo requiere confirmación del usuario), para la UI de las fases 9 y 10
@@ -56,7 +56,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
-- [ ] Nombres y saneamiento (§5, incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos) + vectores `naming-cases.json`
+- [ ] Nombres y saneamiento (§5, incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos): añade carpetas, archivos y saneamiento al mismo `contracts/naming-cases.json` (consumidor `catalog/domain`); el capítulo necesita sus títulos en el idioma original y en inglés (hoy `Episode` solo trae el localizado)
 - [ ] Motor de operaciones con journal (de GameExplorer) y papelera mínima
 - [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»
 - [ ] `plan` (vista previa) y `commit` de una entrada de No asignados
