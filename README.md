@@ -80,13 +80,13 @@ Other tasks: `task gen` (regenerates the code from `api/openapi.yaml` and the SQ
 
 `task dev:image` builds the development image (`deploy/dev/Dockerfile`): the Go toolchain plus the official 7-Zip (with RAR) and ffprobe, both at pinned versions with SHA-256 checks. Every Go task depends on it, so the first `task` that runs Go builds it. CI installs the same two binaries.
 
-`task dev:api` passes every variable of `.env.local` into the container (it is optional, but without `SESSION_SECRET` and a password the API does not start). `LIBRARY_PATH` and `DATA_PATH` are always `./.dev/library` and `./.dev/data` in development, whatever `.env.local` says.
+`task dev:api` passes every variable of `.env.local` into the container (it is optional, but without `SESSION_SECRET` and a password the API does not start). `LIBRARY_PATH` and `DATA_PATH` are always `./.dev/library` and `./.dev/data` in development, whatever `.env.local` says; `task dev:api` creates both folders if they are missing.
 
 ## Configuration
 
 Every environment variable is listed in [`.env.example`](.env.example), with its default when it has one. Copy it to `.env.local` to override values locally, and never commit real values.
 
-Access uses one shared password. Set `APP_PASSWORD_HASH` to an argon2id hash, which `echo 'your password' | task hash-password` prints (or set `APP_PASSWORD` in plain text instead), and `SESSION_SECRET` (at least 32 bytes) to sign the session cookie. Every API operation except `GET /api/health` and `POST /api/auth/login` requires a session; without one the API answers `401` as an RFC 9457 problem.
+Access uses one shared password. Set `APP_PASSWORD_HASH` to an argon2id hash, which `echo 'your password' | task hash-password` prints (or set `APP_PASSWORD` in plain text instead), and `SESSION_SECRET` (at least 32 bytes) to sign the session cookie. In `.env.local`, wrap the hash in single quotes (`APP_PASSWORD_HASH='$argon2id$…'`): Compose reads an unquoted `$` as a variable and would drop part of the hash. Every API operation except `GET /api/health` and `POST /api/auth/login` requires a session; without one the API answers `401` as an RFC 9457 problem.
 
 ## Attribution and legal
 

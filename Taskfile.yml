@@ -65,6 +65,9 @@ tasks:
     deps: [dev:image]
     desc: Run the Go API in Docker (http://localhost:8080) with the variables of .env.local
     cmds:
+      # Development stand-ins for LIBRARY_PATH and DATA_PATH: both must exist and be
+      # writable for /api/health to answer ok from the first run (RF-63).
+      - mkdir -p .dev/library .dev/data
       - docker compose -f compose.dev.yaml up api
 
   dev:web:
