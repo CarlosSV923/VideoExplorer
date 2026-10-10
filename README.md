@@ -4,9 +4,9 @@
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
-Self-hosted web app for a home NAS (TrueNAS SCALE) to **upload, extract, classify, rename and organize movies and TV series** so that Jellyfin and Plex recognize them. The interface follows the Netflix and Prime Video style and works from any browser: desktop, tablet, touch screen or gamepad.
+Self-hosted web app for a home NAS (TrueNAS SCALE) to **upload, extract, classify, rename and organize movies and TV series** so that Jellyfin recognizes them. The interface follows the Netflix and Prime Video style and works from any browser: desktop, tablet, touch screen or gamepad.
 
-> **VideoExplorer never plays video.** It manages the files; you watch them with Jellyfin or Plex.
+> **VideoExplorer never plays video.** It manages the files; you watch them with Jellyfin.
 
 ## What it does
 
@@ -15,10 +15,10 @@ The full requirements are in [`docs/spec.md`](docs/spec.md). In short:
 - **Upload** video, subtitle and archive files by dragging them anywhere in the window. Uploads are resumable and have no practical size limit.
 - **Extract** zip, 7z and rar archives with the official 7-Zip, verify them against their CRC and keep only the videos and external subtitles. Discarded content goes to the trash, not deleted.
 - **Assign** each file to a movie or a series, using TMDB data or a free name. Nothing enters the library without your confirmation.
-- **Name** everything in the format Jellyfin and Plex expect. Duplicates can be replaced, kept as versions or skipped; there is a preview before saving, and a failed operation is rolled back.
+- **Name** everything in the format Jellyfin expects. Folder and file names and the optional ID tag (`[tmdbid-ID]`) follow the Jellyfin convention. Duplicates can be replaced, kept as versions or skipped; there is a preview before saving, and a failed operation is rolled back.
 - **Pick up** files copied over SMB into the Unassigned section, and import the library that is already on disk.
 - **Browse** movies, series and collections, search, edit, move to the trash with restore, and download files or whole titles.
-- **Refresh** Jellyfin and Plex for the affected folder, when they are configured.
+- **Refresh** Jellyfin for the affected folder, when it is configured.
 - Spanish and English, with mouse, keyboard, touch and gamepad.
 
 ## What it does not do
@@ -26,6 +26,7 @@ The full requirements are in [`docs/spec.md`](docs/spec.md). In short:
 - It does not play content.
 - It does not download content from the internet (torrents, Usenet).
 - It does not ship any movie or series.
+- Plex is not supported in this first version (names, ID tags and refresh). It may be added in the future.
 - Out of scope for the MVP: absolute-numbered anime, episodes spread over several files, extra libraries (anime, documentaries, concerts), users and roles, and extras such as trailers. The full list is in spec §8.
 
 ## Status
@@ -52,11 +53,11 @@ The backend and the frontend follow Domain-Driven Design: each bounded context h
 | `catalog` | Library, Unassigned section and trash. Every library change goes through a journaled operation engine |
 | `ingestion` | Uploads, extraction, filtering, filename analysis and probing |
 | `metadata` | TMDB client, behind an anti-corruption layer |
-| `mediaservers` | Jellyfin and Plex refresh |
+| `mediaservers` | Jellyfin refresh |
 | `identity` | Single-password sign-in and sessions |
 | `platform` | Shared kernel: configuration, HTTP server, logging |
 
-Some principles hold across the code: files are streamed and never loaded into memory, paths are built on the server from IDs, and the TMDB, Jellyfin and Plex secrets never reach the browser. The layout is `apps/api` (Go), `apps/web` (React), `api/` (OpenAPI) and `contracts/` (golden vectors). The detailed design is in the spec.
+Some principles hold across the code: files are streamed and never loaded into memory, paths are built on the server from IDs, and the TMDB and Jellyfin secrets never reach the browser. The layout is `apps/api` (Go), `apps/web` (React), `api/` (OpenAPI) and `contracts/` (golden vectors). The detailed design is in the spec.
 
 ## Requirements
 

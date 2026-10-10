@@ -1,7 +1,7 @@
 {
   "name": "videoexplorer",
   "private": true,
-  "description": "Self-hosted web app to upload, extract, classify, rename and organize movies and series so Jellyfin and Plex recognize them.",
+  "description": "Self-hosted web app to upload, extract, classify, rename and organize movies and series so Jellyfin recognizes them.",
   "license": "MIT",
   "packageManager": "pnpm@12.9.1",
   "engines": {

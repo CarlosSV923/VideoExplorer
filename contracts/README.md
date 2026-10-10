@@ -6,8 +6,8 @@ Both test suites load these files and must produce exactly the expected output,
 so the two implementations cannot drift apart (spec RNF-08).
 
 No vector file exists yet. Each one is created in the phase that implements
-its rule, after the Jellyfin and Plex spike (phase 0.5) has confirmed the
-naming rules they depend on. The table lists the planned files.
+its rule, after the Jellyfin spike (phase 0.5) has confirmed the naming
+rules they depend on. The table lists the planned files.
 
 | File (planned) | Rule | Phase | Go consumer | TS consumer | Status |
 |---|---|---|---|---|---|
