@@ -76,7 +76,7 @@ task lint          # OpenAPI, Go and web lint
 task check         # everything CI runs
 ```
 
-Other tasks: `task gen` (regenerates the code from `api/openapi.yaml` and the SQL queries; CI fails when it is stale), `task fmt` (formatters), `task build` (the SPA embedded in the Linux binary; `task build:api` and `task build:web` build each part), `task tidy` (`go mod tidy`). `task --list` shows them all. To check the API: `curl http://localhost:8080/api/health`.
+Other tasks: `task gen` (regenerates the code from `api/openapi.yaml` and the SQL queries; CI fails when it is stale), `task fmt` (formatters), `task build` (the SPA embedded in the Linux binary; `task build:api` and `task build:web` build each part), `task tidy` (`go mod tidy`), `task demo-catalog` (regenerates the demo catalog from TMDB: structure only, with the project synopses in `apps/api/cmd/demo-catalog/synopses.json`; needs `TMDB_READ_TOKEN` or `TMDB_API_KEY` in `.env.local`). `task --list` shows them all. To check the API: `curl http://localhost:8080/api/health`.
 
 `task dev:image` builds the development image (`deploy/dev/Dockerfile`): the Go toolchain plus the official 7-Zip (with RAR) and ffprobe, both at pinned versions with SHA-256 checks. Every Go task depends on it, so the first `task` that runs Go builds it. CI installs the same two binaries.
 

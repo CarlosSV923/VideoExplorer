@@ -76,7 +76,7 @@ task lint          # lint de OpenAPI, Go y frontend
 task check         # todo lo que ejecuta la CI
 ```
 
-Otras tareas: `task gen` (regenera el código desde `api/openapi.yaml` y las consultas SQL; la CI falla si está desactualizado), `task fmt` (formateadores), `task build` (la SPA incrustada en el binario de Linux; `task build:api` y `task build:web` construyen cada parte), `task tidy` (`go mod tidy`). `task --list` las muestra todas. Para comprobar la API: `curl http://localhost:8080/api/health`.
+Otras tareas: `task gen` (regenera el código desde `api/openapi.yaml` y las consultas SQL; la CI falla si está desactualizado), `task fmt` (formateadores), `task build` (la SPA incrustada en el binario de Linux; `task build:api` y `task build:web` construyen cada parte), `task tidy` (`go mod tidy`), `task demo-catalog` (regenera el catálogo de la demo desde TMDB: solo estructura, con las sinopsis del proyecto en `apps/api/cmd/demo-catalog/synopses.json`; necesita `TMDB_READ_TOKEN` o `TMDB_API_KEY` en `.env.local`). `task --list` las muestra todas. Para comprobar la API: `curl http://localhost:8080/api/health`.
 
 `task dev:image` construye la imagen de desarrollo (`deploy/dev/Dockerfile`): el toolchain de Go más el 7-Zip oficial (con RAR) y ffprobe, ambos en versiones fijadas y con SHA-256 comprobado. Todas las tareas de Go dependen de ella, así que la primera que se ejecuta la construye. La CI instala los mismos dos binarios.
 

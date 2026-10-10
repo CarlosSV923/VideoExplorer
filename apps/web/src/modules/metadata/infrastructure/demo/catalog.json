@@ -1,0 +1,3407 @@
+{
+  "source": "TMDB (https://www.themoviedb.org): structure only; synopses written by the project",
+  "titles": [
+    {
+      "tmdbId": 8587,
+      "type": "movie",
+      "year": 1994,
+      "originalTitle": "The Lion King",
+      "originalLanguage": "en",
+      "title": {
+        "es": "El rey león",
+        "en": "The Lion King"
+      },
+      "discTitle": "The Lion King",
+      "synopsis": {
+        "es": "Simba, heredero del trono de la sabana, cree ser responsable de la muerte de su padre y huye de su reino. Al crecer tendrá que volver para enfrentarse a quien ocupó su lugar.",
+        "en": "Simba, heir to the throne of the savanna, believes he is responsible for his father's death and flees his kingdom. Grown up, he must return to face the one who took his place."
+      },
+      "runtime": 85,
+      "genres": [
+        {
+          "id": 16,
+          "name": {
+            "es": "Animación",
+            "en": "Animation"
+          }
+        },
+        {
+          "id": 10751,
+          "name": {
+            "es": "Familia",
+            "en": "Family"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        }
+      ],
+      "collection": {
+        "id": 94032,
+        "name": {
+          "es": "El rey león - Colección",
+          "en": "The Lion King Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 597,
+      "type": "movie",
+      "year": 1997,
+      "originalTitle": "Titanic",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Titanic",
+        "en": "Titanic"
+      },
+      "discTitle": "Titanic",
+      "synopsis": {
+        "es": "En 1912, a bordo del transatlántico que se considera insumergible, una joven de familia rica se enamora de un artista que viaja en tercera clase. Su romance transcurre mientras el barco se dirige hacia un desastre en su viaje inaugural.",
+        "en": "In 1912, aboard the liner thought to be unsinkable, a young woman from a wealthy family falls in love with an artist travelling in third class. Their romance unfolds as the ship heads toward disaster on its maiden voyage."
+      },
+      "runtime": 195,
+      "genres": [
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 10749,
+          "name": {
+            "es": "Romance",
+            "en": "Romance"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 9732,
+      "type": "movie",
+      "year": 1998,
+      "originalTitle": "The Lion King II: Simba's Pride",
+      "originalLanguage": "en",
+      "title": {
+        "es": "El rey león II: El reino de Simba",
+        "en": "The Lion King II: Simba's Pride"
+      },
+      "discTitle": "The Lion King II: Simba's Pride",
+      "synopsis": {
+        "es": "Años después de la historia original, Simba es rey y tiene una hija, Kiara, que sueña con explorar más allá de las fronteras del reino. Una rivalidad con un león expulsado pone a prueba a la familia real.",
+        "en": "Years after the original story, Simba is king and has a daughter, Kiara, who dreams of exploring beyond the kingdom's borders. A rivalry with an exiled lion tests the royal family."
+      },
+      "runtime": 81,
+      "genres": [
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 16,
+          "name": {
+            "es": "Animación",
+            "en": "Animation"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 10751,
+          "name": {
+            "es": "Familia",
+            "en": "Family"
+          }
+        },
+        {
+          "id": 10749,
+          "name": {
+            "es": "Romance",
+            "en": "Romance"
+          }
+        }
+      ],
+      "collection": {
+        "id": 94032,
+        "name": {
+          "es": "El rey león - Colección",
+          "en": "The Lion King Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 129,
+      "type": "movie",
+      "year": 2001,
+      "originalTitle": "千と千尋の神隠し",
+      "originalLanguage": "ja",
+      "title": {
+        "es": "El viaje de Chihiro",
+        "en": "Spirited Away"
+      },
+      "discTitle": "Spirited Away",
+      "synopsis": {
+        "es": "Chihiro, una niña de diez años, se muda con sus padres y termina atrapada en un mundo de espíritus y dioses, donde sus padres han sido convertidos en cerdos. Para salvarlos debe trabajar en una casa de baños regentada por una bruja.",
+        "en": "Chihiro, a ten-year-old girl, moves with her parents and finds herself trapped in a world of spirits and gods, where her parents have been turned into pigs. To save them she must work in a bathhouse run by a witch."
+      },
+      "runtime": 125,
+      "genres": [
+        {
+          "id": 16,
+          "name": {
+            "es": "Animación",
+            "en": "Animation"
+          }
+        },
+        {
+          "id": 10751,
+          "name": {
+            "es": "Familia",
+            "en": "Family"
+          }
+        },
+        {
+          "id": 14,
+          "name": {
+            "es": "Fantasía",
+            "en": "Fantasy"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 194,
+      "type": "movie",
+      "year": 2001,
+      "originalTitle": "Le Fabuleux Destin d'Amélie Poulain",
+      "originalLanguage": "fr",
+      "title": {
+        "es": "Amélie",
+        "en": "Amélie"
+      },
+      "discTitle": "Le Fabuleux Destin d'Amélie Poulain",
+      "synopsis": {
+        "es": "Amélie, una camarera tímida de Montmartre, decide cambiar la vida de quienes la rodean con pequeños gestos secretos. Entre travesuras y buenas acciones anónimas, empieza a sentir algo por un hombre que colecciona fotografías abandonadas.",
+        "en": "Amélie, a shy waitress in Montmartre, decides to change the lives of the people around her through small secret acts of kindness. Between pranks and anonymous good deeds, she starts to fall for a man who collects forgotten photographs."
+      },
+      "runtime": 121,
+      "genres": [
+        {
+          "id": 35,
+          "name": {
+            "es": "Comedia",
+            "en": "Comedy"
+          }
+        },
+        {
+          "id": 10749,
+          "name": {
+            "es": "Romance",
+            "en": "Romance"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 11430,
+      "type": "movie",
+      "year": 2004,
+      "originalTitle": "The Lion King 1½",
+      "originalLanguage": "en",
+      "title": {
+        "es": "El rey león 1½",
+        "en": "The Lion King 1½"
+      },
+      "discTitle": "The Lion King 1½",
+      "synopsis": {
+        "es": "Timón y Pumba cuentan la historia del Rey León desde su punto de vista, con escenas nuevas que muestran lo que hacían mientras ocurría el drama principal.",
+        "en": "Timon and Pumbaa retell the story of The Lion King from their own point of view, with new scenes that show what they were up to while the main drama unfolded."
+      },
+      "runtime": 77,
+      "genres": [
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 16,
+          "name": {
+            "es": "Animación",
+            "en": "Animation"
+          }
+        },
+        {
+          "id": 35,
+          "name": {
+            "es": "Comedia",
+            "en": "Comedy"
+          }
+        },
+        {
+          "id": 10751,
+          "name": {
+            "es": "Familia",
+            "en": "Family"
+          }
+        }
+      ],
+      "collection": {
+        "id": 94032,
+        "name": {
+          "es": "El rey león - Colección",
+          "en": "The Lion King Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 272,
+      "type": "movie",
+      "year": 2005,
+      "originalTitle": "Batman Begins",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Batman inicia",
+        "en": "Batman Begins"
+      },
+      "discTitle": "Batman Begins",
+      "synopsis": {
+        "es": "Bruce Wayne se entrena en el extranjero para combatir el crimen y regresa a Gotham para convertirse en un símbolo que infunda miedo a los delincuentes. Su primera gran prueba es enfrentarse a una sociedad secreta que quiere pudrir la ciudad desde dentro.",
+        "en": "Bruce Wayne trains abroad to fight crime, then returns to Gotham to become a symbol that frightens criminals. His first real test is a secret society that wants to rot the city from within."
+      },
+      "runtime": 140,
+      "genres": [
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 80,
+          "name": {
+            "es": "Crimen",
+            "en": "Crime"
+          }
+        },
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        }
+      ],
+      "collection": {
+        "id": 263,
+        "name": {
+          "es": "Batman: El caballero de la noche - Colección",
+          "en": "The Dark Knight Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 155,
+      "type": "movie",
+      "year": 2008,
+      "originalTitle": "The Dark Knight",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Batman: El caballero de la noche",
+        "en": "The Dark Knight"
+      },
+      "discTitle": "The Dark Knight",
+      "synopsis": {
+        "es": "Batman, con la ayuda del teniente Gordon y del fiscal Harvey Dent, combate el crimen organizado de Gotham. Un criminal que se hace llamar Joker sume la ciudad en el caos y le obliga a elegir entre sus principios y la gente que ama.",
+        "en": "Batman, with Lieutenant Gordon and district attorney Harvey Dent, takes on the organized crime of Gotham. A criminal calling himself the Joker plunges the city into chaos and forces him to choose between his principles and the people he loves."
+      },
+      "runtime": 152,
+      "genres": [
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 53,
+          "name": {
+            "es": "Suspense",
+            "en": "Thriller"
+          }
+        },
+        {
+          "id": 80,
+          "name": {
+            "es": "Crimen",
+            "en": "Crime"
+          }
+        }
+      ],
+      "collection": {
+        "id": 263,
+        "name": {
+          "es": "Batman: El caballero de la noche - Colección",
+          "en": "The Dark Knight Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 1726,
+      "type": "movie",
+      "year": 2008,
+      "originalTitle": "Iron Man",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Iron man - El hombre de hierro",
+        "en": "Iron Man"
+      },
+      "discTitle": "Iron Man",
+      "synopsis": {
+        "es": "Tony Stark, un millonario fabricante de armas, es secuestrado en Afganistán y escapa con una armadura que construye en cautiverio. A su regreso decide usar su talento de otra manera y enfrentarse a quienes usaron sus armas contra inocentes.",
+        "en": "Tony Stark, a billionaire weapons maker, is kidnapped in Afghanistan and escapes in an armor he builds in captivity. Back home he decides to use his talent differently and face those who turned his weapons against the innocent."
+      },
+      "runtime": 126,
+      "genres": [
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        }
+      ],
+      "collection": {
+        "id": 131292,
+        "name": {
+          "es": "Iron Man - Colección",
+          "en": "Iron Man Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 10138,
+      "type": "movie",
+      "year": 2010,
+      "originalTitle": "Iron Man 2",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Iron Man 2",
+        "en": "Iron Man 2"
+      },
+      "discTitle": "Iron Man 2",
+      "synopsis": {
+        "es": "Tony Stark, ahora admirado en todo el mundo, enfrenta la presión del gobierno y a un enemigo con una tecnología parecida a la suya, mientras su salud empieza a fallar.",
+        "en": "Tony Stark, now admired around the world, faces pressure from the government and an enemy with technology much like his own, while his health begins to fail."
+      },
+      "runtime": 125,
+      "genres": [
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        }
+      ],
+      "collection": {
+        "id": 131292,
+        "name": {
+          "es": "Iron Man - Colección",
+          "en": "Iron Man Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 27205,
+      "type": "movie",
+      "year": 2010,
+      "originalTitle": "Inception",
+      "originalLanguage": "en",
+      "title": {
+        "es": "El Origen",
+        "en": "Inception"
+      },
+      "discTitle": "Inception",
+      "synopsis": {
+        "es": "Un ladrón que roba secretos entrando en los sueños de otros acepta una última misión: plantar una idea en la mente de un heredero. Para lograrlo tendrá que construir sueños dentro de otros sueños.",
+        "en": "A thief who steals secrets by entering people's dreams takes on one last job: planting an idea in the mind of an heir. To pull it off he must build dreams inside other dreams."
+      },
+      "runtime": 148,
+      "genres": [
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 49026,
+      "type": "movie",
+      "year": 2012,
+      "originalTitle": "The Dark Knight Rises",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Batman: El caballero de la noche asciende",
+        "en": "The Dark Knight Rises"
+      },
+      "discTitle": "The Dark Knight Rises",
+      "synopsis": {
+        "es": "Ocho años después de la noche en que el Joker desapareció, Gotham vive en paz sobre una mentira. Un enemigo implacable llega a la ciudad y obliga a Batman a volver, aunque ya no esté en su mejor forma.",
+        "en": "Eight years after the night the Joker vanished, Gotham lives in peace on top of a lie. A relentless enemy arrives and forces Batman back, even though he is no longer at his best."
+      },
+      "runtime": 165,
+      "genres": [
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 80,
+          "name": {
+            "es": "Crimen",
+            "en": "Crime"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 53,
+          "name": {
+            "es": "Suspense",
+            "en": "Thriller"
+          }
+        }
+      ],
+      "collection": {
+        "id": 263,
+        "name": {
+          "es": "Batman: El caballero de la noche - Colección",
+          "en": "The Dark Knight Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 68721,
+      "type": "movie",
+      "year": 2013,
+      "originalTitle": "Iron Man 3",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Iron Man 3",
+        "en": "Iron Man 3"
+      },
+      "discTitle": "Iron Man 3",
+      "synopsis": {
+        "es": "Tras los sucesos de Nueva York, Tony Stark sufre ataques de ansiedad y pasa sus días construyendo armaduras. Un terrorista que se hace llamar el Mandarín lo pone a prueba con una amenaza que no puede ignorar.",
+        "en": "After the events in New York, Tony Stark suffers from anxiety and spends his days building armors. A terrorist calling himself the Mandarin tests him with a threat he cannot ignore."
+      },
+      "runtime": 130,
+      "genres": [
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        }
+      ],
+      "collection": {
+        "id": 131292,
+        "name": {
+          "es": "Iron Man - Colección",
+          "en": "Iron Man Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 419430,
+      "type": "movie",
+      "year": 2017,
+      "originalTitle": "Get Out",
+      "originalLanguage": "en",
+      "title": {
+        "es": "¡Huye!",
+        "en": "Get Out"
+      },
+      "discTitle": "Get Out",
+      "synopsis": {
+        "es": "Un fotógrafo viaja con su novia a conocer a la familia de ella, en una casa aislada en el campo. Pronto nota que hay algo extraño bajo la amabilidad de sus anfitriones.",
+        "en": "A photographer travels with his girlfriend to meet her family at their secluded country house. Soon he notices that something strange lies beneath the hosts' polite welcome."
+      },
+      "runtime": 104,
+      "genres": [
+        {
+          "id": 9648,
+          "name": {
+            "es": "Misterio",
+            "en": "Mystery"
+          }
+        },
+        {
+          "id": 53,
+          "name": {
+            "es": "Suspense",
+            "en": "Thriller"
+          }
+        },
+        {
+          "id": 27,
+          "name": {
+            "es": "Terror",
+            "en": "Horror"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 420818,
+      "type": "movie",
+      "year": 2019,
+      "originalTitle": "The Lion King",
+      "originalLanguage": "en",
+      "title": {
+        "es": "El rey león",
+        "en": "The Lion King"
+      },
+      "discTitle": "The Lion King",
+      "synopsis": {
+        "es": "Una versión fotorrealista de la historia de Simba: nace como heredero, pierde a su padre y debe regresar para recuperar su lugar en la sabana. Cuenta el mismo relato con animales generados por computadora.",
+        "en": "A photorealistic retelling of Simba's story: born as heir, he loses his father and must return to reclaim his place on the savanna. It follows the same tale with computer-generated animals."
+      },
+      "runtime": 118,
+      "genres": [
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 10751,
+          "name": {
+            "es": "Familia",
+            "en": "Family"
+          }
+        },
+        {
+          "id": 16,
+          "name": {
+            "es": "Animación",
+            "en": "Animation"
+          }
+        }
+      ],
+      "collection": {
+        "id": 762512,
+        "name": {
+          "es": "El rey león (Reinicio) - Colección",
+          "en": "The Lion King (Reboot) Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 496243,
+      "type": "movie",
+      "year": 2019,
+      "originalTitle": "기생충",
+      "originalLanguage": "ko",
+      "title": {
+        "es": "Parásitos",
+        "en": "Parasite"
+      },
+      "discTitle": "Parasite",
+      "synopsis": {
+        "es": "La familia Kim vive hacinada en un semisótano y consigue, uno tras otro, empleos en la casa de una familia adinerada. Lo que empieza como una estafa ingeniosa se complica hasta un desenlace que nadie espera.",
+        "en": "The Kim family lives crammed into a semi-basement apartment and lands one job after another in a wealthy household. What starts as a clever con grows into an ending nobody expects."
+      },
+      "runtime": 132,
+      "genres": [
+        {
+          "id": 35,
+          "name": {
+            "es": "Comedia",
+            "en": "Comedy"
+          }
+        },
+        {
+          "id": 53,
+          "name": {
+            "es": "Suspense",
+            "en": "Thriller"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 438631,
+      "type": "movie",
+      "year": 2021,
+      "originalTitle": "Dune",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Duna",
+        "en": "Dune"
+      },
+      "discTitle": "Dune",
+      "synopsis": {
+        "es": "En un futuro lejano, la casa Atreides recibe el control de Arrakis, el único lugar del universo donde se produce la sustancia más valiosa. Paul, el hijo del duque, debe adaptarse a un mundo desértico donde una traición lo espera.",
+        "en": "In the far future, House Atreides is given control of Arrakis, the only place in the universe where the most valuable substance is produced. The duke's son, Paul, must adapt to a desert world where betrayal awaits."
+      },
+      "runtime": 155,
+      "genres": [
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        }
+      ],
+      "collection": {
+        "id": 726871,
+        "name": {
+          "es": "Duna - Colección",
+          "en": "Dune Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 545611,
+      "type": "movie",
+      "year": 2022,
+      "originalTitle": "Everything Everywhere All at Once",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Todo en Todas Partes al Mismo Tiempo",
+        "en": "Everything Everywhere All at Once"
+      },
+      "discTitle": "Everything Everywhere All at Once",
+      "synopsis": {
+        "es": "Una dueña de una lavandería de Los Ángeles, agobiada por su negocio y su familia, descubre que puede saltar entre universos paralelos. Para detener una amenaza que abarca todos ellos, deberá usar habilidades de sus otras vidas.",
+        "en": "A laundromat owner in Los Angeles, overwhelmed by her business and her family, discovers she can jump between parallel universes. To stop a threat spanning all of them, she must draw on skills from her other lives."
+      },
+      "runtime": 140,
+      "genres": [
+        {
+          "id": 28,
+          "name": {
+            "es": "Acción",
+            "en": "Action"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        }
+      ]
+    },
+    {
+      "tmdbId": 693134,
+      "type": "movie",
+      "year": 2024,
+      "originalTitle": "Dune: Part Two",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Duna: Parte dos",
+        "en": "Dune: Part Two"
+      },
+      "discTitle": "Dune: Part Two",
+      "synopsis": {
+        "es": "Paul se une a los fremen del desierto de Arrakis para vengar a su familia y enfrentarse a los responsables de la traición. Atrapado entre la fe y la guerra, debe decidir qué camino tomar.",
+        "en": "Paul joins the Fremen of the Arrakis desert to avenge his family and confront those behind the betrayal. Caught between faith and war, he must choose his path."
+      },
+      "runtime": 167,
+      "genres": [
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        }
+      ],
+      "collection": {
+        "id": 726871,
+        "name": {
+          "es": "Duna - Colección",
+          "en": "Dune Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 762509,
+      "type": "movie",
+      "year": 2024,
+      "originalTitle": "Mufasa: The Lion King",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Mufasa: El rey león",
+        "en": "Mufasa: The Lion King"
+      },
+      "discTitle": "Mufasa: The Lion King",
+      "synopsis": {
+        "es": "Mufasa, un cachorro huérfano, se encuentra con un león que busca un hogar, y juntos emprenden un viaje por la sabana. Su historia explica cómo llegó a ser el rey que conocemos.",
+        "en": "Mufasa, an orphaned cub, meets a lion searching for a home, and the two set out across the savanna together. Their journey explains how he became the king we know."
+      },
+      "runtime": 118,
+      "genres": [
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        },
+        {
+          "id": 10751,
+          "name": {
+            "es": "Familia",
+            "en": "Family"
+          }
+        },
+        {
+          "id": 16,
+          "name": {
+            "es": "Animación",
+            "en": "Animation"
+          }
+        }
+      ],
+      "collection": {
+        "id": 762512,
+        "name": {
+          "es": "El rey león (Reinicio) - Colección",
+          "en": "The Lion King (Reboot) Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 1170608,
+      "type": "movie",
+      "year": 2026,
+      "originalTitle": "Dune: Part Three",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Duna: Parte tres",
+        "en": "Dune: Part Three"
+      },
+      "discTitle": "Dune: Part Three",
+      "synopsis": {
+        "es": "Paul Atreides, ya líder de los fremen, debe decidir hasta dónde está dispuesto a llegar cuando su poder crece y sus enemigos se multiplican.",
+        "en": "Paul Atreides, now a leader of the Fremen, must decide how far he is willing to go as his power grows and his enemies multiply."
+      },
+      "runtime": 140,
+      "genres": [
+        {
+          "id": 878,
+          "name": {
+            "es": "Ciencia ficción",
+            "en": "Science Fiction"
+          }
+        },
+        {
+          "id": 12,
+          "name": {
+            "es": "Aventura",
+            "en": "Adventure"
+          }
+        }
+      ],
+      "collection": {
+        "id": 726871,
+        "name": {
+          "es": "Duna - Colección",
+          "en": "Dune Collection"
+        }
+      }
+    },
+    {
+      "tmdbId": 1396,
+      "type": "series",
+      "year": 2008,
+      "originalTitle": "Breaking Bad",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Breaking Bad",
+        "en": "Breaking Bad"
+      },
+      "discTitle": "Breaking Bad",
+      "synopsis": {
+        "es": "Walter White, un profesor de química de Albuquerque con cáncer de pulmón, se asocia con un antiguo alumno para fabricar metanfetamina y asegurar el futuro de su familia. Lo que empieza como un plan desesperado lo transforma poco a poco.",
+        "en": "Walter White, a chemistry teacher in Albuquerque diagnosed with lung cancer, teams up with a former student to cook methamphetamine and secure his family's future. What starts as a desperate plan slowly transforms him."
+      },
+      "genres": [
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 80,
+          "name": {
+            "es": "Crimen",
+            "en": "Crime"
+          }
+        }
+      ],
+      "seasons": [
+        {
+          "number": 0,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Episodio 1",
+                "en": "Good Cop / Bad Cop"
+              },
+              "discTitle": "Good Cop / Bad Cop",
+              "airDate": "2009-02-17"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Episodio 2",
+                "en": "Wedding Day"
+              },
+              "discTitle": "Wedding Day",
+              "airDate": "2009-02-17"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Episodio 3",
+                "en": "TwaüghtHammër"
+              },
+              "discTitle": "TwaüghtHammër",
+              "airDate": "2009-02-17"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Episodio 4",
+                "en": "Marie's Confession"
+              },
+              "discTitle": "Marie's Confession",
+              "airDate": "2009-02-17"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Episodio 5",
+                "en": "The Break-In"
+              },
+              "discTitle": "The Break-In",
+              "airDate": "2009-02-24"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Episodio 6",
+                "en": "Jesse Pinkman Evidence Tape"
+              },
+              "discTitle": "Jesse Pinkman Evidence Tape"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Episodio 7",
+                "en": "Walt's Confession"
+              },
+              "discTitle": "Walt's Confession"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Episodio 8",
+                "en": "Pizza of Destiny: Cranston's Greatest Shot"
+              },
+              "discTitle": "Pizza of Destiny: Cranston's Greatest Shot",
+              "airDate": "2011-06-07"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Episodio 9",
+                "en": "Alternate Ending"
+              },
+              "discTitle": "Alternate Ending",
+              "airDate": "2013-11-26"
+            }
+          ]
+        },
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Principio del fin",
+                "en": "Pilot"
+              },
+              "discTitle": "Pilot",
+              "airDate": "2008-01-20"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "El gato en la bolsa",
+                "en": "Cat's in the Bag..."
+              },
+              "discTitle": "Cat's in the Bag...",
+              "airDate": "2008-01-27"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Y la bolsa en el río",
+                "en": "...And the Bag's in the River"
+              },
+              "discTitle": "...And the Bag's in the River",
+              "airDate": "2008-02-10"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Cáncer",
+                "en": "Cancer Man"
+              },
+              "discTitle": "Cancer Man",
+              "airDate": "2008-02-17"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Materia gris",
+                "en": "Gray Matter"
+              },
+              "discTitle": "Gray Matter",
+              "airDate": "2008-02-24"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Un loco puñado de nada",
+                "en": "Crazy Handful of Nothin'"
+              },
+              "discTitle": "Crazy Handful of Nothin'",
+              "airDate": "2008-03-02"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Acuerdo no violento",
+                "en": "A No Rough Stuff Type Deal"
+              },
+              "discTitle": "A No Rough Stuff Type Deal",
+              "airDate": "2008-03-09"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Siete con treinta y siete",
+                "en": "Seven Thirty-Seven"
+              },
+              "discTitle": "Seven Thirty-Seven",
+              "airDate": "2009-03-08"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "A las brasas",
+                "en": "Grilled"
+              },
+              "discTitle": "Grilled",
+              "airDate": "2009-03-15"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Picadura de una abeja muerta",
+                "en": "Bit by a Dead Bee"
+              },
+              "discTitle": "Bit by a Dead Bee",
+              "airDate": "2009-03-22"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Abajo",
+                "en": "Down"
+              },
+              "discTitle": "Down",
+              "airDate": "2009-03-29"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Rotura",
+                "en": "Breakage"
+              },
+              "discTitle": "Breakage",
+              "airDate": "2009-04-05"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Cucú",
+                "en": "Peekaboo"
+              },
+              "discTitle": "Peekaboo",
+              "airDate": "2009-04-12"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Negro y azul",
+                "en": "Negro y Azul"
+              },
+              "discTitle": "Negro y Azul",
+              "airDate": "2009-04-19"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "¡Llama a Saul!",
+                "en": "Better Call Saul"
+              },
+              "discTitle": "Better Call Saul",
+              "airDate": "2009-04-26"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Cuatro días afuera",
+                "en": "4 Days Out"
+              },
+              "discTitle": "4 Days Out",
+              "airDate": "2009-05-03"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Terminado",
+                "en": "Over"
+              },
+              "discTitle": "Over",
+              "airDate": "2009-05-10"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Mandala",
+                "en": "Mandala"
+              },
+              "discTitle": "Mandala",
+              "airDate": "2009-05-17"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Phoenix",
+                "en": "Phoenix"
+              },
+              "discTitle": "Phoenix",
+              "airDate": "2009-05-24"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "ABQ",
+                "en": "ABQ"
+              },
+              "discTitle": "ABQ",
+              "airDate": "2009-05-31"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "No más",
+                "en": "No Más"
+              },
+              "discTitle": "No Más",
+              "airDate": "2010-03-21"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Caballo sin nombre",
+                "en": "Caballo sin Nombre"
+              },
+              "discTitle": "Caballo sin Nombre",
+              "airDate": "2010-03-28"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "T. S. T.",
+                "en": "I.F.T."
+              },
+              "discTitle": "I.F.T.",
+              "airDate": "2010-04-04"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Luz verde",
+                "en": "Green Light"
+              },
+              "discTitle": "Green Light",
+              "airDate": "2010-04-11"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Más",
+                "en": "Más"
+              },
+              "discTitle": "Más",
+              "airDate": "2010-04-18"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Atardecer",
+                "en": "Sunset"
+              },
+              "discTitle": "Sunset",
+              "airDate": "2010-04-25"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Un minuto",
+                "en": "One Minute"
+              },
+              "discTitle": "One Minute",
+              "airDate": "2010-05-02"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Te veo",
+                "en": "I See You"
+              },
+              "discTitle": "I See You",
+              "airDate": "2010-05-09"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Kafkiano",
+                "en": "Kafkaesque"
+              },
+              "discTitle": "Kafkaesque",
+              "airDate": "2010-05-16"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Vuelo",
+                "en": "Fly"
+              },
+              "discTitle": "Fly",
+              "airDate": "2010-05-23"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Abiquiú",
+                "en": "Abiquiu"
+              },
+              "discTitle": "Abiquiu",
+              "airDate": "2010-05-30"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Medias medidas",
+                "en": "Half Measures"
+              },
+              "discTitle": "Half Measures",
+              "airDate": "2010-06-06"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "Medidas totales",
+                "en": "Full Measure"
+              },
+              "discTitle": "Full Measure",
+              "airDate": "2010-06-13"
+            }
+          ]
+        },
+        {
+          "number": 4,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Navaja",
+                "en": "Box Cutter"
+              },
+              "discTitle": "Box Cutter",
+              "airDate": "2011-07-17"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Revólver calibre 38",
+                "en": "Thirty-Eight Snub"
+              },
+              "discTitle": "Thirty-Eight Snub",
+              "airDate": "2011-07-24"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Casa abierta",
+                "en": "Open House"
+              },
+              "discTitle": "Open House",
+              "airDate": "2011-07-31"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Puntos clave",
+                "en": "Bullet Points"
+              },
+              "discTitle": "Bullet Points",
+              "airDate": "2011-08-07"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Copiloto",
+                "en": "Shotgun"
+              },
+              "discTitle": "Shotgun",
+              "airDate": "2011-08-14"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Arrinconados",
+                "en": "Cornered"
+              },
+              "discTitle": "Cornered",
+              "airDate": "2011-08-21"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Perro problemático",
+                "en": "Problem Dog"
+              },
+              "discTitle": "Problem Dog",
+              "airDate": "2011-08-28"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Hermanos",
+                "en": "Hermanos"
+              },
+              "discTitle": "Hermanos",
+              "airDate": "2011-09-04"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Micrófono",
+                "en": "Bug"
+              },
+              "discTitle": "Bug",
+              "airDate": "2011-09-11"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Salud",
+                "en": "Salud"
+              },
+              "discTitle": "Salud",
+              "airDate": "2011-09-18"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Entrepiso",
+                "en": "Crawl Space"
+              },
+              "discTitle": "Crawl Space",
+              "airDate": "2011-09-25"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Fin de los tiempos",
+                "en": "End Times"
+              },
+              "discTitle": "End Times",
+              "airDate": "2011-10-02"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "Cara a cara",
+                "en": "Face Off"
+              },
+              "discTitle": "Face Off",
+              "airDate": "2011-10-09"
+            }
+          ]
+        },
+        {
+          "number": 5,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Vive libre o muere",
+                "en": "Live Free or Die"
+              },
+              "discTitle": "Live Free or Die",
+              "airDate": "2012-07-15"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Madrigal",
+                "en": "Madrigal"
+              },
+              "discTitle": "Madrigal",
+              "airDate": "2012-07-22"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Peligro",
+                "en": "Hazard Pay"
+              },
+              "discTitle": "Hazard Pay",
+              "airDate": "2012-07-29"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "51 (Cincuenta y uno)",
+                "en": "Fifty-One"
+              },
+              "discTitle": "Fifty-One",
+              "airDate": "2012-08-05"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Carga de muerte",
+                "en": "Dead Freight"
+              },
+              "discTitle": "Dead Freight",
+              "airDate": "2012-08-12"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Adquisición",
+                "en": "Buyout"
+              },
+              "discTitle": "Buyout",
+              "airDate": "2012-08-19"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Di mi nombre",
+                "en": "Say My Name"
+              },
+              "discTitle": "Say My Name",
+              "airDate": "2012-08-26"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Planeando sobre todos",
+                "en": "Gliding Over All"
+              },
+              "discTitle": "Gliding Over All",
+              "airDate": "2012-09-02"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Dinero sangriento",
+                "en": "Blood Money"
+              },
+              "discTitle": "Blood Money",
+              "airDate": "2013-08-11"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Enterrado",
+                "en": "Buried"
+              },
+              "discTitle": "Buried",
+              "airDate": "2013-08-18"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Confesiones",
+                "en": "Confessions"
+              },
+              "discTitle": "Confessions",
+              "airDate": "2013-08-25"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Perro rabioso",
+                "en": "Rabid Dog"
+              },
+              "discTitle": "Rabid Dog",
+              "airDate": "2013-09-01"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "Tohajiilee",
+                "en": "To'hajiilee"
+              },
+              "discTitle": "To'hajiilee",
+              "airDate": "2013-09-08"
+            },
+            {
+              "number": 14,
+              "title": {
+                "es": "Ozymandias",
+                "en": "Ozymandias"
+              },
+              "discTitle": "Ozymandias",
+              "airDate": "2013-09-15"
+            },
+            {
+              "number": 15,
+              "title": {
+                "es": "Pizarra de granito",
+                "en": "Granite State"
+              },
+              "discTitle": "Granite State",
+              "airDate": "2013-09-22"
+            },
+            {
+              "number": 16,
+              "title": {
+                "es": "Felina",
+                "en": "Felina"
+              },
+              "discTitle": "Felina",
+              "airDate": "2013-09-29"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tmdbId": 70523,
+      "type": "series",
+      "year": 2017,
+      "originalTitle": "Dark",
+      "originalLanguage": "de",
+      "title": {
+        "es": "Dark",
+        "en": "Dark"
+      },
+      "discTitle": "Dark",
+      "synopsis": {
+        "es": "En un pueblo alemán donde desaparece un niño, las historias de cuatro familias se entrelazan con un viaje en el tiempo que atraviesa generaciones. Cada pista revela un misterio más antiguo.",
+        "en": "In a German town where a child goes missing, the lives of four families intertwine with time travel across generations. Every clue uncovers an older mystery."
+      },
+      "genres": [
+        {
+          "id": 80,
+          "name": {
+            "es": "Crimen",
+            "en": "Crime"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 10765,
+          "name": {
+            "es": "Sci-Fi \u0026 Fantasy",
+            "en": "Sci-Fi \u0026 Fantasy"
+          }
+        },
+        {
+          "id": 9648,
+          "name": {
+            "es": "Misterio",
+            "en": "Mystery"
+          }
+        }
+      ],
+      "seasons": [
+        {
+          "number": 0,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Episodio 1",
+                "en": "Aftershow | Time Travel"
+              },
+              "discTitle": "Aftershow | Zeitreise",
+              "airDate": "2017-12-11"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Episodio 2",
+                "en": "Aftershow | Relationships"
+              },
+              "discTitle": "Aftershow | Beziehungen",
+              "airDate": "2017-12-12"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Episodio 3",
+                "en": "Aftershow | Showrunner"
+              },
+              "discTitle": "Aftershow | Showrunner",
+              "airDate": "2017-12-13"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Episodio 4",
+                "en": "Aftershow | Small Town Secrets"
+              },
+              "discTitle": "Aftershow | Kleinstadt",
+              "airDate": "2017-12-14"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Episodio 5",
+                "en": "The big DARK farewell show"
+              },
+              "discTitle": "Die große DARK Abschiedsshow",
+              "airDate": "2020-07-05"
+            }
+          ]
+        },
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Secretos",
+                "en": "Secrets"
+              },
+              "discTitle": "Geheimnisse",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Mentiras",
+                "en": "Lies"
+              },
+              "discTitle": "Lügen",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Pasado y presente",
+                "en": "Past and Present"
+              },
+              "discTitle": "Gestern und Heute",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Dobles vidas",
+                "en": "Double Lives"
+              },
+              "discTitle": "Doppelleben",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Verdades",
+                "en": "Truths"
+              },
+              "discTitle": "Wahrheiten",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Sic mundus creatus est",
+                "en": "Sic Mundus Creatus Est"
+              },
+              "discTitle": "Sic mundus creatus est",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Encrucijadas",
+                "en": "Crossroads"
+              },
+              "discTitle": "Kreuzwege",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Cosechas lo que siembras",
+                "en": "As You Sow, So You Shall Reap"
+              },
+              "discTitle": "Was man sät, das wird man ernten",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Todo es ahora",
+                "en": "Everything Is Now"
+              },
+              "discTitle": "Alles ist jetzt",
+              "airDate": "2017-12-01"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Alfa y omega",
+                "en": "Alpha and Omega"
+              },
+              "discTitle": "Alpha und Omega",
+              "airDate": "2017-12-01"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Principios y finales",
+                "en": "Beginnings and Endings"
+              },
+              "discTitle": "Anfänge und Enden",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Materia oscura",
+                "en": "Dark Matter"
+              },
+              "discTitle": "Dunkle Materie",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Fantasmas",
+                "en": "Ghosts"
+              },
+              "discTitle": "Gespenster",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Los viajeros",
+                "en": "The Travelers"
+              },
+              "discTitle": "Die Reisenden",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Perdido y encontrado",
+                "en": "Lost and Found"
+              },
+              "discTitle": "Vom Suchen und Finden",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Un ciclo sin fin",
+                "en": "An Endless Cycle"
+              },
+              "discTitle": "Ein unendlicher Kreis",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "El demonio blanco",
+                "en": "The White Devil"
+              },
+              "discTitle": "Der weiße Teufel",
+              "airDate": "2019-06-21"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Finales e inicios",
+                "en": "Endings and Beginnings"
+              },
+              "discTitle": "Enden und Anfänge",
+              "airDate": "2019-06-21"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Déjà vu",
+                "en": "Deja-vu"
+              },
+              "discTitle": "Deja-vu",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Los sobrevivientes",
+                "en": "The Survivors"
+              },
+              "discTitle": "Die Überlebenden",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Adán y Eva",
+                "en": "Adam and Eva"
+              },
+              "discTitle": "Adam und Eva",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "El origen",
+                "en": "The Origin"
+              },
+              "discTitle": "Der Ursprung",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Vida y muerte",
+                "en": "Life and Death"
+              },
+              "discTitle": "Leben und Tod",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Luces y sombras",
+                "en": "Light and Shadow"
+              },
+              "discTitle": "Licht und Schatten",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Entre tiempos",
+                "en": "Between the Time"
+              },
+              "discTitle": "Zwischen der Zeit",
+              "airDate": "2020-06-27"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "El paraíso",
+                "en": "The Paradise"
+              },
+              "discTitle": "Das Paradies",
+              "airDate": "2020-06-27"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tmdbId": 71446,
+      "type": "series",
+      "year": 2017,
+      "originalTitle": "La casa de papel",
+      "originalLanguage": "es",
+      "title": {
+        "es": "Money Heist",
+        "en": "Money Heist"
+      },
+      "discTitle": "La casa de papel",
+      "synopsis": {
+        "es": "Un grupo de atracadores dirigido por un misterioso Profesor se encierra con rehenes en la Fábrica Nacional de Moneda y Timbre para imprimir billones de euros. La policía debe decidir cómo responder.",
+        "en": "A gang of robbers led by a mysterious figure known as the Professor takes hostages inside Spain's National Mint to print billions of euros. The police must decide how to respond."
+      },
+      "genres": [
+        {
+          "id": 80,
+          "name": {
+            "es": "Crimen",
+            "en": "Crime"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        }
+      ],
+      "seasons": [
+        {
+          "number": 0,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Episodio 1",
+                "en": "Episode 1"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Episodio 2",
+                "en": "Episode 2"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Episodio 3",
+                "en": "Episode 3"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Episodio 4",
+                "en": "Episode 4"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Episodio 5",
+                "en": "Episode 5"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Episodio 6",
+                "en": "Episode 6"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Episodio 7",
+                "en": "Episode 7"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Episodio 8",
+                "en": "Episode 8"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Episodio 9",
+                "en": "Episode 9"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Episodio 10",
+                "en": "Episode 10"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Episodio 11",
+                "en": "Episode 11"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Episodio 12",
+                "en": "Episode 12"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "Episodio 13",
+                "en": "Episode 13"
+              },
+              "discTitle": "",
+              "airDate": "2017-12-20"
+            },
+            {
+              "number": 14,
+              "title": {
+                "es": "Episodio 1",
+                "en": "Episode 1"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 15,
+              "title": {
+                "es": "Episodio 2",
+                "en": "Episode 2"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 16,
+              "title": {
+                "es": "Episodio 3",
+                "en": "Episode 3"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 17,
+              "title": {
+                "es": "Episodio 4",
+                "en": "Episode 4"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 18,
+              "title": {
+                "es": "Episodio 5",
+                "en": "Episode 5"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 19,
+              "title": {
+                "es": "Episodio 6",
+                "en": "Episode 6"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 20,
+              "title": {
+                "es": "Episodio 7",
+                "en": "Episode 7"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 21,
+              "title": {
+                "es": "Episodio 8",
+                "en": "Episode 8"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            },
+            {
+              "number": 22,
+              "title": {
+                "es": "Episodio 9",
+                "en": "Episode 9"
+              },
+              "discTitle": "",
+              "airDate": "2018-04-06"
+            }
+          ]
+        },
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Episodio 1",
+                "en": "Episode 1"
+              },
+              "discTitle": "",
+              "airDate": "2017-05-02"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Episodio 2",
+                "en": "Episode 2"
+              },
+              "discTitle": "",
+              "airDate": "2017-05-09"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Episodio 3",
+                "en": "Episode 3"
+              },
+              "discTitle": "",
+              "airDate": "2017-05-16"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Episodio 4",
+                "en": "Episode 4"
+              },
+              "discTitle": "",
+              "airDate": "2017-05-23"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Episodio 5",
+                "en": "Episode 5"
+              },
+              "discTitle": "",
+              "airDate": "2017-05-30"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Episodio 6",
+                "en": "Episode 6"
+              },
+              "discTitle": "",
+              "airDate": "2017-06-06"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Episodio 7",
+                "en": "Episode 7"
+              },
+              "discTitle": "",
+              "airDate": "2017-06-13"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Episodio 8",
+                "en": "Episode 8"
+              },
+              "discTitle": "",
+              "airDate": "2017-06-20"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Episodio 9",
+                "en": "Episode 9"
+              },
+              "discTitle": "",
+              "airDate": "2017-06-27"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Episodio 10",
+                "en": "Episode 10"
+              },
+              "discTitle": "",
+              "airDate": "2017-10-16"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Episodio 11",
+                "en": "Episode 11"
+              },
+              "discTitle": "",
+              "airDate": "2017-10-23"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Episodio 12",
+                "en": "Episode 12"
+              },
+              "discTitle": "",
+              "airDate": "2017-11-02"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "Episodio 13",
+                "en": "Episode 13"
+              },
+              "discTitle": "",
+              "airDate": "2017-11-09"
+            },
+            {
+              "number": 14,
+              "title": {
+                "es": "Episodio 14",
+                "en": "Episode 14"
+              },
+              "discTitle": "",
+              "airDate": "2017-11-16"
+            },
+            {
+              "number": 15,
+              "title": {
+                "es": "Episodio 15",
+                "en": "Episode 15"
+              },
+              "discTitle": "",
+              "airDate": "2017-11-23"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Hemos vuelto",
+                "en": "We're Back"
+              },
+              "discTitle": "Hemos vuelto",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Aikido",
+                "en": "Aikido"
+              },
+              "discTitle": "Aikido",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "48 metros bajo el suelo",
+                "en": "48 Meters Underground"
+              },
+              "discTitle": "48 metros bajo el suelo",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "La hora del delfín",
+                "en": "It's Dolphin Time"
+              },
+              "discTitle": "La hora del delfín",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Bum, bum, ciao",
+                "en": "Boom, Boom, Ciao"
+              },
+              "discTitle": "Bum, bum, ciao",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Todo pareció insignificante",
+                "en": "Everything Seemed Insignificant"
+              },
+              "discTitle": "Todo pareció insignificante",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Pequeñas vacaciones",
+                "en": "A Quick Vacation"
+              },
+              "discTitle": "Pequeñas vacaciones",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "La deriva",
+                "en": "Astray"
+              },
+              "discTitle": "La deriva",
+              "airDate": "2019-07-19"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Game Over",
+                "en": "Game Over"
+              },
+              "discTitle": "Game over",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "La boda de Berlín",
+                "en": "Berlin's Wedding"
+              },
+              "discTitle": "La boda de Berlín",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Lección de anatomía",
+                "en": "Anatomy Lesson"
+              },
+              "discTitle": "Lección de anatomía",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Suspiros de España",
+                "en": "Pasodoble"
+              },
+              "discTitle": "Suspiros de España",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 13,
+              "title": {
+                "es": "5 minutos antes",
+                "en": "5 Minutes Earlier"
+              },
+              "discTitle": "5 minutos antes",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 14,
+              "title": {
+                "es": "KO técnico",
+                "en": "TKO"
+              },
+              "discTitle": "KO técnico",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 15,
+              "title": {
+                "es": "Tumbar la carpa",
+                "en": "Strike the Tent"
+              },
+              "discTitle": "Tumbar la carpa",
+              "airDate": "2020-04-03"
+            },
+            {
+              "number": 16,
+              "title": {
+                "es": "Plan París",
+                "en": "The Paris Plan"
+              },
+              "discTitle": "Plan París",
+              "airDate": "2020-04-03"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "El final del camino",
+                "en": "The End of the Road"
+              },
+              "discTitle": "El final del camino",
+              "airDate": "2021-09-03"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "¿Crees en la reencarnación?",
+                "en": "Do You Believe in Reincarnation?"
+              },
+              "discTitle": "¿Crees en la reencarnación?",
+              "airDate": "2021-09-03"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "El espectáculo de la vida",
+                "en": "The Spectacle of Life"
+              },
+              "discTitle": "El espectáculo de la vida",
+              "airDate": "2021-09-03"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Tu sitio en el cielo",
+                "en": "Your Place in Heaven"
+              },
+              "discTitle": "Tu sitio en el cielo",
+              "airDate": "2021-09-03"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Vivir muchas vidas",
+                "en": "Live Many Lives"
+              },
+              "discTitle": "Vivir muchas vidas",
+              "airDate": "2021-09-03"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Episodio 6",
+                "en": "Escape Valve"
+              },
+              "discTitle": "Válvulas de escape",
+              "airDate": "2021-12-03"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Episodio 7",
+                "en": "Wishful Thinking"
+              },
+              "discTitle": "Ciencia ilusionada",
+              "airDate": "2021-12-03"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Episodio 8",
+                "en": "The Elegance Theory"
+              },
+              "discTitle": "La teoría de la elegancia",
+              "airDate": "2021-12-03"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Episodio 9",
+                "en": "Pillow Talk"
+              },
+              "discTitle": "Lo que se habla en la cama",
+              "airDate": "2021-12-03"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Episodio 10",
+                "en": "A Family Tradition"
+              },
+              "discTitle": "Una tradición familiar",
+              "airDate": "2021-12-03"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tmdbId": 87108,
+      "type": "series",
+      "year": 2019,
+      "originalTitle": "Chernobyl",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Chernobyl",
+        "en": "Chernobyl"
+      },
+      "discTitle": "Chernobyl",
+      "synopsis": {
+        "es": "En 1986, tras la explosión de un reactor nuclear en Ucrania, las autoridades soviéticas intentan minimizar lo ocurrido mientras científicos y bomberos luchan contra las consecuencias. Una miniserie sobre el coste humano del silencio.",
+        "en": "In 1986, after a nuclear reactor explodes in Ukraine, Soviet authorities try to downplay the disaster while scientists and firefighters fight its consequences. A miniseries about the human cost of silence."
+      },
+      "genres": [
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        }
+      ],
+      "seasons": [
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "1:23:45",
+                "en": "1:23:45"
+              },
+              "discTitle": "1:23:45",
+              "airDate": "2019-05-06"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Por favor, mantengan la calma",
+                "en": "Please Remain Calm"
+              },
+              "discTitle": "Please Remain Calm",
+              "airDate": "2019-05-13"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Tierra, ábrete",
+                "en": "Open Wide, O Earth"
+              },
+              "discTitle": "Open Wide, O Earth",
+              "airDate": "2019-05-20"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "La felicidad de la humanidad",
+                "en": "The Happiness of All Mankind"
+              },
+              "discTitle": "The Happiness of All Mankind",
+              "airDate": "2019-05-27"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Vichnaya Pamyat",
+                "en": "Vichnaya Pamyat"
+              },
+              "discTitle": "Vichnaya Pamyat",
+              "airDate": "2019-06-03"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tmdbId": 97546,
+      "type": "series",
+      "year": 2020,
+      "originalTitle": "Ted Lasso",
+      "originalLanguage": "en",
+      "title": {
+        "es": "Ted Lasso",
+        "en": "Ted Lasso"
+      },
+      "discTitle": "Ted Lasso",
+      "synopsis": {
+        "es": "Un entrenador de fútbol americano de Estados Unidos llega a Londres para dirigir a un club de fútbol inglés sin experiencia en ese deporte. Su optimismo contagioso gana a jugadores, personal y escépticos por igual.",
+        "en": "An American football coach is hired to manage an English soccer club despite having no experience in the sport. His relentless optimism wins over players, staff and skeptics alike."
+      },
+      "genres": [
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        },
+        {
+          "id": 35,
+          "name": {
+            "es": "Comedia",
+            "en": "Comedy"
+          }
+        }
+      ],
+      "seasons": [
+        {
+          "number": 0,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "El bigote de Navidad perdido",
+                "en": "The Missing Christmas Mustache"
+              },
+              "discTitle": "The Missing Christmas Mustache",
+              "airDate": "2021-12-15"
+            }
+          ]
+        },
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Piloto",
+                "en": "Pilot"
+              },
+              "discTitle": "Pilot",
+              "airDate": "2020-08-14"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Bollos",
+                "en": "Biscuits"
+              },
+              "discTitle": "Biscuits",
+              "airDate": "2020-08-14"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Trent Crimm: The Independent",
+                "en": "Trent Crimm: The Independent"
+              },
+              "discTitle": "Trent Crimm: The Independent",
+              "airDate": "2020-08-14"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Por los niños",
+                "en": "For the Children"
+              },
+              "discTitle": "For the Children",
+              "airDate": "2020-08-21"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Líneas de bronceado",
+                "en": "Tan Lines"
+              },
+              "discTitle": "Tan Lines",
+              "airDate": "2020-08-28"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Dos ases",
+                "en": "Two Aces"
+              },
+              "discTitle": "Two Aces",
+              "airDate": "2020-09-04"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "El resurgir de Rebecca",
+                "en": "Make Rebecca Great Again"
+              },
+              "discTitle": "Make Rebecca Great Again",
+              "airDate": "2020-09-11"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Los perros maravilla",
+                "en": "The Diamond Dogs"
+              },
+              "discTitle": "The Diamond Dogs",
+              "airDate": "2020-09-18"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Las disculpas",
+                "en": "All Apologies"
+              },
+              "discTitle": "All Apologies",
+              "airDate": "2020-09-25"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "La esperanza mata",
+                "en": "The Hope That Kills You"
+              },
+              "discTitle": "The Hope That Kills You",
+              "airDate": "2020-10-02"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Adiós, Earl",
+                "en": "Goodbye Earl"
+              },
+              "discTitle": "Goodbye Earl",
+              "airDate": "2021-07-23"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Lavanda",
+                "en": "Lavender"
+              },
+              "discTitle": "Lavender",
+              "airDate": "2021-07-30"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Haz lo correcto",
+                "en": "Do the Right-est Thing"
+              },
+              "discTitle": "Do the Right-est Thing",
+              "airDate": "2021-08-06"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Carol of the Bells",
+                "en": "Carol of the Bells"
+              },
+              "discTitle": "Carol of the Bells",
+              "airDate": "2021-08-13"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Arcoíris",
+                "en": "Rainbow"
+              },
+              "discTitle": "Rainbow",
+              "airDate": "2021-08-20"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "La señal",
+                "en": "The Signal"
+              },
+              "discTitle": "The Signal",
+              "airDate": "2021-08-27"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Estado mental",
+                "en": "Headspace"
+              },
+              "discTitle": "Headspace",
+              "airDate": "2021-09-03"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Man City",
+                "en": "Man City"
+              },
+              "discTitle": "Man City",
+              "airDate": "2021-09-10"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Beard después de hora",
+                "en": "Beard After Hours"
+              },
+              "discTitle": "Beard After Hours",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Cero bodas y un funeral",
+                "en": "No Weddings and a Funeral"
+              },
+              "discTitle": "No Weddings and a Funeral",
+              "airDate": "2021-09-24"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Tren de medianoche a Royston",
+                "en": "Midnight Train to Royston"
+              },
+              "discTitle": "Midnight Train to Royston",
+              "airDate": "2021-10-01"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Pirámide del éxito invertida",
+                "en": "Inverting the Pyramid of Success"
+              },
+              "discTitle": "Inverting the Pyramid of Success",
+              "airDate": "2021-10-08"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "El espíritu de la burla",
+                "en": "Smells Like Mean Spirit"
+              },
+              "discTitle": "Smells Like Mean Spirit",
+              "airDate": "2023-03-14"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "(No quiero ir a) Chelsea",
+                "en": "(I Don't Want to Go to) Chelsea"
+              },
+              "discTitle": "(I Don't Want to Go to) Chelsea",
+              "airDate": "2023-03-21"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "4-5-1",
+                "en": "4-5-1"
+              },
+              "discTitle": "4-5-1",
+              "airDate": "2023-03-28"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Semana importante",
+                "en": "Big Week"
+              },
+              "discTitle": "Big Week",
+              "airDate": "2023-04-04"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Señales",
+                "en": "Signs"
+              },
+              "discTitle": "Signs",
+              "airDate": "2023-04-11"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Girasoles",
+                "en": "Sunflowers"
+              },
+              "discTitle": "Sunflowers",
+              "airDate": "2023-04-18"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Las cuerdas que nos atan",
+                "en": "The Strings That Bind Us"
+              },
+              "discTitle": "The Strings That Bind Us",
+              "airDate": "2023-04-25"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Jamás tendremos París",
+                "en": "We'll Never Have Paris"
+              },
+              "discTitle": "We'll Never Have Paris",
+              "airDate": "2023-05-02"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "El vestidor aux folles",
+                "en": "La Locker Room Aux Folles"
+              },
+              "discTitle": "La Locker Room Aux Folles",
+              "airDate": "2023-05-09"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Internacionales",
+                "en": "International Break"
+              },
+              "discTitle": "International Break",
+              "airDate": "2023-05-16"
+            },
+            {
+              "number": 11,
+              "title": {
+                "es": "Mamanchester City",
+                "en": "Mom City"
+              },
+              "discTitle": "Mom City",
+              "airDate": "2023-05-23"
+            },
+            {
+              "number": 12,
+              "title": {
+                "es": "Adiós, nos vemos",
+                "en": "So Long, Farewell"
+              },
+              "discTitle": "So Long, Farewell",
+              "airDate": "2023-05-30"
+            }
+          ]
+        },
+        {
+          "number": 4,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Hogar",
+                "en": "Home"
+              },
+              "discTitle": "Home",
+              "airDate": "2026-08-04"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Curioso y más curioso",
+                "en": "Curiouser and Curiouser!"
+              },
+              "discTitle": "Curiouser and Curiouser!",
+              "airDate": "2026-08-11"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "Jugando por un sueño",
+                "en": "Richmond's Got Talent"
+              },
+              "discTitle": "Richmond's Got Talent",
+              "airDate": "2026-08-18"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Galgos expertas en diversión",
+                "en": "Greyhounds' Day Off"
+              },
+              "discTitle": "Greyhounds' Day Off",
+              "airDate": "2026-08-25"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "La riqueza en la vergüenza",
+                "en": "Riches of Embarrassment"
+              },
+              "discTitle": "Riches of Embarrassment",
+              "airDate": "2026-09-01"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Ya no saltes mucho",
+                "en": "Don't Jump Around Much Anymore"
+              },
+              "discTitle": "Don't Jump Around Much Anymore",
+              "airDate": "2026-09-08"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Sí, y nena",
+                "en": "Yes \u0026 Baby"
+              },
+              "discTitle": "Yes \u0026 Baby",
+              "airDate": "2026-09-15"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "Sigue el enojo",
+                "en": "Follow the Anger"
+              },
+              "discTitle": "Follow the Anger",
+              "airDate": "2026-09-22"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Mae va en el autobús",
+                "en": "Mae Rides the Bus"
+              },
+              "discTitle": "Mae Rides the Bus",
+              "airDate": "2026-09-29"
+            },
+            {
+              "number": 10,
+              "title": {
+                "es": "Vivir la vida",
+                "en": "Being Alive"
+              },
+              "discTitle": "Being Alive",
+              "airDate": "2026-10-06"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tmdbId": 93405,
+      "type": "series",
+      "year": 2021,
+      "originalTitle": "오징어 게임",
+      "originalLanguage": "ko",
+      "title": {
+        "es": "El juego del calamar",
+        "en": "Squid Game"
+      },
+      "discTitle": "Squid Game",
+      "synopsis": {
+        "es": "Cientos de personas con deudas insostenibles aceptan una invitación misteriosa para competir en juegos infantiles por un premio millonario. Quien pierde, paga con su vida.",
+        "en": "Hundreds of people buried in debt accept a mysterious invitation to compete in children's games for a huge cash prize. Losing means paying with their lives."
+      },
+      "genres": [
+        {
+          "id": 10759,
+          "name": {
+            "es": "Action \u0026 Adventure",
+            "en": "Action \u0026 Adventure"
+          }
+        },
+        {
+          "id": 9648,
+          "name": {
+            "es": "Misterio",
+            "en": "Mystery"
+          }
+        },
+        {
+          "id": 18,
+          "name": {
+            "es": "Drama",
+            "en": "Drama"
+          }
+        }
+      ],
+      "seasons": [
+        {
+          "number": 1,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Luz roja, luz verde",
+                "en": "Red Light, Green Light"
+              },
+              "discTitle": "Red Light, Green Light",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Infierno",
+                "en": "Hell"
+              },
+              "discTitle": "Hell",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "El hombre del paraguas",
+                "en": "The Man with the Umbrella"
+              },
+              "discTitle": "The Man with the Umbrella",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "No abandones el equipo",
+                "en": "Stick to the Team"
+              },
+              "discTitle": "Stick to the Team",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Un mundo justo",
+                "en": "A Fair World"
+              },
+              "discTitle": "A Fair World",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "Gganbu",
+                "en": "Gganbu"
+              },
+              "discTitle": "Gganbu",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Los VIP",
+                "en": "VIPS"
+              },
+              "discTitle": "VIPS",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 8,
+              "title": {
+                "es": "El líder",
+                "en": "Front Man"
+              },
+              "discTitle": "Front Man",
+              "airDate": "2021-09-17"
+            },
+            {
+              "number": 9,
+              "title": {
+                "es": "Un día de suerte",
+                "en": "One Lucky Day"
+              },
+              "discTitle": "One Lucky Day",
+              "airDate": "2021-09-17"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Sustento y azar",
+                "en": "Bread and Lottery"
+              },
+              "discTitle": "Bread and Lottery",
+              "airDate": "2024-12-26"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Fiesta de Halloween",
+                "en": "Halloween Party"
+              },
+              "discTitle": "Halloween Party",
+              "airDate": "2024-12-26"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "001",
+                "en": "001"
+              },
+              "discTitle": "001",
+              "airDate": "2024-12-26"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "Seis piernas",
+                "en": "Six Legs"
+              },
+              "discTitle": "Six Legs",
+              "airDate": "2024-12-26"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "Otra ronda",
+                "en": "One More Game"
+              },
+              "discTitle": "One More Game",
+              "airDate": "2024-12-26"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "O X",
+                "en": "O ﻿ X"
+              },
+              "discTitle": "O ﻿ X",
+              "airDate": "2024-12-26"
+            },
+            {
+              "number": 7,
+              "title": {
+                "es": "Amigos o enemigos",
+                "en": "Friend or Foe"
+              },
+              "discTitle": "Friend or Foe",
+              "airDate": "2024-12-26"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "episodes": [
+            {
+              "number": 1,
+              "title": {
+                "es": "Llaves y cuchillos",
+                "en": "Keys and Knives"
+              },
+              "discTitle": "Keys and Knives",
+              "airDate": "2025-06-27"
+            },
+            {
+              "number": 2,
+              "title": {
+                "es": "Noche estrellada",
+                "en": "The Starry Night"
+              },
+              "discTitle": "The Starry Night",
+              "airDate": "2025-06-27"
+            },
+            {
+              "number": 3,
+              "title": {
+                "es": "No es culpa tuya",
+                "en": "It's Not Your Fault"
+              },
+              "discTitle": "It's Not Your Fault",
+              "airDate": "2025-06-27"
+            },
+            {
+              "number": 4,
+              "title": {
+                "es": "222",
+                "en": "222"
+              },
+              "discTitle": "222",
+              "airDate": "2025-06-27"
+            },
+            {
+              "number": 5,
+              "title": {
+                "es": "○△□",
+                "en": "○△□"
+              },
+              "discTitle": "○△□",
+              "airDate": "2025-06-27"
+            },
+            {
+              "number": 6,
+              "title": {
+                "es": "La naturaleza humana",
+                "en": "Humans Are..."
+              },
+              "discTitle": "Humans Are...",
+              "airDate": "2025-06-27"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

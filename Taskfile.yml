@@ -95,6 +95,13 @@ tasks:
     cmds:
       - bash scripts/spike/jellyfin.sh reset
 
+  demo-catalog:
+    deps: [dev:image]
+    desc: Regenerate the demo's fixed TMDB catalog (structure only; needs TMDB_READ_TOKEN or TMDB_API_KEY in .env.local)
+    cmds:
+      # Only the TMDB credentials reach the container; the generator uses the read token when both are set.
+      - '{{.DOCKER_GO}} -e TMDB_READ_TOKEN -e TMDB_API_KEY {{.GO_IMAGE}} go run ./cmd/demo-catalog'
+
   # ---------- code generation ----------
   gen:
     desc: Regenerate code from api/openapi.yaml and the SQL queries
