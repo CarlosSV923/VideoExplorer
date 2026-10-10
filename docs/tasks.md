@@ -32,7 +32,7 @@ Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
 
 ## Fase 2 — Contexto `metadata` (TMDB)
 Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
-- [~] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
+- [x] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
 - [ ] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [ ] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
 - [ ] Catálogo fijo para la demo, sin imágenes de TMDB (RF-71)
