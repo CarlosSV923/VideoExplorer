@@ -481,19 +481,46 @@ func TestTimeoutIsRetriedAndReported(t *testing.T) {
 func TestCallerCancellationStopsRequest(t *testing.T) {
 	t.Parallel()
 
+	// The handler reports its arrival, then blocks until the client gives up.
+	// The test cancels only after the request is in flight, so the outcome does
+	// not depend on how fast the machine is. The timeouts below are only guards
+	// for a broken client; they never decide a passing run.
+	arrived := make(chan struct{}, 1)
 	slow := func(w http.ResponseWriter, r *http.Request) {
 		select {
+		case arrived <- struct{}{}:
+		default:
+		}
+		select {
 		case <-r.Context().Done():
-		case <-time.After(2 * time.Second):
+		case <-time.After(10 * time.Second):
 		}
 	}
 	f := newFakeTMDB(t, map[string]http.HandlerFunc{"/3/movie/3": slow})
 	c := newClient(t, f, tmdb.Config{MaxAttempts: 3})
 
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	if _, err := c.Movie(ctx, "es-MX", 3); err == nil {
-		t.Fatal("Movie with a cancelled context returned no error")
+	result := make(chan error, 1)
+	go func() {
+		_, err := c.Movie(ctx, "es-MX", 3)
+		result <- err
+	}()
+
+	select {
+	case <-arrived:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the request never reached the server")
+	}
+	cancel()
+
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("Movie with a cancelled context returned no error")
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Movie did not return after the caller cancelled")
 	}
 	if got := f.hitCount("/3/movie/3"); got != 1 {
 		t.Errorf("attempts = %d, want 1 (the caller gave up)", got)
