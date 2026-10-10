@@ -109,7 +109,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 
 ### Modo demo
 - **RF-70** Con `VITE_DATA_SOURCE=demo` el frontend funciona sin backend con adaptadores en memoria (estado de la sesión). Biblioteca sembrada con películas, series (con temporadas incompletas), colecciones y entradas en No asignados.
-- **RF-71** **Imágenes de la demo**: placeholders generados (degradados con el título) o de dominio público; **no** se embeben pósters de TMDB.
+- **RF-71** **Datos e imágenes de la demo**: títulos reales (título original, en español y en inglés, año, géneros, colecciones, temporadas y número y título de los capítulos) con **sinopsis breves escritas por el proyecto** en español e inglés; no se copian textos ni imágenes de TMDB. Imágenes: placeholders generados (degradados con el título) o de dominio público (decisión 2026-10-10).
 - **RF-72** Subida, unión de partes, descompresión, contraseña, filtrado, sugerencias, duplicados y guardado se simulan con la misma máquina de estados que el backend. Acepta archivos propios usando solo su nombre y tamaño (nunca salen del navegador). Botón «Probar con archivos de ejemplo». Banner fijo de modo demo, sin login.
 
 ## 4. Requisitos no funcionales
