@@ -14,6 +14,30 @@ import (
 	"time"
 )
 
+// Defines values for CheckCode.
+const (
+	DataNotWritable    CheckCode = "data_not_writable"
+	FfprobeMissing     CheckCode = "ffprobe_missing"
+	LibraryNotWritable CheckCode = "library_not_writable"
+	SevenzipMissing    CheckCode = "sevenzip_missing"
+)
+
+// Valid indicates whether the value is a known member of the CheckCode enum.
+func (e CheckCode) Valid() bool {
+	switch e {
+	case DataNotWritable:
+		return true
+	case FfprobeMissing:
+		return true
+	case LibraryNotWritable:
+		return true
+	case SevenzipMissing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	Degraded HealthStatus = "degraded"
@@ -32,21 +56,55 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
-// Check One named diagnostic.
+// Check One named diagnostic. When it passes, only `name` and `ok` appear. When
+// it fails, `ok` is false and `code` and `message` appear, plus the data
+// that applies to that check (`path`, `uid`, `gid`).
 type Check struct {
-	// Message Why the check failed. Omitted when it passes.
+	// Code Stable reason of the failure, which the UI translates with i18n keys
+	// (RF-63). Omitted when the check passes.
 	//
-	// Example: the library directory is not writable
+	//
+	// Example: library_not_writable
+	Code *CheckCode `json:"code,omitempty"`
+
+	// Gid Group of the process. Only in the library and data checks when they fail.
+	//
+	// Example: 1000
+	Gid *int `json:"gid,omitempty"`
+
+	// Message Technical reason in English, for the log and for copying. Omitted when
+	// the check passes.
+	//
+	//
+	// Example: cannot write to /library as uid=1000 gid=1000: permission denied. Give that user the Modify permission (ACL, inherited) on the dataset
 	Message *string `json:"message,omitempty"`
 
-	// Name Example: library
+	// Name Stable name of the check (`library`, `data`, `7zz`, `ffprobe`).
+	//
+	// Example: library
 	Name string `json:"name"`
 	Ok   bool   `json:"ok"`
+
+	// Path Folder that failed. Only in the library and data checks.
+	//
+	// Example: /library
+	Path *string `json:"path,omitempty"`
+
+	// Uid User of the process. Only in the library and data checks when they fail.
+	//
+	// Example: 1000
+	Uid *int `json:"uid,omitempty"`
 }
+
+// CheckCode Stable reason of the failure, which the UI translates with i18n keys
+// (RF-63). Omitted when the check passes.
+//
+// Example: library_not_writable
+type CheckCode string
 
 // Health Status of the process and of its startup diagnostics.
 type Health struct {
-	// Checks Diagnostics in the order they run. Empty until the diagnostics are implemented.
+	// Checks Diagnostics in the order they run.
 	Checks []Check `json:"checks"`
 
 	// Status `ok` while every check passes. `degraded` when a check fails: the

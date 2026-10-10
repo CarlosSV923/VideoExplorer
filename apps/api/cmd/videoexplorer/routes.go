@@ -31,9 +31,9 @@ var _ httpapi.StrictServerInterface = api{}
 // protects every operation except the public ones (RF-60). The order matters:
 // the /api/ fallback is registered before "/" so the SPA never answers API paths.
 // Security headers, request logging and panic recovery wrap everything (RNF-02).
-func routes(log *slog.Logger, identity *identityhttp.Handler) http.Handler {
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler) http.Handler {
 	server := api{
-		systemAPI:   system.NewHandler(),
+		systemAPI:   health,
 		identityAPI: identity,
 	}
 

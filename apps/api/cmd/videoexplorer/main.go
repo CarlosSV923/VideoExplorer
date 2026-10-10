@@ -2,8 +2,9 @@
 //
 // This is the composition root: configuration, adapters and bounded contexts
 // are wired here and nowhere else. It opens the database and serves the API
-// contract (routes.go) and the embedded SPA. Sign-in (identity.go) is wired
-// here; the other bounded contexts and the diagnostics arrive in later phases.
+// contract (routes.go) and the embedded SPA. Sign-in (identity.go) and the
+// startup diagnostics (health.go) are wired here; the other bounded contexts
+// arrive in later phases.
 //
 // Usage:
 //
@@ -75,7 +76,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		return err
 	}
 
-	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)), routes(log, identity))
+	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)), routes(log, identity, newHealth(cfg)))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)

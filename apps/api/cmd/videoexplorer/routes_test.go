@@ -12,6 +12,7 @@ import (
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/system"
 )
 
 const (
@@ -39,7 +40,7 @@ func newTestRoutes(t *testing.T, cookieSecure bool) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return routes(slog.New(slog.DiscardHandler), identity)
+	return routes(slog.New(slog.DiscardHandler), identity, system.NewHandler())
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {

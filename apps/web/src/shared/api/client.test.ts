@@ -10,7 +10,27 @@ describe('createApiClient', () => {
       'degraded',
       {
         status: 'degraded',
-        checks: [{ name: 'library', ok: false, message: 'not writable' }],
+        checks: [
+          {
+            name: 'library',
+            ok: false,
+            code: 'library_not_writable',
+            path: '/library',
+            uid: 1000,
+            gid: 1000,
+            message: 'not writable',
+          },
+          { name: 'ffprobe', ok: true },
+        ],
+      },
+    ],
+    [
+      'degraded by a missing program',
+      {
+        status: 'degraded',
+        checks: [
+          { name: '7zz', ok: false, code: 'sevenzip_missing', message: '7zz is not in PATH' },
+        ],
       },
     ],
   ])('types the /health answer when the status is %s', async (_label, body) => {

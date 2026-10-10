@@ -13,10 +13,12 @@ export interface paths {
         };
         /**
          * Liveness probe and startup diagnostics
-         * @description Always answers 200 while the process is up. The list of checks is empty
-         *     until the startup diagnostics are implemented. When a check fails,
+         * @description Always answers 200 while the process is up. It runs the diagnostics of
+         *     RF-63 on every request: the library and data folders must accept a
+         *     file written and removed by this process, and the external programs
+         *     `7zz` and `ffprobe` must be in the PATH and start. When a check fails,
          *     `status` becomes `degraded` so the UI can explain the problem instead
-         *     of the container crash-looping.
+         *     of the container crash-looping. TMDB is not checked.
          */
         get: operations["getHealth"];
         put?: never;
@@ -94,19 +96,49 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "degraded";
-            /** @description Diagnostics in the order they run. Empty until the diagnostics are implemented. */
+            /** @description Diagnostics in the order they run. */
             checks: components["schemas"]["Check"][];
         };
-        /** @description One named diagnostic. */
+        /**
+         * @description One named diagnostic. When it passes, only `name` and `ok` appear. When
+         *     it fails, `ok` is false and `code` and `message` appear, plus the data
+         *     that applies to that check (`path`, `uid`, `gid`).
+         */
         Check: {
-            /** @example library */
+            /**
+             * @description Stable name of the check (`library`, `data`, `7zz`, `ffprobe`).
+             * @example library
+             */
             name: string;
             ok: boolean;
             /**
-             * @description Why the check failed. Omitted when it passes.
-             * @example the library directory is not writable
+             * @description Stable reason of the failure, which the UI translates with i18n keys
+             *     (RF-63). Omitted when the check passes.
+             * @example library_not_writable
+             * @enum {string}
+             */
+            code?: "library_not_writable" | "data_not_writable" | "sevenzip_missing" | "ffprobe_missing";
+            /**
+             * @description Technical reason in English, for the log and for copying. Omitted when
+             *     the check passes.
+             * @example cannot write to /library as uid=1000 gid=1000: permission denied. Give that user the Modify permission (ACL, inherited) on the dataset
              */
             message?: string;
+            /**
+             * @description Folder that failed. Only in the library and data checks.
+             * @example /library
+             */
+            path?: string;
+            /**
+             * @description User of the process. Only in the library and data checks when they fail.
+             * @example 1000
+             */
+            uid?: number;
+            /**
+             * @description Group of the process. Only in the library and data checks when they fail.
+             * @example 1000
+             */
+            gid?: number;
         };
         /** @description RFC 9457 problem details. */
         Problem: {
