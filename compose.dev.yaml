@@ -7,7 +7,11 @@
 # for the production datasets.
 services:
   api:
-    image: golang:1.27.2
+    # Go toolchain + 7-Zip + ffprobe; same tag as GO_IMAGE in Taskfile.yml (`task dev:image`).
+    image: videoexplorer-dev:1
+    build:
+      context: .
+      dockerfile: deploy/dev/Dockerfile
     working_dir: /src/apps/api
     # `exec` makes the binary PID 1, so Ctrl+C and `docker stop` trigger the graceful shutdown.
     command: sh -c "go build -o /tmp/videoexplorer ./cmd/videoexplorer && exec /tmp/videoexplorer"

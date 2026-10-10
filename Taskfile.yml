@@ -5,10 +5,11 @@ dotenv: ['.env.local']
 
 vars:
   API_DIR: apps/api
-  # Official Go toolchain image, same version as apps/api/go.mod.
+  # Go toolchain (same version as apps/api/go.mod) + official 7-Zip and ffprobe
+  # (deploy/dev/Dockerfile); built by dev:image.
   # Go tooling runs in Docker: identical to CI on every OS, and avoids Windows
   # Application Control blocking freshly compiled Go binaries.
-  GO_IMAGE: golang:1.27.2
+  GO_IMAGE: videoexplorer-dev:1
   # Official golangci-lint image (v2), same version as the CI lint job.
   LINT_IMAGE: golangci/golangci-lint:v2.14.0
   # Official Redocly CLI image (entrypoint `redocly`), used to lint api/openapi.yaml.
@@ -28,24 +29,40 @@ tasks:
       - task --list
 
   install:
+    deps: [dev:image]
     desc: Install JS dependencies and download Go modules
     cmds:
       - pnpm install --frozen-lockfile
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go mod download'
 
   tidy:
+    deps: [dev:image]
     desc: go mod tidy (in Docker)
     cmds:
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go mod tidy'
 
   hash-password:
+    deps: [dev:image]
     desc: 'Hash a password for APP_PASSWORD_HASH (usage: echo "pw" | task hash-password)'
     interactive: true
     cmds:
       - docker run --rm -i -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod -v ve-gocache:/root/.cache/go-build -w /src/{{.API_DIR}} {{.GO_IMAGE}} go run ./cmd/videoexplorer hash-password
 
   # ---------- development ----------
+  dev:image:
+    desc: Build the dev/test image (Go + official 7-Zip + ffprobe)
+    run: once
+    cmds:
+      - docker build -t {{.GO_IMAGE}} -f deploy/dev/Dockerfile .
+    sources:
+      - deploy/dev/Dockerfile
+      - scripts/install-7zip.sh
+      - scripts/install-ffprobe.sh
+    status:
+      - docker image inspect {{.GO_IMAGE}} >/dev/null 2>&1
+
   dev:api:
+    deps: [dev:image]
     desc: Run the Go API in Docker (http://localhost:8080) with the variables of .env.local
     cmds:
       - docker compose -f compose.dev.yaml up api
@@ -83,6 +100,7 @@ tasks:
       - task: gen:sql
 
   gen:api:
+    deps: [dev:image]
     desc: Go server types (oapi-codegen, in Docker) and TS client types (openapi-typescript) from api/openapi.yaml
     cmds:
       - '{{.DOCKER_GO}}/internal/platform/httpapi {{.GO_IMAGE}} go tool oapi-codegen -config oapi-codegen.yaml ../../../../../api/openapi.yaml'
@@ -131,6 +149,7 @@ tasks:
       - task: test:web
 
   test:api:
+    deps: [dev:image]
     desc: Go tests with the race detector (in Docker)
     cmds:
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go test -race -count=1 -timeout 120s ./...'
@@ -141,6 +160,7 @@ tasks:
       - pnpm test:web
 
   vuln:
+    deps: [dev:image]
     desc: Known vulnerabilities in the Go dependencies (govulncheck, pinned, in Docker)
     cmds:
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...'
@@ -157,6 +177,7 @@ tasks:
       - node -e "const fs=require('fs');const d='{{.API_DIR}}/internal/platform/web/dist';for(const f of fs.readdirSync(d))if(f!=='.gitkeep')fs.rmSync(d+'/'+f,{recursive:true});fs.cpSync('apps/web/dist',d,{recursive:true})"
 
   build:api:
+    deps: [dev:image]
     desc: Build the Linux Go binary (apps/api/bin/videoexplorer, in Docker)
     cmds:
       - '{{.DOCKER_GO}} -e CGO_ENABLED=0 {{.GO_IMAGE}} go build -trimpath -o bin/videoexplorer ./cmd/videoexplorer'
