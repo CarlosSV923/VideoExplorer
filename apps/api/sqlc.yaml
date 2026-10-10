@@ -1,0 +1,13 @@
+# Typed queries. Run `task gen:sql` (sqlc runs in Docker). One block per bounded context
+# that has queries; the schema is the goose migrations.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: db/migrations
+    queries: internal/platform/database/queries
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/platform/database/sqlcgen
+        emit_interface: false
+        emit_json_tags: false

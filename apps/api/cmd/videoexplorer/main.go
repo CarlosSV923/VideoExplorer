@@ -1,16 +1,18 @@
 // Command videoexplorer runs the VideoExplorer HTTP API.
 //
 // This is the composition root: configuration, adapters and bounded contexts
-// are wired here and nowhere else. Phase 0 serves only the liveness probe; the
-// SPA, the bounded contexts and the persistence arrive in later phases.
+// are wired here and nowhere else. Phase 1 opens the database and serves the
+// liveness probe; the SPA, the bounded contexts and the diagnostics arrive in
+// later phases.
 //
 // Usage:
 //
-//	videoexplorer    run the server (PORT, LOG_LEVEL)
+//	videoexplorer    run the server (configured by environment, see .env.example)
 package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net"
@@ -22,6 +24,7 @@ import (
 	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpserver"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/system"
 )
@@ -30,7 +33,7 @@ const shutdownTimeout = 30 * time.Second
 
 func main() {
 	bootLog := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	cfg, err := config.Load(os.Getenv)
+	cfg, err := config.Load(nil)
 	if err != nil {
 		bootLog.Error("invalid configuration", "error", err)
 		os.Exit(1)
@@ -43,10 +46,17 @@ func main() {
 	}
 }
 
-// run serves until SIGINT or SIGTERM, then shuts down in order.
+// run opens the database, serves until SIGINT or SIGTERM, then shuts down in order.
 func run(cfg config.Config, log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	conn, err := database.Open(ctx, cfg.DataPath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer closeDatabase(conn, log)
+	log.Info("database ready", "data", cfg.DataPath)
 
 	mux := http.NewServeMux()
 	system.RegisterRoutes(mux)
@@ -74,4 +84,10 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 	log.Info("stopped")
 	return nil
+}
+
+func closeDatabase(conn *sql.DB, log *slog.Logger) {
+	if err := conn.Close(); err != nil {
+		log.Warn("close database", "error", err)
+	}
 }
