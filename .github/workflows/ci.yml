@@ -34,6 +34,14 @@ jobs:
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
+      # Same installers as the dev image (deploy/dev/Dockerfile): pinned versions, SHA-256 checked.
+      - name: Install official 7-Zip (with RAR) and ffprobe (used by integration tests)
+        working-directory: .
+        run: sudo sh scripts/install-7zip.sh && sudo sh scripts/install-ffprobe.sh
+      - name: Require 7-Zip and ffprobe in tests
+        run: |
+          echo "REQUIRE_7ZZ=1" >> "$GITHUB_ENV"
+          echo "REQUIRE_FFPROBE=1" >> "$GITHUB_ENV"
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.14
