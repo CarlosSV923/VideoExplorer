@@ -1,9 +1,9 @@
 // Command videoexplorer runs the VideoExplorer HTTP API.
 //
 // This is the composition root: configuration, adapters and bounded contexts
-// are wired here and nowhere else. Phase 1 opens the database and serves the
-// liveness probe; the SPA, the bounded contexts and the diagnostics arrive in
-// later phases.
+// are wired here and nowhere else. It opens the database and serves the API
+// contract (routes.go) and the embedded SPA; the bounded contexts and the
+// diagnostics arrive in later phases.
 //
 // Usage:
 //
@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -26,7 +25,6 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpserver"
-	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/system"
 )
 
 const shutdownTimeout = 30 * time.Second
@@ -58,10 +56,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 	defer closeDatabase(conn, log)
 	log.Info("database ready", "data", cfg.DataPath)
 
-	mux := http.NewServeMux()
-	system.RegisterRoutes(mux)
-
-	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)), mux)
+	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)), routes(log))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)
