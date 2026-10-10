@@ -25,11 +25,11 @@ func Handler() http.Handler {
 	return NewHandler(dist)
 }
 
-const notBuiltPage = `<!doctype html><html lang="es"><meta charset="utf-8"><title>VideoExplorer</title>
+const notBuiltPage = `<!doctype html><html lang="en"><meta charset="utf-8"><title>VideoExplorer</title>
 <body style="font-family:system-ui;background:#141414;color:#fff;padding:40px">
 <h1>VideoExplorer API</h1>
-<p>La interfaz web no está incluida en este binario. En desarrollo usa <code>task dev:web</code>
-(http://localhost:5173); para un binario completo usa <code>task build</code>.</p></body></html>`
+<p>The web interface is not included in this binary. For development use <code>task dev:web</code>
+(http://localhost:5173); for a complete binary use <code>task build</code>.</p></body></html>`
 
 // NewHandler serves files from fsys with SPA fallback: unknown paths get
 // index.html so client-side routes work on reload. Paths under /api/ must

@@ -10,6 +10,10 @@ info:
 
     This file describes only the endpoints that are implemented; the rest are
     added as they are built.
+
+    Every operation requires the session cookie (`ve_session`) unless it
+    declares `security: []`: only `/health` and `/auth/login` are public
+    (RF-60, RNF-02). Errors use RFC 9457 problem details.
   license:
     name: MIT
     url: https://opensource.org/license/mit
@@ -18,6 +22,10 @@ servers:
 tags:
   - name: system
     description: Process-level endpoints, such as the liveness probe.
+  - name: auth
+    description: Sign-in with the shared password and the session cookie.
+security:
+  - sessionCookie: []
 paths:
   /health:
     get:
@@ -29,6 +37,7 @@ paths:
         until the startup diagnostics are implemented. When a check fails,
         `status` becomes `degraded` so the UI can explain the problem instead
         of the container crash-looping.
+      security: []
       responses:
         '200':
           description: The process is up.
@@ -41,7 +50,85 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Start a session with the shared password
+      description: |
+        Checks the shared password and sets the session cookie. Attempts are
+        rate limited per client address: a burst of 5, then one more every 12 s.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '204':
+          description: Session started; the cookie is set.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: End the session on this device
+      responses:
+        '204':
+          description: Session cookie cleared.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/session:
+    get:
+      tags: [auth]
+      operationId: getSession
+      summary: Current session
+      responses:
+        '200':
+          description: The session is valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: ve_session
+
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired session, or wrong password.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    TooManyRequests:
+      description: Too many login attempts from this client; retry later.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
   schemas:
     Health:
       type: object
@@ -75,3 +162,31 @@ components:
           type: string
           description: Why the check failed. Omitted when it passes.
           example: the library directory is not writable
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [title, status]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    LoginRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 1
+          format: password
+    Session:
+      type: object
+      required: [expiresAt]
+      properties:
+        expiresAt:
+          type: string
+          format: date-time

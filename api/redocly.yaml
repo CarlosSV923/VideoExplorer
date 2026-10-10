@@ -1,16 +1,9 @@
 # Redocly CLI configuration for api/openapi.yaml (`task lint:openapi` and the CI job).
-# Every rule of the recommended set stays on except the two below.
+# Every rule of the recommended set applies. One exception is recorded in
+# api/.redocly.lint-ignore.yaml: /health always answers 200 by design (liveness
+# must answer), so it has no 4XX response.
 extends:
   - recommended
 
 # Anonymous usage telemetry off: the linter runs in a container on every check.
 telemetry: off
-
-rules:
-  # Off until authentication exists. /health is the only operation and it is
-  # public; phase 1 (RF-60 sessions) adds the security scheme and enables this rule again.
-  security-defined: off
-  # /health always answers 200 by design (liveness must not fail to answer), so it
-  # has no 4XX response. Phase 1 adds 401 to the session-protected operations and
-  # enables this rule again.
-  operation-4xx-response: off

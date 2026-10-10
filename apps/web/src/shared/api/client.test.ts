@@ -38,4 +38,52 @@ describe('createApiClient', () => {
     expect(data).toBeUndefined()
     expect(error).toEqual(problem)
   })
+
+  it('sends the shared password to /auth/login and types the 204 answer', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    )
+    const client = createApiClient({ baseUrl: 'http://localhost/api', fetch: fetchMock })
+
+    const { response, error } = await client.POST('/auth/login', {
+      body: { password: 'secret' },
+    })
+
+    expect(response.status).toBe(204)
+    expect(error).toBeUndefined()
+    const request = fetchMock.mock.calls[0]?.[0] as Request
+    expect(request.url).toBe('http://localhost/api/auth/login')
+    expect(request.method).toBe('POST')
+    await expect(request.json()).resolves.toEqual({ password: 'secret' })
+  })
+
+  it('types the 429 of a throttled login as a problem', async () => {
+    const problem = {
+      title: 'Too Many Requests',
+      status: 429,
+      detail: 'Too many attempts. Wait a moment and try again.',
+    }
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(json(problem, 429, 'application/problem+json')),
+    )
+    const client = createApiClient({ baseUrl: 'http://localhost/api', fetch: fetchMock })
+
+    const { error } = await client.POST('/auth/login', { body: { password: 'x' } })
+
+    expect(error).toEqual(problem)
+  })
+
+  it('types the 401 of /auth/session without a session as a problem', async () => {
+    const problem = { title: 'Unauthorized', status: 401, detail: 'Sign in to continue.' }
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(json(problem, 401, 'application/problem+json')),
+    )
+    const client = createApiClient({ baseUrl: 'http://localhost/api', fetch: fetchMock })
+
+    const { data, error, response } = await client.GET('/auth/session')
+
+    expect(response.status).toBe(401)
+    expect(data).toBeUndefined()
+    expect(error).toEqual(problem)
+  })
 })
