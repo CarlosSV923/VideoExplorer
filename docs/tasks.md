@@ -40,8 +40,8 @@ Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 
 ## Fase 3 — Contexto `ingestion` I: subidas
 Depende de: 1 · Cubre: RF-01 a RF-03, RF-09, RF-10, §9.6
-- [ ] tusd en `/api/uploads/` (staging en `.videoexplorer/staging`), espacio libre, sesión
-- [ ] Agregado `Batch`/`UploadJob` con relación (RF-03) y máquina de estados persistida
+- [x] tusd en `/api/uploads/` (staging en `.videoexplorer/staging`), espacio libre, sesión
+- [ ] Agregado `Batch`/`UploadJob` con relación (RF-03) y máquina de estados persistida; sustituye el consumidor provisional `logCompleted`; reserva de espacio de las subidas en curso y rechazo de 0 bytes (RF-09a)
 - [ ] `/api/jobs` y SSE de progreso; purga de 24 h
 
 ## Fase 4 — Contexto `ingestion` II: extracción, filtrado y análisis
