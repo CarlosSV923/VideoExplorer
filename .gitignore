@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+apps/api/bin/
+apps/api/tmp/
+*.exe
+*.test
+*.out
+
+# Local environment and data
+.env
+.env.*
+!.env.example
+.dev/
+.task/
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# Playwright
+playwright-report/
+test-results/
+
+# SPA copied into the Go binary by `task build` (only .gitkeep is versioned)
+!apps/api/internal/platform/web/dist/
+apps/api/internal/platform/web/dist/*
+!apps/api/internal/platform/web/dist/.gitkeep
+
+# Local preview config of the Claude desktop app
+.claude/launch.json

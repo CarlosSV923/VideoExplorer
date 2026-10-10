@@ -1,0 +1,46 @@
+version: '3'
+
+# Optional local overrides (ignored when missing).
+dotenv: ['.env.local']
+
+vars:
+  API_DIR: apps/api
+  # Official Go toolchain image, same version as apps/api/go.mod.
+  # Go tooling runs in Docker: identical to CI on every OS, and avoids Windows
+  # Application Control blocking freshly compiled Go binaries.
+  GO_IMAGE: golang:1.27.2
+  DOCKER_GO: >-
+    docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod
+    -v ve-gocache:/root/.cache/go-build -w /src/{{.API_DIR}}
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install JS dependencies and download Go modules
+    cmds:
+      - pnpm install --frozen-lockfile
+      - '{{.DOCKER_GO}} {{.GO_IMAGE}} go mod download'
+
+  tidy:
+    desc: go mod tidy (in Docker)
+    cmds:
+      - '{{.DOCKER_GO}} {{.GO_IMAGE}} go mod tidy'
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: test:api
+
+  test:api:
+    desc: Go tests with the race detector (in Docker)
+    cmds:
+      - '{{.DOCKER_GO}} {{.GO_IMAGE}} go test -race -count=1 -timeout 120s ./...'
+
+  build:api:
+    desc: Build the Linux Go binary (apps/api/bin/videoexplorer, in Docker)
+    cmds:
+      - '{{.DOCKER_GO}} -e CGO_ENABLED=0 {{.GO_IMAGE}} go build -trimpath -o bin/videoexplorer ./cmd/videoexplorer'
