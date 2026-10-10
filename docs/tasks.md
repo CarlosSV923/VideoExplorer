@@ -8,8 +8,8 @@ Depende de: — · Base: GameExplorer
 - [x] Repositorio git y remoto público `CarlosSV923/VideoExplorer` (confirmar con el usuario antes del primer push)
 - [x] Monorepo copiado de la estructura de GameExplorer: Go (`apps/api`) + pnpm (`apps/web`), `Taskfile.yml`, `.editorconfig`, `.gitattributes`, `.gitignore`
 - [x] API mínima (`/api/health`, apagado ordenado) y web mínima (React + Vite + TS estricto, Vitest, ESLint, Prettier, `VITE_DATA_SOURCE`)
-- [ ] `golangci-lint` v2, `task check`, CI en GitHub Actions (incluye código generado al día)
-- [ ] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano) y `contracts/`
+- [x] `golangci-lint` v2, `task check`, CI en GitHub Actions
+- [ ] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano), `task gen`, comprobación en CI de código generado al día, y `contracts/`
 - [ ] README EN/ES, LICENSE (MIT), `.env.example`
 
 ## Fase 0.5 — Spike de nombres en Jellyfin y Plex
@@ -21,11 +21,11 @@ Depende de: 0 · Cubre: §5, RF-45, §9.1–9.3
 
 ## Fase 1 — API base
 Depende de: 0.5 · Cubre: RF-60, RNF-02, RNF-03
-- [ ] Configuración (`caarlos0/env`), `slog`, SQLite (modernc, WAL) + goose + sqlc
+- [ ] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`), `slog`, SQLite (modernc, WAL) + goose + sqlc; en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
 - [ ] Contexto `identity` reutilizado de GameExplorer
 - [ ] oapi-codegen + cliente TS; SPA incrustada
 - [ ] `/api/health` con diagnósticos (escritura en biblioteca y datos, `7zz`, `ffprobe`, TMDB)
-- [ ] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256)
+- [ ] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI
 
 ## Fase 2 — Contexto `metadata` (TMDB)
 Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
@@ -93,7 +93,7 @@ Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 ## Fase 11 — Demo
 Depende de: 10 · Cubre: RF-70 a RF-72
 - [ ] Adaptadores `demo/`, biblioteca sembrada, archivos de ejemplo, placeholders generados
-- [ ] Despliegue en Vercel; Playwright E2E sobre la demo
+- [ ] Despliegue en Vercel; Playwright E2E sobre la demo; en CI, build en modo demo y job E2E
 
 ## Fase 12 — Producción en TrueNAS
 Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
