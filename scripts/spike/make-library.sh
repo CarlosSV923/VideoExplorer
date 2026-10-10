@@ -58,19 +58,28 @@ cat > "$LIBRARY/CASES.md" <<'HEADER'
 Biblioteca ficticia para la fase 0.5 (spec §5, §9.1). Los videos son de 5 s,
 negros y sin sonido; solo importa el nombre, la resolución y el códec.
 
-Cómo usarla:
+Jellyfin de prueba: la misma versión que el NAS (12.2, imagen
+`jellyfin/jellyfin:12.2.20261005-225228`), corriendo en este equipo.
 
-1. Copia la carpeta `spike-library` completa (con `Movies/` y `TV Shows/`) por SMB a
-   una carpeta NUEVA del NAS, fuera de tu biblioteca real (p. ej. `videoexplorer-spike/`).
-   No la mezcles con tus `Movies/` ni `TV Shows/` reales.
-2. En Jellyfin, crea dos bibliotecas NUEVAS: Películas sobre `.../videoexplorer-spike/Movies`
-   y Series sobre `.../videoexplorer-spike/TV Shows`. Deja activados los metadatos de TMDB
-   y desactiva el guardado de `.nfo` e imágenes en la carpeta de medios, para no ensuciarla.
-   Lanza el escaneo.
-3. Marca cada fila en la columna «Resultado» (`[x]` si coincide con lo esperado)
-   o anota lo que muestra Jellyfin.
-4. Al terminar, borra en Jellyfin esas dos bibliotecas y la carpeta
-   `videoexplorer-spike/` del NAS.
+Cómo usarla (con Docker Desktop en marcha, desde la raíz del repositorio):
+
+1. Genera la biblioteca: `bash scripts/spike/make-library.sh` (o `task spike:library`).
+2. Levanta Jellyfin: `bash scripts/spike/jellyfin.sh up` (o `task spike:jellyfin:up`).
+   Cuando responde, imprime `http://localhost:8096`.
+3. Abre `http://localhost:8096` y completa el asistente de primer uso (idioma y usuario
+   administrador). Lo haces tú.
+4. Crea dos bibliotecas NUEVAS:
+   - «Películas», tipo Películas, sobre la carpeta `/media/Movies`.
+   - «Series», tipo Series, sobre la carpeta `/media/TV Shows`.
+   En ambas, proveedor de metadatos TMDB, idioma de metadatos Español (México) y país México.
+   La carpeta de medios está montada en solo lectura: Jellyfin no escribe en ella.
+5. Espera a que termine el escaneo y marca cada fila en la columna «Resultado»
+   (`[x]` si coincide con lo esperado) o anota lo que muestra Jellyfin.
+6. Al terminar, limpia el entorno: `bash scripts/spike/jellyfin.sh reset`
+   (o `task spike:jellyfin:reset`). Para Jellyfin y borra su configuración y caché.
+
+Si regeneras la biblioteca con Jellyfin en marcha, lanza «Escanear biblioteca» en Jellyfin
+para que vea los cambios.
 
 Resoluciones reales: `h264-1080` 1920x1080 H.264, `h264-2160` 3840x2160 H.264,
 `hevc-1080` 1920x1080 HEVC. Las versiones etiquetadas `2160p` son `h264-2160` y
