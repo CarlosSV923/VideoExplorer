@@ -15,8 +15,9 @@ Depende de: — · Base: GameExplorer
 
 ## Fase 0.5 — Spike de nombres en Jellyfin
 Depende de: 0 · Cubre: §5, RF-45
-- [ ] Biblioteca de prueba con archivos ficticios: película simple, con versiones, con partes; serie con especiales, varios capítulos por archivo, versiones y subtítulos (`.es.srt`, `.es-MX.srt`, `.en.forced.srt`, `.sdh`)
-- [ ] Probar cada caso en un Jellyfin real; la etiqueta `[tmdbid-]` en carpeta ya está verificada (§9.1), solo se prueba con versiones de película
+- [x] Biblioteca de prueba con archivos ficticios: película simple, con versiones, con partes; serie con especiales, varios capítulos por archivo, versiones y subtítulos (`.es.srt`, `.es-MX.srt`, `.en.forced.srt`, `.sdh`)
+- [ ] Jellyfin local en Docker con la misma versión que el NAS del usuario (biblioteca montada en solo lectura; decisión 2026-10-10) y `CASES.md` adaptado a ese flujo
+- [ ] Probar cada caso en ese Jellyfin; la etiqueta `[tmdbid-]` en carpeta ya está verificada (§9.1), solo se prueba con versiones de película
 - [ ] Probar títulos saneados (`Mission - Impossible`) y títulos ambiguos o remakes
 - [ ] Registrar los resultados en `docs/spike-results.md` y ajustar §5
 
