@@ -5,13 +5,13 @@ TypeScript frontend (live previews and demo mode) are pinned here as data.
 Both test suites load these files and must produce exactly the expected output,
 so the two implementations cannot drift apart (spec RNF-08).
 
-No vector file exists yet. Each one is created in the phase that implements
-its rule, after the Jellyfin spike (phase 0.5) has confirmed the naming
-rules they depend on. The table lists the planned files.
+Each file is created in the phase that implements its rule, after the Jellyfin
+spike (phase 0.5) has confirmed the naming rules they depend on. The table lists
+the files and their state.
 
-| File (planned) | Rule | Phase | Go consumer | TS consumer | Status |
+| File | Rule | Phase | Go consumer | TS consumer | Status |
 |---|---|---|---|---|---|
-| `naming-cases.json` | Folder and file naming for each kind (spec §5), sanitizing (§5, steps 1 to 6), rejected inputs (`expected.error` names the field) and a file's extension: the longest known one (`extensionCases`) | 5 | `catalog/domain` | `modules/catalog/domain` (preview of the final names in Assign, RF-25) | pending |
+| `naming-cases.json` | Phase 2: the title choice of spec §5: disc title `<T>` (`discTitle`: original Latin title, else English, else original) and chapter titles `<título cap.>` (`chapterTitle`: one title, several joined with ` + `, collapse of ` (1)`/`, Part 2`/final number, generic titles such as «Episode 3» count as no title). Phase 5 adds folders, file names, sanitizing (§5, steps 1 to 6), rejected inputs (`expected.error` names the field) and a file's extension: the longest known one (`extensionCases`) | 2 (titles), 5 (rest) | `metadata/domain` (titles, phase 2); `catalog/domain` (names, phase 5) | `modules/metadata/domain` (titles, phase 2); `modules/catalog/domain` (names, phase 5, preview of the final names in Assign, RF-25) | created: titles (`discTitle`, `chapterTitle`) |
 | `filename-cases.json` | Filename analysis: movie or series, title, year, `SxxEyy`, `1x02`, several chapters per file, parts, subtitle language (RF-20, RF-22, RF-23) | 4 | `ingestion/domain` | `modules/ingestion/domain` (suggestions in the demo, RF-72) | pending |
 | `version-labels.json` | Version labels read from resolution and codec (`2160p`, `1080p HEVC`) and their sanitizing (RF-24, §5 `<versión>`) | 5 | `catalog/domain` | `modules/catalog/domain` (editable label before confirming, RF-24) | pending |
 

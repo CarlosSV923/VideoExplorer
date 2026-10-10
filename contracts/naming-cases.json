@@ -1,0 +1,295 @@
+{
+  "description": "Naming rules of spec §5, as data for both implementations. Phase 2 pins the title choice: discTitle is the <T> of a movie or series, chapterTitle is the <título cap.> of the file's chapters. original is the TMDB title in the original language (for a chapter, in the series' original language); english is the en-US title. An absent English title is a missing key or an empty string. Sanitizing, folders and file names are added in phase 5. Conservative choices: a title with no letters (digits and signs only) counts as Latin; combining marks are not letters, so a decomposed accent does not make a title non-Latin; a generic title is one of Episode, Episodio, Capítulo, Capitulo or Chapter followed by a number, in any case, whatever the number; the suffix that can be collapsed is ' (N)', ', Part N' or ', Parte N' or a final ' N' (so 'Odisea 2001' and 'Odisea 2002' would share the base 'Odisea'), and the base must not be empty.",
+  "discTitle": {
+    "description": "Disc title <T>: the original title when all its letters are Latin, else the English title, else the original title. Empty only when both are empty.",
+    "cases": [
+      {
+        "name": "a Latin title with accents and an apostrophe is kept",
+        "input": {
+          "original": "Le Fabuleux Destin d'Amélie Poulain",
+          "english": "Amélie"
+        },
+        "expected": "Le Fabuleux Destin d'Amélie Poulain"
+      },
+      {
+        "name": "a Latin title without English is kept",
+        "input": {
+          "original": "The Godfather"
+        },
+        "expected": "The Godfather"
+      },
+      {
+        "name": "a Latin title is kept even when English exists",
+        "input": {
+          "original": "Il Padrino",
+          "english": "The Godfather"
+        },
+        "expected": "Il Padrino"
+      },
+      {
+        "name": "a Japanese title takes its English title",
+        "input": {
+          "original": "千と千尋の神隠し",
+          "english": "Spirited Away"
+        },
+        "expected": "Spirited Away"
+      },
+      {
+        "name": "a Korean title takes its English title",
+        "input": {
+          "original": "기생충",
+          "english": "Parasite"
+        },
+        "expected": "Parasite"
+      },
+      {
+        "name": "a Russian title takes its English title",
+        "input": {
+          "original": "Сталкер",
+          "english": "Stalker"
+        },
+        "expected": "Stalker"
+      },
+      {
+        "name": "a non-Latin title without English keeps the original",
+        "input": {
+          "original": "千と千尋の神隠し"
+        },
+        "expected": "千と千尋の神隠し"
+      },
+      {
+        "name": "an empty English title counts as absent",
+        "input": {
+          "original": "Сталкер",
+          "english": ""
+        },
+        "expected": "Сталкер"
+      },
+      {
+        "name": "a mix of Latin and non-Latin letters is not Latin",
+        "input": {
+          "original": "Tokyo 東京",
+          "english": "Tokyo Story"
+        },
+        "expected": "Tokyo Story"
+      },
+      {
+        "name": "a mix of Latin and non-Latin letters without English keeps the original",
+        "input": {
+          "original": "Tokyo 東京"
+        },
+        "expected": "Tokyo 東京"
+      },
+      {
+        "name": "a decomposed accent is still Latin",
+        "input": {
+          "original": "Café Society",
+          "english": "Other"
+        },
+        "expected": "Café Society"
+      },
+      {
+        "name": "digits and signs only, without English, keep the original",
+        "input": {
+          "original": "3-2+1"
+        },
+        "expected": "3-2+1"
+      },
+      {
+        "name": "digits only keep the original even with English",
+        "input": {
+          "original": "1917",
+          "english": "Nineteen Seventeen"
+        },
+        "expected": "1917"
+      }
+    ]
+  },
+  "chapterTitle": {
+    "description": "Chapter title <título cap.> of the file's chapters: each chapter takes its original title when that is Latin, else its English title, else nothing (generic titles count as nothing). Several titles are joined with ' + ', except when they all share the same base (the title without a final number, ' (N)' or ', Part N'): then the base is the title. Chapters without title are left out. Empty when no chapter has a title.",
+    "cases": [
+      {
+        "name": "a Latin original title is used",
+        "input": {
+          "chapters": [{ "original": "Piloto", "english": "Pilot" }]
+        },
+        "expected": "Piloto"
+      },
+      {
+        "name": "a non-Latin original title takes its English title",
+        "input": {
+          "chapters": [{ "original": "パイロット", "english": "Pilot" }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "a non-Latin original title without English is omitted",
+        "input": {
+          "chapters": [{ "original": "パイロット" }]
+        },
+        "expected": ""
+      },
+      {
+        "name": "a chapter without original title uses its English title",
+        "input": {
+          "chapters": [{ "english": "Pilot" }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "a chapter with no title at all is empty",
+        "input": {
+          "chapters": [{}]
+        },
+        "expected": ""
+      },
+      {
+        "name": "surrounding spaces are ignored",
+        "input": {
+          "chapters": [{ "english": "  Pilot  " }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "a generic original title counts as no title",
+        "input": {
+          "chapters": [{ "original": "Episodio 3", "english": "The Finale" }]
+        },
+        "expected": "The Finale"
+      },
+      {
+        "name": "a generic English title counts as no title",
+        "input": {
+          "chapters": [{ "original": "第3話", "english": "Episode 3" }]
+        },
+        "expected": ""
+      },
+      {
+        "name": "generic titles are recognized in any case",
+        "input": {
+          "chapters": [{ "original": "capítulo 3" }]
+        },
+        "expected": ""
+      },
+      {
+        "name": "Chapter followed by a number is generic",
+        "input": {
+          "chapters": [{ "english": "Chapter 12" }]
+        },
+        "expected": ""
+      },
+      {
+        "name": "a generic word without a number is a real title",
+        "input": {
+          "chapters": [{ "english": "Episode Zero" }]
+        },
+        "expected": "Episode Zero"
+      },
+      {
+        "name": "a single chapter keeps its suffix",
+        "input": {
+          "chapters": [{ "english": "Pilot (1)" }]
+        },
+        "expected": "Pilot (1)"
+      },
+      {
+        "name": "two Latin titles join with a plus",
+        "input": {
+          "chapters": [{ "original": "Pilot" }, { "original": "Cat's in the Bag" }]
+        },
+        "expected": "Pilot + Cat's in the Bag"
+      },
+      {
+        "name": "non-Latin titles join their English titles",
+        "input": {
+          "chapters": [
+            { "original": "パイロット", "english": "Pilot" },
+            { "original": "猫は袋の中", "english": "Cat's in the Bag" }
+          ]
+        },
+        "expected": "Pilot + Cat's in the Bag"
+      },
+      {
+        "name": "titles that differ only in (1) and (2) collapse",
+        "input": {
+          "chapters": [{ "english": "Pilot (1)" }, { "english": "Pilot (2)" }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "titles that differ only in ', Part 1' and ', Part 2' collapse",
+        "input": {
+          "chapters": [{ "english": "The Finale, Part 1" }, { "english": "The Finale, Part 2" }]
+        },
+        "expected": "The Finale"
+      },
+      {
+        "name": "titles that differ only in a final number collapse",
+        "input": {
+          "chapters": [{ "english": "Pilot 1" }, { "english": "Pilot 2" }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "a title with a suffix collapses with the same title without it",
+        "input": {
+          "chapters": [{ "english": "The Finale (1)" }, { "english": "The Finale" }]
+        },
+        "expected": "The Finale"
+      },
+      {
+        "name": "identical titles collapse",
+        "input": {
+          "chapters": [{ "english": "Pilot" }, { "english": "Pilot" }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "titles with different bases are not collapsed",
+        "input": {
+          "chapters": [{ "english": "Pilot (1)" }, { "english": "Cat's in the Bag (2)" }]
+        },
+        "expected": "Pilot (1) + Cat's in the Bag (2)"
+      },
+      {
+        "name": "one title that differs in base blocks the collapse of all",
+        "input": {
+          "chapters": [
+            { "english": "Pilot (1)" },
+            { "english": "Pilot" },
+            { "english": "Cat's in the Bag" }
+          ]
+        },
+        "expected": "Pilot (1) + Pilot + Cat's in the Bag"
+      },
+      {
+        "name": "an empty base is not a base",
+        "input": {
+          "chapters": [{ "english": "(1)" }, { "english": "(2)" }]
+        },
+        "expected": "(1) + (2)"
+      },
+      {
+        "name": "a chapter without title is left out of the join",
+        "input": {
+          "chapters": [{ "original": "Piloto" }, { "original": "Episodio 2" }]
+        },
+        "expected": "Piloto"
+      },
+      {
+        "name": "a non-Latin chapter without English is left out of the join",
+        "input": {
+          "chapters": [{ "original": "猫は袋の中" }, { "english": "Pilot" }]
+        },
+        "expected": "Pilot"
+      },
+      {
+        "name": "no chapter with a title gives an empty title",
+        "input": {
+          "chapters": [{ "original": "Episodio 1" }, { "original": "第2話" }]
+        },
+        "expected": ""
+      }
+    ]
+  }
+}
