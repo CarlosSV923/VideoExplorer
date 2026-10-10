@@ -26,7 +26,7 @@ Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
 - [x] Configuración (`caarlos0/env`, reemplaza `internal/platform/config`, defaults de §7 reflejados en `.env.example`, sin `PUID`/`PGID`), `slog`, SQLite (modernc, WAL) + goose + sqlc; `task dev:api` recibe `.env.local` (p. ej. `compose.dev.yaml` como GameExplorer); en CI, reactivar la caché de Go (ya habrá `go.sum`) y fijar la versión de `govulncheck`
 - [x] oapi-codegen + cliente TS (`task gen`, el handler de `/api/health` pasa a la interfaz generada, comprobación en CI de código generado al día); SPA incrustada
 - [x] Contexto `identity` reutilizado de GameExplorer (endpoints `/auth/*` en `api/openapi.yaml` sobre la interfaz generada; reactivar `security-defined` y `operation-4xx-response` en `api/redocly.yaml` con la sesión; middleware de sesión y cabeceras de seguridad de RNF-02; la página de «binario sin SPA» de `platform/web` pasa a inglés)
-- [~] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI; `dev:api`, `test:api` y `hash-password` la usan; README con estado actualizado
+- [x] Imagen de desarrollo con `7zz` y `ffprobe` estático (versiones fijadas, SHA-256), tarea `dev:image` e instalación de ambos en CI; `dev:api`, `test:api` y `hash-password` la usan; README con estado actualizado
 - [ ] `/api/health` con diagnósticos según RF-63 (escritura en biblioteca y datos, `7zz`, `ffprobe`; `code` + datos + `message` en el contrato; TMDB fuera del estado)
 
 ## Fase 2 — Contexto `metadata` (TMDB)
@@ -100,6 +100,6 @@ Depende de: 10 · Cubre: RF-70 a RF-72
 
 ## Fase 12 — Producción en TrueNAS
 Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
-- [ ] Dockerfile de producción (node → golang → debian-slim con `7zz` y `ffprobe`), publicación en GHCR con tags `v*`
+- [ ] Dockerfile de producción (node → golang → debian-slim con `7zz` y `ffprobe` vía los scripts de `scripts/`, aviso de licencia GPL de ffprobe con enlace a su código fuente), publicación en GHCR con tags `v*`
 - [ ] `deploy/truenas/compose.yaml` y guía en README
 - [ ] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente y Jellyfin reconociéndolo todo
