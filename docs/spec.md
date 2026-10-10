@@ -87,6 +87,7 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 - **RF-44** **Acciones** en la ficha (todo reversible si falla a mitad):
   - **Editar y reasignar**: cambiar la coincidencia de TMDB, el tipo, la temporada/capítulo de un archivo, la etiqueta de versión, el número de parte o el idioma de un subtítulo; renombra en disco. Si el destino choca, aplica RF-24.
   - **Etiqueta de ID** (RF-45).
+  - **Actualizar datos**: recarga desde TMDB los datos e imágenes del título ignorando la caché (§6); no renombra nada.
   - **Mover a No asignados**: el título completo, una temporada o un archivo.
   - **Mandar a la papelera**: el título completo, una temporada, un capítulo o una versión concreta.
   - **Descargar**: un archivo (HTTP Range) o una temporada/serie/película completa como zip *store* en streaming con tamaño exacto anunciado.
@@ -158,7 +159,7 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 | Capítulo, versión | ídem | `<T> (<A>) - S<SS>E<EE> - <título cap.> - <versión>.<ext>` |
 | Subtítulo | junto a su video | `<nombre base del video>.<idioma>[.forced][.sdh].<ext>` |
 
-- `<T>`: título del disco. Es el **título original** de TMDB si está en alfabeto latino; si no (japonés, coreano, ruso…), el **título en inglés** (`en-US`). `Amélie`, `The Godfather`, `Spirited Away`.
+- `<T>`: título del disco. Es el **título original** de TMDB si está en alfabeto latino (todas sus letras son de la escritura latina de Unicode, acentos incluidos; dígitos y signos no cuentan); si no (japonés, coreano, ruso…), el **título en inglés** (`en-US`). `Amélie`, `The Godfather`, `Spirited Away`.
 - `<A>`: año del estreno (película) o de la primera emisión (serie).
 - `<ids>`: ` [tmdbid-ID]` (formato de Jellyfin) en todo título vinculado a TMDB, salvo que el usuario lo haya quitado (RF-45); vacío en títulos libres o sin etiqueta. En series solo va en la carpeta; en películas también en los archivos (Jellyfin exige que los archivos de versiones empiecen como la carpeta).
 - `<SS>`, `<EE>`: dos dígitos como mínimo (`S01E05`, `S01E105`). Temporada 0 → `Season 00`.
@@ -186,7 +187,7 @@ Una ruta cuyo componente supere 255 bytes recorta primero el título del capítu
   - La importación (RF-29) sin TMDB registra los títulos con su nombre y año de la carpeta como títulos libres.
   - La atribución a TMDB solo aparece si está configurado.
 - Se usan: búsqueda de películas y series, detalle (títulos, año, géneros, sinopsis, colección, imágenes y logos), temporadas y capítulos, colecciones, idioma original.
-- Caché local de imágenes en `/data/cache/images` y de respuestas en SQLite con caducidad; respeto de los límites de TMDB.
+- Caché local de imágenes en `/data/cache/images` y de respuestas en SQLite con caducidad por tipo (decisión 2026-10-10): búsquedas 24 h; series, temporadas y capítulos 24 h (capítulos nuevos y «Series incompletas» al día siguiente); películas, colecciones y géneros 30 días. Una entrada caducada se recarga al pedirla; si TMDB no responde, se sirve la caducada. Las imágenes no caducan y se borran cuando ningún título las usa. Tamaños descargados: póster `w500`, backdrop `w1280`, logo `w500`, miniatura de capítulo `w300`; el navegador las pide a `/api/images/…` (con sesión), nunca a TMDB (RNF-10). Respeto de los límites de TMDB (reintento con espera ante 429 y errores 5xx).
 
 ## 7. Ambientes
 

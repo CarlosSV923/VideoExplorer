@@ -32,7 +32,7 @@ Depende de: 0.5 · Cubre: RF-60, RF-63, RNF-02, RNF-03, §7
 
 ## Fase 2 — Contexto `metadata` (TMDB)
 Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
-- [ ] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
+- [~] Cliente TMDB (v3 key o v4 token, límites, reintentos): búsqueda de películas y series, detalle, temporadas, capítulos, colecciones, géneros, logos
 - [ ] Regla de título de disco (original latino o inglés) y de títulos de capítulo (§5): crea `contracts/naming-cases.json` con esas secciones (la fase 5 añade carpetas, archivos y saneamiento) y actualiza `contracts/README.md`
 - [ ] Caché de respuestas en SQLite y de imágenes en `/data/cache/images`; `GET /api/images/...`
 - [ ] Catálogo fijo para la demo, sin imágenes de TMDB (RF-71)
@@ -75,6 +75,7 @@ Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [ ] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días
 - [ ] Descargas: archivo con Range y zip *store* (de GameExplorer)
 - [ ] Info técnica (ffprobe)
+- [ ] «Actualizar datos» de TMDB desde la ficha (RF-44, §6)
 
 ## Fase 8 — Integración con Jellyfin
 Depende de: 7 · Cubre: RF-50
