@@ -7,9 +7,9 @@
 Depende de: — · Base: GameExplorer
 - [x] Repositorio git y remoto público `CarlosSV923/VideoExplorer` (confirmar con el usuario antes del primer push)
 - [x] Monorepo copiado de la estructura de GameExplorer: Go (`apps/api`) + pnpm (`apps/web`), `Taskfile.yml`, `.editorconfig`, `.gitattributes`, `.gitignore`
-- [ ] API mínima (`/api/health`, apagado ordenado) y web mínima (React + Vite + TS estricto, Vitest, ESLint, Prettier, `VITE_DATA_SOURCE`)
+- [x] API mínima (`/api/health`, apagado ordenado) y web mínima (React + Vite + TS estricto, Vitest, ESLint, Prettier, `VITE_DATA_SOURCE`)
 - [ ] `golangci-lint` v2, `task check`, CI en GitHub Actions (incluye código generado al día)
-- [ ] Esqueleto de `api/openapi.yaml` y `contracts/`
+- [ ] Esqueleto de `api/openapi.yaml` (con `/health` y su esquema, que hoy está escrito a mano) y `contracts/`
 - [ ] README EN/ES, LICENSE (MIT), `.env.example`
 
 ## Fase 0.5 — Spike de nombres en Jellyfin y Plex
