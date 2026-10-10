@@ -30,15 +30,53 @@ tasks:
     cmds:
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go mod tidy'
 
+  # ---------- development ----------
+  dev:api:
+    desc: Run the Go API in Docker (http://localhost:8080)
+    cmds:
+      # `exec` makes the binary PID 1's process: `go run` does not forward SIGTERM,
+      # so docker stop / Ctrl+C would skip the graceful shutdown.
+      - '{{.DOCKER_GO}} -p 8080:8080 {{.GO_IMAGE}} sh -c "go build -o /tmp/videoexplorer ./cmd/videoexplorer && exec /tmp/videoexplorer"'
+
+  dev:web:
+    desc: Run the Vite dev server (http://localhost:5173), proxying /api to the Go API
+    cmds:
+      - pnpm dev:web
+
+  # ---------- quality ----------
+  fmt:
+    desc: Format the web app and config files (Prettier)
+    cmds:
+      - pnpm format
+
+  lint:web:
+    desc: ESLint, type check and Prettier check of the web app
+    cmds:
+      - pnpm lint:web
+      - pnpm typecheck:web
+      - pnpm format:check
+
   test:
     desc: Run all tests
     cmds:
       - task: test:api
+      - task: test:web
 
   test:api:
     desc: Go tests with the race detector (in Docker)
     cmds:
       - '{{.DOCKER_GO}} {{.GO_IMAGE}} go test -race -count=1 -timeout 120s ./...'
+
+  test:web:
+    desc: Vitest + Testing Library
+    cmds:
+      - pnpm test:web
+
+  # ---------- build ----------
+  build:web:
+    desc: Build the SPA (apps/web/dist)
+    cmds:
+      - pnpm build:web
 
   build:api:
     desc: Build the Linux Go binary (apps/api/bin/videoexplorer, in Docker)
