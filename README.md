@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[Español](README.es.md) · **Status: phase 0, in development**
+[Español](README.es.md) · **Status: phase 1 in progress (API base)**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
@@ -31,7 +31,7 @@ The full requirements are in [`docs/spec.md`](docs/spec.md). In short:
 
 ## Status
 
-The repository currently contains the technical base only: a Go API with a health check, a React shell, the tooling and the CI. The features above are built phase by phase; the progress is in [`docs/tasks.md`](docs/tasks.md).
+The repository currently contains the API base: configuration, SQLite, the OpenAPI contract with generated code, the password sign-in with sessions, the embedded web app, the tooling and the CI. The features above are built phase by phase; the progress is in [`docs/tasks.md`](docs/tasks.md).
 
 Coming later: a demo without a backend, installation as a TrueNAS SCALE custom app, and screenshots.
 
@@ -39,7 +39,7 @@ Coming later: a demo without a backend, installation as a TrueNAS SCALE custom a
 
 | | |
 |---|---|
-| Backend | Go, `net/http`, `log/slog`. Planned: SQLite (modernc, goose, sqlc). 7-Zip and ffprobe run as child processes |
+| Backend | Go, `net/http`, `log/slog`. SQLite (modernc, goose, sqlc). 7-Zip and ffprobe run as child processes |
 | Frontend | React, Vite, TypeScript (strict), i18next |
 | Contract | OpenAPI 3, spec-first ([`api/openapi.yaml`](api/openapi.yaml)). Go and TypeScript share golden test vectors in [`contracts/`](contracts/README.md) |
 | Quality | Go tests with the race detector, golangci-lint v2, Vitest and Testing Library, ESLint, Prettier, Redocly, govulncheck in CI |
@@ -77,6 +77,8 @@ task check         # everything CI runs
 ```
 
 Other tasks: `task gen` (regenerates the code from `api/openapi.yaml` and the SQL queries; CI fails when it is stale), `task fmt` (formatters), `task build` (the SPA embedded in the Linux binary; `task build:api` and `task build:web` build each part), `task tidy` (`go mod tidy`). `task --list` shows them all. To check the API: `curl http://localhost:8080/api/health`.
+
+`task dev:image` builds the development image (`deploy/dev/Dockerfile`): the Go toolchain plus the official 7-Zip (with RAR) and ffprobe, both at pinned versions with SHA-256 checks. Every Go task depends on it, so the first `task` that runs Go builds it. CI installs the same two binaries.
 
 `task dev:api` passes every variable of `.env.local` into the container (it is optional, but without `SESSION_SECRET` and a password the API does not start). `LIBRARY_PATH` and `DATA_PATH` are always `./.dev/library` and `./.dev/data` in development, whatever `.env.local` says.
 
