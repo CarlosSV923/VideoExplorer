@@ -30,7 +30,7 @@ func TestHealthRoute(t *testing.T) {
 			mux := http.NewServeMux()
 			system.RegisterRoutes(mux)
 			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			mux.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)

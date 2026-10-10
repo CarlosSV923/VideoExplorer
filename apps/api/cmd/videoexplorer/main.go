@@ -53,7 +53,8 @@ func run(cfg config.Config, log *slog.Logger) error {
 
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)), mux)
 
-	ln, err := net.Listen("tcp", srv.Addr)
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", srv.Addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", srv.Addr, err)
 	}

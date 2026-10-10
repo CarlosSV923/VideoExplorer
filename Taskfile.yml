@@ -9,6 +9,8 @@ vars:
   # Go tooling runs in Docker: identical to CI on every OS, and avoids Windows
   # Application Control blocking freshly compiled Go binaries.
   GO_IMAGE: golang:1.27.2
+  # Official golangci-lint image (v2), same version as the CI lint job.
+  LINT_IMAGE: golangci/golangci-lint:v2.14.0
   DOCKER_GO: >-
     docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod
     -v ve-gocache:/root/.cache/go-build -w /src/{{.API_DIR}}
@@ -44,10 +46,22 @@ tasks:
       - pnpm dev:web
 
   # ---------- quality ----------
-  fmt:
-    desc: Format the web app and config files (Prettier)
+  lint:
+    desc: Lint Go and TypeScript code
     cmds:
+      - task: lint:api
+      - task: lint:web
+
+  fmt:
+    desc: Format Go (gofumpt + goimports) and TS/JSON/YAML (Prettier)
+    cmds:
+      - docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod -v ve-lintcache:/root/.cache -w /src/{{.API_DIR}} {{.LINT_IMAGE}} golangci-lint fmt ./...
       - pnpm format
+
+  lint:api:
+    desc: golangci-lint v2 (in Docker; config in apps/api/.golangci.yml)
+    cmds:
+      - docker run --rm -v "{{.ROOT_DIR}}:/src" -v ve-gomod:/go/pkg/mod -v ve-lintcache:/root/.cache -w /src/{{.API_DIR}} {{.LINT_IMAGE}} golangci-lint run ./...
 
   lint:web:
     desc: ESLint, type check and Prettier check of the web app
@@ -82,3 +96,12 @@ tasks:
     desc: Build the Linux Go binary (apps/api/bin/videoexplorer, in Docker)
     cmds:
       - '{{.DOCKER_GO}} -e CGO_ENABLED=0 {{.GO_IMAGE}} go build -trimpath -o bin/videoexplorer ./cmd/videoexplorer'
+
+  # ---------- everything CI runs ----------
+  check:
+    desc: Everything CI runs (lint, tests, builds)
+    cmds:
+      - task: lint
+      - task: test
+      - task: build:api
+      - task: build:web
