@@ -31,7 +31,7 @@ Los requisitos completos están en [`docs/spec.md`](docs/spec.md). En resumen:
 
 ## Estado
 
-El repositorio contiene por ahora la base de la API: configuración, SQLite, el contrato OpenAPI con su código generado, el acceso con contraseña y sesiones, la aplicación web incrustada, las herramientas y la CI. Las funciones de arriba se construyen fase a fase; el avance está en [`docs/tasks.md`](docs/tasks.md).
+El repositorio contiene por ahora la base de la API: configuración, SQLite, el contrato OpenAPI con su código generado, el acceso con contraseña y sesiones, los diagnósticos de arranque de `GET /api/health` (las carpetas de biblioteca y datos deben poder escribirse, y `7zz` y `ffprobe` deben arrancar), la aplicación web incrustada, las herramientas y la CI. Las funciones de arriba se construyen fase a fase; el avance está en [`docs/tasks.md`](docs/tasks.md).
 
 Próximamente: una demo sin backend, la instalación como Custom App de TrueNAS SCALE y capturas de pantalla.
 
