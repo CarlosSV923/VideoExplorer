@@ -71,9 +71,16 @@ tasks:
 
   # ---------- code generation ----------
   gen:
-    desc: Regenerate code from the SQL queries (sqlc)
+    desc: Regenerate code from api/openapi.yaml and the SQL queries
     cmds:
+      - task: gen:api
       - task: gen:sql
+
+  gen:api:
+    desc: Go server types (oapi-codegen, in Docker) and TS client types (openapi-typescript) from api/openapi.yaml
+    cmds:
+      - '{{.DOCKER_GO}}/internal/platform/httpapi {{.GO_IMAGE}} go tool oapi-codegen -config oapi-codegen.yaml ../../../../../api/openapi.yaml'
+      - pnpm gen:web
 
   gen:sql:
     desc: Typed Go queries from SQL (sqlc, in Docker)
@@ -138,10 +145,22 @@ tasks:
     cmds:
       - pnpm build:web
 
+  embed:web:
+    internal: true
+    cmds:
+      - node -e "const fs=require('fs');const d='{{.API_DIR}}/internal/platform/web/dist';for(const f of fs.readdirSync(d))if(f!=='.gitkeep')fs.rmSync(d+'/'+f,{recursive:true});fs.cpSync('apps/web/dist',d,{recursive:true})"
+
   build:api:
     desc: Build the Linux Go binary (apps/api/bin/videoexplorer, in Docker)
     cmds:
       - '{{.DOCKER_GO}} -e CGO_ENABLED=0 {{.GO_IMAGE}} go build -trimpath -o bin/videoexplorer ./cmd/videoexplorer'
+
+  build:
+    desc: Build the SPA, embed it in the Go code and build the Linux binary with the SPA inside
+    cmds:
+      - task: build:web
+      - task: embed:web
+      - task: build:api
 
   # ---------- everything CI runs ----------
   check:
@@ -150,5 +169,4 @@ tasks:
       - task: lint
       - task: test
       - task: vuln
-      - task: build:api
-      - task: build:web
+      - task: build

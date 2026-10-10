@@ -76,7 +76,7 @@ task lint          # lint de OpenAPI, Go y frontend
 task check         # todo lo que ejecuta la CI
 ```
 
-Otras tareas: `task fmt` (formateadores), `task build:api` y `task build:web` (builds), `task tidy` (`go mod tidy`). `task --list` las muestra todas. Para comprobar la API: `curl http://localhost:8080/api/health`.
+Otras tareas: `task gen` (regenera el código desde `api/openapi.yaml` y las consultas SQL; la CI falla si está desactualizado), `task fmt` (formateadores), `task build` (la SPA incrustada en el binario de Linux; `task build:api` y `task build:web` construyen cada parte), `task tidy` (`go mod tidy`). `task --list` las muestra todas. Para comprobar la API: `curl http://localhost:8080/api/health`.
 
 `task dev:api` pasa al contenedor todas las variables de `.env.local` (el archivo es opcional, pero sin `SESSION_SECRET` y una contraseña la API no arranca). `LIBRARY_PATH` y `DATA_PATH` valen siempre `./.dev/library` y `./.dev/data` en desarrollo, digan lo que digan `.env.local`.
 
