@@ -5,3 +5,4 @@ coverage
 apps/api
 .claude
 *.md
+apps/web/src/shared/api/schema.d.ts

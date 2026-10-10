@@ -1,2 +1,7 @@
 packages:
   - apps/web
+
+peerDependencyRules:
+  allowedVersions:
+    # openapi-typescript 7 declares typescript ^5 but works with 6 (verified in phase 1).
+    openapi-typescript>typescript: '6'
