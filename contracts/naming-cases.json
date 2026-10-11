@@ -454,7 +454,7 @@
     ]
   },
   "subtitleLanguage": {
-    "description": "Language <idioma> of a subtitle file's name (spec §5): ISO 639-1 with an optional region, and only the regions Jellyfin 12.2 recognizes (spike, docs/spike-results.md). The regions Jellyfin recognizes stay (pt-BR, pt-PT, fr-CA, zh-TW, es-419). Latin American Spanish regions (es-MX and the other Spanish-speaking countries of Latin America) become es-419. Any other region is dropped, so the name keeps the language only (es-ES becomes es, en-US and en-GB become en, fr-FR becomes fr): a region Jellyfin does not know shows as an undefined language. Conservative choice (not decided by spec §5). The tag is read without regard to case and written as language in lower case and region in upper case. A tag that is not two letters with an optional region or three digits is rejected; expected.error names the field.",
+    "description": "Language <idioma> of a subtitle file's name (spec §5): ISO 639-1 with an optional region, and only the regions Jellyfin 12.2 recognizes (spike, docs/spike-results.md). The regions Jellyfin recognizes stay (pt-BR, pt-PT, fr-CA, zh-TW, es-419). Latin American Spanish regions (es-MX and the other Spanish-speaking countries of Latin America) and es-US become es-419 (es-US added by decision of 2026-10-11). Any other region is dropped, so the name keeps the language only (es-ES becomes es, en-US and en-GB become en, fr-FR becomes fr): a region Jellyfin does not know shows as an undefined language. Conservative choice (not decided by spec §5). The tag is read without regard to case and written as language in lower case and region in upper case. A tag that is not two letters with an optional region or three digits is rejected; expected.error names the field.",
     "cases": [
       {
         "name": "a language without region is kept",
@@ -504,6 +504,11 @@
       {
         "name": "es-CO becomes es-419",
         "input": { "language": "es-CO" },
+        "expected": "es-419"
+      },
+      {
+        "name": "es-US becomes es-419",
+        "input": { "language": "es-US" },
         "expected": "es-419"
       },
       {

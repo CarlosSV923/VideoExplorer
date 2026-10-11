@@ -18,12 +18,12 @@ var jellyfinRegions = map[string]bool{
 }
 
 // latinAmericanSpanish are the Spanish regions that Jellyfin does not know and that become es-419
-// (spec §5, decision 2026-10-10).
+// (spec §5, decision 2026-10-10; es-US added by the coordinator's decision, 2026-10-11).
 var latinAmericanSpanish = map[string]bool{
 	"es-AR": true, "es-BO": true, "es-CL": true, "es-CO": true, "es-CR": true,
 	"es-CU": true, "es-DO": true, "es-EC": true, "es-SV": true, "es-GT": true,
 	"es-HN": true, "es-MX": true, "es-NI": true, "es-PA": true, "es-PY": true,
-	"es-PE": true, "es-PR": true, "es-UY": true, "es-VE": true,
+	"es-PE": true, "es-PR": true, "es-UY": true, "es-VE": true, "es-US": true,
 }
 
 // NormalizeLanguage returns the language <idioma> of a subtitle as its file name writes it

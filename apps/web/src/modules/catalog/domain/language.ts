@@ -12,7 +12,10 @@ const languageTag = /^([a-z]{2})(?:-([a-z]{2}|\d{3}))?$/i
 /** Regions Jellyfin 12.2 recognizes in a subtitle's language (spike 12.2). */
 const jellyfinRegions = new Set(['pt-BR', 'pt-PT', 'fr-CA', 'zh-TW', 'es-419'])
 
-/** Spanish regions that Jellyfin does not know and that become es-419 (spec §5, decision 2026-10-10). */
+/**
+ * Spanish regions that Jellyfin does not know and that become es-419 (spec §5, decision 2026-10-10;
+ * es-US added by the coordinator's decision, 2026-10-11).
+ */
 const latinAmericanSpanish = new Set([
   'es-AR',
   'es-BO',
@@ -32,6 +35,7 @@ const latinAmericanSpanish = new Set([
   'es-PE',
   'es-PR',
   'es-UY',
+  'es-US',
   'es-VE',
 ])
 
