@@ -29,11 +29,11 @@ func (k FileKind) Kept() bool {
 // 150 000 000 bytes, as the spec writes it.
 const SampleMaxSize int64 = 150 * 1000 * 1000
 
-// sampleWord is the word that marks a sample (RF-07). It is a whole word of the path, in
-// any letter case, and a word is what lies between characters that are not letters or
-// digits: "Movie-sample.mkv", "Sample/clip.mkv" and "movie.sample.mkv" match, while
-// "Resampled.mkv" does not.
-const sampleWord = "sample"
+// sampleWords are the words that mark a sample (RF-07): "sample" and its plural "samples".
+// They are whole words of the path, in any letter case, and a word is what lies between
+// characters that are not letters or digits: "Movie-sample.mkv", "Sample/clip.mkv",
+// "movie.sample.mkv" and "Samples/clip.mkv" match, while "Resampled.mkv" does not.
+var sampleWords = []string{"sample", "samples"}
 
 // macOSFolder is the folder macOS adds to an archive with the metadata of its files (RF-07).
 const macOSFolder = "__MACOSX"
@@ -84,9 +84,14 @@ func (r FilterRules) Classify(c Candidate) FileKind {
 	}
 }
 
-// isSample reports whether the word "sample" is in the path: in the name or in any folder.
+// isSample reports whether a sample word is in the path: in the name or in any folder.
 func isSample(p string) bool {
-	return slices.Contains(words(p), sampleWord)
+	for _, w := range words(p) {
+		if slices.Contains(sampleWords, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // words splits a path into its words, in lower case: the runs of letters and digits.
