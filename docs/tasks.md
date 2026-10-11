@@ -46,7 +46,7 @@ Depende de: 1 · Cubre: RF-01 a RF-03, RF-09, RF-10, §9.6
 
 ## Fase 4 — Contexto `ingestion` II: extracción, filtrado y análisis
 Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
-- [ ] Extractor 7zz (de GameExplorer): multiparte, contraseña, CRC32, zip-slip; comprimido original a la papelera
+- [~] Extractor 7zz (de GameExplorer): multiparte (`waiting_parts`), contraseña, espacio libre, CRC32, zip-slip, fallos y Reintentar de RF-10c; comprimido original a la papelera (adelanta la papelera mínima del contexto `catalog`, con el formato de GameExplorer, tras un puerto)
 - [ ] Filtrado por extensión y detección de *samples*; descartes a la papelera
 - [ ] Puerto `Prober` + adaptador ffprobe (resolución, códecs, pistas, duración) con caché
 - [ ] Analizador de nombres de archivo (película/serie, título, año, `SxxEyy`, `1x02`, varios capítulos, partes, idioma de subtítulos) + vectores `filename-cases.json`
@@ -57,7 +57,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 - [ ] Nombres y saneamiento (§5, incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos): añade carpetas, archivos y saneamiento al mismo `contracts/naming-cases.json` (consumidor `catalog/domain`); el capítulo necesita sus títulos en el idioma original y en inglés (hoy `Episode` solo trae el localizado)
-- [ ] Motor de operaciones con journal (de GameExplorer) y papelera mínima
+- [ ] Motor de operaciones con journal (de GameExplorer); la papelera mínima ya existe desde la Fase 4
 - [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»
 - [ ] `plan` (vista previa) y `commit` de una entrada de No asignados
 
