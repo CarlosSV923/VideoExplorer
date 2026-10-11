@@ -134,7 +134,8 @@ func newRig(t *testing.T, extractor application.Extractor, free uint64, run bool
 	}
 	svc := application.NewService(ingestionsqlite.NewBatchRepository(conn), ingestionsqlite.NewJobRepository(conn), r.pub, nil, now).
 		WithStaging(diskStaging{dir: r.staging}).
-		WithExtraction(workspace.New(r.staging, space), extractor, r.trash)
+		WithExtraction(workspace.New(r.staging, space), extractor, r.trash).
+		WithFiltering(ingestionsqlite.NewFilterRepository(conn), filterRules())
 	r.svc = svc
 	r.conn = conn
 
@@ -465,7 +466,9 @@ func TestPlainFilesAreNotExtractedAndAVolumeWaitsForItsSet(t *testing.T) {
 	zipID := r.upload(t, "Movie.zip", videoZip(t))
 	r.waitFor(t, zipID, "the last archive", func(j domain.UploadJob) bool { return j.Status == domain.StatusFiltering })
 
-	want := map[domain.JobID]domain.Status{video: domain.StatusUploaded, part: domain.StatusWaitingParts}
+	// A video on its own is not extracted: it is filtered as it was uploaded, and kept in staging (RF-07).
+	r.waitFor(t, video, "the video filtered", func(j domain.UploadJob) bool { return j.FilterDone })
+	want := map[domain.JobID]domain.Status{video: domain.StatusFiltering, part: domain.StatusWaitingParts}
 	for id, status := range want {
 		job, err := r.svc.Job(t.Context(), id)
 		if err != nil {

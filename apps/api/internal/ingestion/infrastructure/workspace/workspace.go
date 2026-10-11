@@ -160,3 +160,50 @@ func (a *Area) ReadHeader(path string, n int) ([]byte, error) {
 	}
 	return buf[:read], nil
 }
+
+// ExtractionExists implements application.Workspace.
+func (a *Area) ExtractionExists(id domain.JobID) bool {
+	info, err := os.Lstat(a.ExtractionDir(id))
+	return err == nil && info.IsDir()
+}
+
+// ExtractedFiles implements application.Workspace: the regular files under the
+// extraction folder, in the order the walk visits them.
+func (a *Area) ExtractedFiles(id domain.JobID) ([]application.ExtractedFile, error) {
+	root := a.ExtractionDir(id)
+	var out []application.ExtractedFile
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		out = append(out, application.ExtractedFile{Path: filepath.ToSlash(rel), Size: info.Size()})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("workspace: list extraction: %w", err)
+	}
+	return out, nil
+}
+
+// ExtractedPath implements application.Workspace. The relative path comes from the
+// extraction itself, which refused any entry that leaves the folder (RNF-02).
+func (a *Area) ExtractedPath(id domain.JobID, rel string) string {
+	return filepath.Join(a.ExtractionDir(id), filepath.FromSlash(rel))
+}
+
+// FileExists implements application.Workspace.
+func (a *Area) FileExists(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode().IsRegular()
+}

@@ -123,6 +123,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		// Archives are extracted in the staging area and their originals go to the trash (RF-04, RF-06).
 		catalog := newCatalog(conn, cfg)
 		ingest.Service.WithExtraction(workspace.New(stagingDir(cfg.LibraryPath), nil), sevenzip.New(""), trashForIngestion{trash: catalog.Trash})
+		withFiltering(ingest.Service, conn, cfg)
 		// Reconciled before the upload endpoint serves anything, so no upload is in flight (RF-10b).
 		if res, err := ingest.Service.Recover(ctx); err != nil {
 			log.Error("uploads not reconciled", "error", err)

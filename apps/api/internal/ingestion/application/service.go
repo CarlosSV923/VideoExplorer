@@ -37,6 +37,8 @@ type Service struct {
 	mu sync.Mutex
 	// work is the extraction queue; nil until WithExtraction (RF-04).
 	work *extraction
+	// filter holds the ports of the filter; nil until WithFiltering (RF-07).
+	filter *filtering
 }
 
 var _ Uploads = (*Service)(nil)

@@ -103,6 +103,23 @@ type Workspace interface {
 	FreeSpace() (uint64, error)
 	// ReadHeader reads the first n bytes of a file (fewer at the end of the file).
 	ReadHeader(path string, n int) ([]byte, error)
+	// ExtractionExists reports whether the job (or the set led by it) has an extraction
+	// folder: only archives have one (RF-07).
+	ExtractionExists(id domain.JobID) bool
+	// ExtractedFiles lists the regular files of the extraction folder, with their paths
+	// relative to it and "/" separators (RF-07).
+	ExtractedFiles(id domain.JobID) ([]ExtractedFile, error)
+	// ExtractedPath is the file at a relative path of the extraction folder.
+	ExtractedPath(id domain.JobID, rel string) string
+	// FileExists reports whether a regular file is at path, a path the service built.
+	FileExists(path string) bool
+}
+
+// ExtractedFile is a file of an extraction folder.
+type ExtractedFile struct {
+	// Path is relative to the extraction folder, with "/" separators.
+	Path string
+	Size int64
 }
 
 // Trash receives the originals of finished archives (RF-06). The catalog context

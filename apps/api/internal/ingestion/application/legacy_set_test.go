@@ -148,3 +148,12 @@ func TestAPlainRARIsNotRefusedForAnotherSetOrAnotherBatch(t *testing.T) {
 		})
 	}
 }
+
+// filterRules are the defaults of VIDEO_EXTENSIONS and SUBTITLE_EXTENSIONS (spec §7),
+// which the rigs of these tests filter with.
+func filterRules() domain.FilterRules {
+	return domain.NewFilterRules(
+		[]string{".mkv", ".mp4", ".avi", ".m4v", ".ts", ".m2ts", ".mov", ".wmv", ".webm", ".mpg", ".mpeg"},
+		[]string{".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt"},
+	)
+}

@@ -83,6 +83,7 @@ func (s *Service) RunExtraction(ctx context.Context, n int) {
 	}
 	defer close(s.work.stopped)
 	s.resumeExtractions(ctx)
+	s.resumeFiltering(ctx)
 
 	var wg sync.WaitGroup
 	for range max(1, n) {
@@ -239,7 +240,7 @@ func (s *Service) extract(ctx context.Context, r extractionRequest) error {
 	}
 	if _, isArchive := domain.DetectArchive(header); !isArchive {
 		if !job.IsVolume() {
-			return nil // not an archive: the filtering takes it (RF-07, a later step)
+			return s.filterUpload(ctx, unit) // not an archive: it is filtered as it was uploaded (RF-07)
 		}
 		return s.stop(ctx, unit, fmt.Errorf("%w: %s is not an archive", ErrCorrupt, job.FileName))
 	}
@@ -320,8 +321,8 @@ func leaderOf(job *domain.UploadJob) domain.JobID {
 	return job.ID
 }
 
-// finish moves the originals to the trash (RF-06) and records the extraction as
-// done: the content waits for the filtering. An original is removed from staging
+// finish moves the originals to the trash (RF-06), records the extraction as done
+// and filters the extracted content (RF-07). An original is removed from staging
 // only once it is in the trash; if the move fails, it stays where it is, known to
 // its job, and the job goes on.
 func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
@@ -348,9 +349,13 @@ func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
 			s.log.Warn("set folder not removed", "group", unit[0].VolumeGroup, "error", err)
 		}
 	}
-	return s.abortedOr(ctx, s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
+	if err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.FinishExtraction(now)
-	}))
+	}); err != nil {
+		return s.abortedOr(ctx, err)
+	}
+	// The extracted content goes on to the filter (RF-07), in the same worker.
+	return s.abortedOr(ctx, s.filterUnit(ctx, unit, true))
 }
 
 // stop ends an extraction that did not succeed. Whatever was extracted is
