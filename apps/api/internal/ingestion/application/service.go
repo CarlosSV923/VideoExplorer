@@ -39,6 +39,8 @@ type Service struct {
 	work *extraction
 	// filter holds the ports of the filter; nil until WithFiltering (RF-07).
 	filter *filtering
+	// probes reads the kept videos in the background; nil until WithProbing (RF-24).
+	probes *probing
 	// settleMu serializes the decisions on the batches of the filter (RF-07).
 	settleMu sync.Mutex
 }

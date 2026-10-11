@@ -88,6 +88,7 @@ func (s *Service) filterUnit(ctx context.Context, unit []*domain.UploadJob, extr
 	}); err != nil {
 		return s.abortedOr(ctx, err)
 	}
+	s.queueKeptVideos(unit, extracted, entries) // read in the background; the job does not wait (RF-24)
 	s.settleAll(ctx)
 	return nil
 }

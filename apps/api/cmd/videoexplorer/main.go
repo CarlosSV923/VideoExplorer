@@ -124,6 +124,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		catalog := newCatalog(conn, cfg)
 		ingest.Service.WithExtraction(workspace.New(stagingDir(cfg.LibraryPath), nil), sevenzip.New(""), trashForIngestion{trash: catalog.Trash})
 		withFiltering(ingest.Service, conn, cfg)
+		withProbing(ingest.Service, conn, log)
 		// Reconciled before the upload endpoint serves anything, so no upload is in flight (RF-10b).
 		if res, err := ingest.Service.Recover(ctx); err != nil {
 			log.Error("uploads not reconciled", "error", err)
@@ -132,6 +133,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		}
 		go uploads.adapter.Run(ctx)
 		go ingest.Service.RunExtraction(ctx, cfg.ExtractConcurrency)
+		go ingest.Service.RunProbing(ctx) // one reading at a time, behind the extractions (RF-24)
 		go ingest.Service.RunPurge(ctx, purgeInterval)
 	}
 
