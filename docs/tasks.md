@@ -58,7 +58,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 - [ ] Nombres y saneamiento (§5, incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos): añade carpetas, archivos y saneamiento al mismo `contracts/naming-cases.json` (consumidor `catalog/domain`); el capítulo necesita sus títulos en el idioma original y en inglés (hoy `Episode` solo trae el localizado)
 - [ ] Motor de operaciones con journal (de GameExplorer); la papelera mínima ya existe desde la Fase 4
-- [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»
+- [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»; etiqueta automática con resolución, códec e idioma del audio (RF-24) + vectores `contracts/version-labels.json`
 - [ ] `plan` (vista previa) y `commit` de una entrada de No asignados
 
 ## Fase 6 — No asignados, escaneo e importación
