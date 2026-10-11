@@ -27,7 +27,7 @@ func newTestIngestion(t *testing.T) (ingestionWiring, *sql.DB) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	return newIngestion(conn, slog.New(slog.DiscardHandler)), conn
+	return newIngestion(conn, slog.New(slog.DiscardHandler), nil), conn
 }
 
 // createBatch posts a batch and returns the response.

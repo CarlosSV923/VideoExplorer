@@ -34,6 +34,7 @@ const (
 type fakeUploads struct {
 	mu         sync.Mutex
 	admissions []application.Admission
+	progress   []int64
 	err        error
 	completed  chan domain.JobID
 	terminated chan domain.JobID
@@ -60,6 +61,19 @@ func (f *fakeUploads) Completed(_ context.Context, id domain.JobID) error {
 	return nil
 }
 
+func (f *fakeUploads) UploadProgress(_ context.Context, _ domain.JobID, received int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.progress = append(f.progress, received)
+	return nil
+}
+
+func (f *fakeUploads) received() []int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int64(nil), f.progress...)
+}
+
 func (f *fakeUploads) Terminated(_ context.Context, id domain.JobID) error {
 	f.terminated <- id
 	return nil
@@ -70,6 +84,7 @@ type fixture struct {
 	dir     string
 	srv     *httptest.Server
 	uploads *fakeUploads
+	adapter *tus.Adapter
 }
 
 // newFixture starts the endpoint with free bytes on its file system.
@@ -88,7 +103,7 @@ func newFixture(t *testing.T, free uint64) fixture {
 	mux.Handle(uploadsPath, http.StripPrefix(uploadsPath, a.Handler()))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return fixture{dir: dir, srv: srv, uploads: uploads}
+	return fixture{dir: dir, srv: srv, uploads: uploads, adapter: a}
 }
 
 // do sends a request and closes the body when the test ends.

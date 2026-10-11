@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/tus/tusd/v2/pkg/filelocker"
 	"github.com/tus/tusd/v2/pkg/filestore"
@@ -67,8 +68,12 @@ func New(dir, basePath string, log *slog.Logger, freeSpace FreeSpaceFunc, upload
 		BasePath:                basePath,
 		StoreComposer:           composer,
 		NotifyTerminatedUploads: true,
-		DisableDownload:         true, // finished files are served by the catalog, never by tus
-		DisableConcatenation:    true,
+		// Progress is reported about once a second per upload (RF-10b): the job
+		// stores it and the event stream sends it, never once per chunk.
+		NotifyUploadProgress:   true,
+		UploadProgressInterval: time.Second,
+		DisableDownload:        true, // finished files are served by the catalog, never by tus
+		DisableConcatenation:   true,
 		// tusd logs every request at info level; keep only what needs attention.
 		Logger: tusLogger(log),
 		PreUploadCreateCallback: func(ev tusd.HookEvent) (tusd.HTTPResponse, tusd.FileInfoChanges, error) {
@@ -184,15 +189,21 @@ func parseMeta(m map[string]string) (domain.UploadMeta, error) {
 // Handler is the tus HTTP endpoint. Mount it at basePath with http.StripPrefix.
 func (a *Adapter) Handler() http.Handler { return a.handler }
 
-// Run reports the deleted uploads to the ingestion context until ctx ends. It
-// must run for the adapter to work: tusd blocks the request that deletes an
-// upload until the event is received. Finished uploads are reported before
-// their last chunk is answered (see New), not here.
+// Run reports the upload progress and the deleted uploads to the ingestion
+// context until ctx ends. It must run for the adapter to work: tusd blocks the
+// request that deletes an upload, and its progress goroutines, until the events
+// are received. Finished uploads are reported before their last chunk is
+// answered (see New), not here.
 func (a *Adapter) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case ev := <-a.handler.UploadProgress:
+			id := ev.Upload.ID
+			if err := a.uploads.UploadProgress(ctx, domain.JobID(id), ev.Upload.Offset); err != nil && ctx.Err() == nil {
+				a.log.Warn("upload progress not recorded", "upload", id, "error", err)
+			}
 		case ev := <-a.handler.TerminatedUploads:
 			id := ev.Upload.ID
 			if err := a.uploads.Terminated(ctx, domain.JobID(id)); err != nil && ctx.Err() == nil {
@@ -200,6 +211,59 @@ func (a *Adapter) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// Inspect implements application.Staging. Offset is the size of the staged
+// file, which is what tusd itself reports as the offset of the upload.
+func (a *Adapter) Inspect(ctx context.Context, id domain.JobID) (application.StagedUpload, error) {
+	up, err := a.store.GetUpload(ctx, string(id))
+	if errors.Is(err, tusd.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
+		return application.StagedUpload{}, nil
+	}
+	if err != nil {
+		return application.StagedUpload{}, fmt.Errorf("tus: read upload %s: %w", id, err)
+	}
+	info, err := up.GetInfo(ctx)
+	if err != nil {
+		return application.StagedUpload{}, fmt.Errorf("tus: read upload info %s: %w", id, err)
+	}
+	return application.StagedUpload{Exists: true, Size: info.Size, Offset: info.Offset}, nil
+}
+
+// Remove implements application.Staging. It deletes the staged file of the
+// upload with its info and lock files, whether or not each one is there.
+func (a *Adapter) Remove(_ context.Context, id domain.JobID) error {
+	name := string(id)
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("tus: %q is not an upload id", id)
+	}
+	base := filepath.Join(a.dir, name)
+	for _, path := range []string{base, base + ".info", base + ".lock"} {
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("tus: remove staged file: %w", err)
+		}
+	}
+	return nil
+}
+
+// IDs implements application.Staging. Every staged file is named after its
+// upload (`<id>`, `<id>.info`, `<id>.lock`), and tus ids never contain a dot.
+func (a *Adapter) IDs(context.Context) ([]domain.JobID, error) {
+	entries, err := os.ReadDir(a.dir)
+	if err != nil {
+		return nil, fmt.Errorf("tus: list staging: %w", err)
+	}
+	seen := make(map[domain.JobID]bool, len(entries))
+	ids := make([]domain.JobID, 0, len(entries))
+	for _, entry := range entries {
+		id := domain.JobID(strings.SplitN(entry.Name(), ".", 2)[0])
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // tusLogger returns the logger tusd writes to. tusd v2 takes the logger of

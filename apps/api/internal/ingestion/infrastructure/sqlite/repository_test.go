@@ -125,7 +125,7 @@ func TestUploadJobFailureReasonIsKept(t *testing.T) {
 	if err := jobs.Create(ctx, job); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if err := job.Fail("disk full", created); err != nil {
+	if err := job.Fail(domain.FailureUploadMissing, created); err != nil {
 		t.Fatal(err)
 	}
 	if err := jobs.Save(ctx, job); err != nil {
@@ -139,7 +139,7 @@ func TestUploadJobFailureReasonIsKept(t *testing.T) {
 	if got.BatchID != "b-2" {
 		t.Errorf("batch = %q, want b-2", got.BatchID)
 	}
-	if got.Status != domain.StatusFailed || got.Error != "disk full" {
+	if got.Status != domain.StatusFailed || got.Error != domain.FailureUploadMissing {
 		t.Errorf("job = %s %q, want failed with its reason", got.Status, got.Error)
 	}
 }
@@ -164,5 +164,117 @@ func TestUploadJobGetMissing(t *testing.T) {
 	conn := open(t, t.TempDir())
 	if _, err := sqlite.NewJobRepository(conn).Get(t.Context(), "missing"); !errors.Is(err, domain.ErrJobNotFound) {
 		t.Fatalf("err = %v, want ErrJobNotFound", err)
+	}
+}
+
+func TestUploadJobProgressIsKept(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	conn := open(t, dir)
+	jobs := sqlite.NewJobRepository(conn)
+	ctx := t.Context()
+	if err := sqlite.NewBatchRepository(conn).Create(ctx, &domain.Batch{ID: "b-p", Relation: domain.RelationNone, CreatedAt: created}); err != nil {
+		t.Fatal(err)
+	}
+	job, err := domain.NewUploadJob("job-p", domain.UploadMeta{FileName: "a.mkv", BatchID: "b-p"}, 10, created)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jobs.Create(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	job.RecordProgress(7, created.Add(time.Second))
+	if err := jobs.Save(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := jobs.Get(ctx, "job-p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Received != 7 || got.Status != domain.StatusUploading {
+		t.Errorf("job = %s received %d, want uploading with 7 bytes", got.Status, got.Received)
+	}
+}
+
+func TestRecentJobsCarryTheirBatchNewestFirst(t *testing.T) {
+	t.Parallel()
+
+	conn := open(t, t.TempDir())
+	batches := sqlite.NewBatchRepository(conn)
+	jobs := sqlite.NewJobRepository(conn)
+	ctx := t.Context()
+	if err := batches.Create(ctx, &domain.Batch{ID: "b-r", Name: "Show", Relation: domain.RelationEpisodes, CreatedAt: created}); err != nil {
+		t.Fatal(err)
+	}
+	// Same instant for the first two: the insertion order decides.
+	for i, name := range []string{"E01.mkv", "E02.mkv", "E03.mkv"} {
+		at := created
+		if i == 2 {
+			at = created.Add(time.Minute)
+		}
+		job, err := domain.NewUploadJob(domain.JobID("job-r"+name), domain.UploadMeta{FileName: name, BatchID: "b-r"}, 10, at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := jobs.Create(ctx, job); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := jobs.Recent(ctx, 2)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("Recent(2) returned %d jobs", len(got))
+	}
+	if got[0].Job.FileName != "E03.mkv" || got[1].Job.FileName != "E02.mkv" {
+		t.Errorf("order = %s, %s; want E03 then E02", got[0].Job.FileName, got[1].Job.FileName)
+	}
+	if b := got[0].Batch; b.ID != "b-r" || b.Name != "Show" || b.Relation != domain.RelationEpisodes || !b.CreatedAt.Equal(created) {
+		t.Errorf("batch = %+v", b)
+	}
+}
+
+func TestJobQueriesByStatusAgeAndExistence(t *testing.T) {
+	t.Parallel()
+
+	conn := open(t, t.TempDir())
+	batches := sqlite.NewBatchRepository(conn)
+	jobs := sqlite.NewJobRepository(conn)
+	ctx := t.Context()
+	if err := batches.Create(ctx, &domain.Batch{ID: "b-q", Relation: domain.RelationNone, CreatedAt: created}); err != nil {
+		t.Fatal(err)
+	}
+	old, err := domain.NewUploadJob("job-old", domain.UploadMeta{FileName: "old.mkv", BatchID: "b-q"}, 10, created)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jobs.Create(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := domain.NewUploadJob("job-fresh", domain.UploadMeta{FileName: "fresh.mkv", BatchID: "b-q"}, 10, created.Add(2*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jobs.Create(ctx, fresh); err != nil {
+		t.Fatal(err)
+	}
+
+	uploading, err := jobs.ByStatus(ctx, domain.StatusUploading)
+	if err != nil || len(uploading) != 2 || uploading[0].ID != "job-old" {
+		t.Fatalf("ByStatus(uploading) = %d jobs, err %v; want both, oldest first", len(uploading), err)
+	}
+	stale, err := jobs.Stale(ctx, domain.StatusUploading, created.Add(time.Hour))
+	if err != nil || len(stale) != 1 || stale[0].ID != "job-old" {
+		t.Fatalf("Stale = %d jobs, err %v; want only job-old", len(stale), err)
+	}
+	for id, want := range map[domain.JobID]bool{"job-old": true, "job-missing": false} {
+		ok, err := jobs.Exists(ctx, id)
+		if err != nil || ok != want {
+			t.Errorf("Exists(%s) = %v, %v; want %v", id, ok, err, want)
+		}
 	}
 }

@@ -30,6 +30,7 @@ import (
 	"time"
 
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/application"
 	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
@@ -112,10 +113,19 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 	log.Info("metadata ready", "tmdb", meta.Service.Configured(), "language", cfg.TMDBLanguage)
 
-	ingest := newIngestion(conn, log)
+	ingest := newIngestion(conn, log, ctx.Done())
 	uploads := newUploads(cfg, log, ingest.Service)
 	if uploads.adapter != nil {
+		// The staging area is known only now: the adapter needs the service first.
+		ingest.Service.WithStaging(uploads.adapter)
+		// Reconciled before the upload endpoint serves anything, so no upload is in flight (RF-10b).
+		if res, err := ingest.Service.Recover(ctx); err != nil {
+			log.Error("uploads not reconciled", "error", err)
+		} else if res != (application.PurgeResult{}) {
+			log.Info("uploads reconciled", "completed", res.Completed, "missing", res.Missing)
+		}
 		go uploads.adapter.Run(ctx)
+		go ingest.Service.RunPurge(ctx, purgeInterval)
 	}
 
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),

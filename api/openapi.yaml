@@ -30,7 +30,7 @@ info:
     plus 1 GiB, counting the bytes still to arrive from uploads in progress
     (`ERR_INSUFFICIENT_STORAGE`, RF-05, RF-09a); 503 when the library is not
     writable (RFC 9457 problem). The upload id given in `Location` is the id of
-    its job (`/api/jobs` in a later phase, RF-10a).
+    its job (`GET /jobs`, RF-10a).
   license:
     name: MIT
     url: https://opensource.org/license/mit
@@ -44,7 +44,7 @@ tags:
   - name: images
     description: Title images (posters, backdrops, logos, stills) from the local cache.
   - name: ingestion
-    description: Upload batches, the files dropped together in the browser (RF-03).
+    description: Upload batches, the files dropped together in the browser (RF-03), and the state of each upload (RF-10a, RF-10b).
 security:
   - sessionCookie: []
 paths:
@@ -157,6 +157,61 @@ paths:
                 $ref: '#/components/schemas/Batch'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /jobs:
+    get:
+      tags: [ingestion]
+      operationId: listJobs
+      summary: Most recent upload jobs
+      description: |
+        The 100 most recent upload jobs, newest first, each with its batch
+        (RF-10b). A job is one file the browser uploaded (RF-10a). These are the
+        same objects the event stream sends (`/jobs/events`).
+      responses:
+        '200':
+          description: The jobs, newest first; at most 100.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: '#/components/schemas/UploadJob'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /jobs/events:
+    get:
+      tags: [ingestion]
+      operationId: streamJobEvents
+      summary: Live upload job changes (server-sent events, RF-10b)
+      description: |
+        `text/event-stream`, one event for each change of a job's state or
+        progress. Every event is named `job` and its `data` line holds one
+        UploadJob JSON object with the whole state of the job:
+
+        ```
+        event: job
+        data: {"id":"3kQ7Zr1xVb8mNcT2pL0aWq","status":"uploading","received":1048576,...}
+
+        ```
+
+        On connect the server sends one `job` event for each job that `GET /jobs`
+        would return, then streams the changes. Progress-only events of one job
+        are limited to about two per second; a change of status or failure reason
+        is never dropped. A client that falls too far behind is disconnected, and
+        its `EventSource` reconnects and receives the snapshot again. A comment
+        line (`: ping`) is sent every 25 seconds to keep proxies from closing the
+        connection. The stream ends when the server shuts down.
+      responses:
+        '200':
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -367,6 +422,72 @@ components:
         relation:
           $ref: '#/components/schemas/BatchRelation'
         createdAt:
+          type: string
+          format: date-time
+    JobStatus:
+      type: string
+      description: |
+        State of an upload job (RF-10a). `uploading` while the bytes arrive and
+        `uploaded` once they all arrived. `waiting_parts`, `extracting`,
+        `needs_password`, `filtering` and `done` are reached by the processing of
+        the archives and the filtering (later phases). `failed` and `cancelled`
+        end the job; `failed` gives its reason in `error`.
+      enum:
+        [
+          uploading,
+          uploaded,
+          waiting_parts,
+          extracting,
+          needs_password,
+          filtering,
+          done,
+          failed,
+          cancelled,
+        ]
+    JobFailure:
+      type: string
+      description: |
+        Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
+        keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+        partial file was deleted, so the file must be uploaded again.
+        `upload_missing`: the job was still uploading, but its file is no longer
+        in staging.
+      enum: [upload_abandoned, upload_missing]
+    UploadJob:
+      type: object
+      description: One uploaded file and its state (RF-10a, RF-10b).
+      required: [id, batch, fileName, relativePath, size, received, status, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Job id. It is also the id of the tus upload (the last segment of its `Location`).
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          example: 3kQ7Zr1xVb8mNcT2pL0aWq
+        batch:
+          $ref: '#/components/schemas/Batch'
+        fileName:
+          type: string
+          description: File name, without folders.
+        relativePath:
+          type: string
+          description: Path inside the folder dropped in the browser (RF-01a), ending with `fileName`. Empty for a file dropped on its own.
+        size:
+          type: integer
+          format: int64
+          description: Bytes the upload declared.
+        received:
+          type: integer
+          format: int64
+          description: Bytes that arrived so far. Equals `size` once the job is `uploaded`.
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        error:
+          $ref: '#/components/schemas/JobFailure'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
     LoginRequest:

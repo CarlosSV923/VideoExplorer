@@ -147,10 +147,10 @@ func TestUploadJobUploadTransitions(t *testing.T) {
 		t.Parallel()
 
 		job, _ := domain.NewUploadJob("job-1", meta, 10, now)
-		if err := job.Fail("disk full", later); err != nil {
+		if err := job.Fail(domain.FailureUploadMissing, later); err != nil {
 			t.Fatal(err)
 		}
-		if job.Status != domain.StatusFailed || job.Error != "disk full" {
+		if job.Status != domain.StatusFailed || job.Error != domain.FailureUploadMissing {
 			t.Errorf("job = %s error %q, want failed with the reason", job.Status, job.Error)
 		}
 	})
@@ -180,7 +180,7 @@ func TestUploadJobUploadTransitions(t *testing.T) {
 		if err := job.Cancel(later); err != nil {
 			t.Fatalf("uploaded to cancelled: %v", err)
 		}
-		if err := job.Fail("late", later); !errors.Is(err, domain.ErrInvalidTransition) {
+		if err := job.Fail(domain.FailureUploadAbandoned, later); !errors.Is(err, domain.ErrInvalidTransition) {
 			t.Errorf("cancelled to failed: err = %v, want ErrInvalidTransition", err)
 		}
 		if job.Error != "" {
@@ -202,5 +202,104 @@ func TestNewUploadJobNeedsABatch(t *testing.T) {
 	_, err := domain.NewUploadJob("job-1", domain.UploadMeta{FileName: "a.mkv"}, 10, time.Now())
 	if !errors.Is(err, domain.ErrInvalidMetadata) {
 		t.Fatalf("err = %v, want ErrInvalidMetadata", err)
+	}
+}
+
+func TestRecordProgressOnlyMovesForwardWhileUploading(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	meta := domain.UploadMeta{FileName: "a.mkv", BatchID: "lote-1"}
+	tests := []struct {
+		name     string
+		received []int64
+		wantLast int64
+		wantSet  []bool
+	}{
+		{name: "grows", received: []int64{4, 7}, wantLast: 7, wantSet: []bool{true, true}},
+		{name: "never goes back", received: []int64{6, 3}, wantLast: 6, wantSet: []bool{true, false}},
+		{name: "same count is no change", received: []int64{5, 5}, wantLast: 5, wantSet: []bool{true, false}},
+		{name: "capped at the declared size", received: []int64{99}, wantLast: 10, wantSet: []bool{true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			job, _ := domain.NewUploadJob("job-1", meta, 10, now)
+			for i, r := range tt.received {
+				if got := job.RecordProgress(r, now.Add(time.Second)); got != tt.wantSet[i] {
+					t.Errorf("RecordProgress(%d) changed = %v, want %v", r, got, tt.wantSet[i])
+				}
+			}
+			if job.Received != tt.wantLast {
+				t.Errorf("received = %d, want %d", job.Received, tt.wantLast)
+			}
+		})
+	}
+}
+
+func TestRecordProgressIsRefusedOnceTheUploadEnded(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	job, _ := domain.NewUploadJob("job-1", domain.UploadMeta{FileName: "a.mkv", BatchID: "lote-1"}, 10, now)
+	if err := job.MarkUploaded(now); err != nil {
+		t.Fatal(err)
+	}
+	if job.Received != 10 {
+		t.Errorf("received = %d after MarkUploaded, want the whole size", job.Received)
+	}
+	if job.RecordProgress(3, now.Add(time.Second)) {
+		t.Error("progress of an uploaded job was recorded")
+	}
+	if job.Received != 10 {
+		t.Errorf("received = %d, want 10", job.Received)
+	}
+}
+
+func TestFailNeedsAKnownReason(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	job, _ := domain.NewUploadJob("job-1", domain.UploadMeta{FileName: "a.mkv", BatchID: "lote-1"}, 10, now)
+
+	if err := job.Fail("something else", now); !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Fatalf("unknown reason: err = %v, want ErrInvalidTransition", err)
+	}
+	if job.Status != domain.StatusUploading {
+		t.Errorf("status = %s after a refused reason, want uploading", job.Status)
+	}
+	if err := job.Fail(domain.FailureUploadAbandoned, now); err != nil {
+		t.Fatal(err)
+	}
+	if job.Error != domain.FailureUploadAbandoned {
+		t.Errorf("error = %q, want upload_abandoned", job.Error)
+	}
+}
+
+func TestReconcileReceivedFollowsTheFileWithoutMovingTheIdleTime(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	later := now.Add(25 * time.Hour)
+	job, _ := domain.NewUploadJob("job-1", domain.UploadMeta{FileName: "a.mkv", BatchID: "lote-1"}, 10, now)
+
+	if !job.ReconcileReceived(4) {
+		t.Fatal("a file with 4 bytes over a count of 0 was not taken")
+	}
+	if job.Received != 4 || !job.UpdatedAt.Equal(now) {
+		t.Errorf("received %d updated %v, want 4 bytes and the idle time kept at %v", job.Received, job.UpdatedAt, now)
+	}
+	if job.ReconcileReceived(3) {
+		t.Error("a smaller count moved the job back")
+	}
+	if !job.ReconcileReceived(99) || job.Received != 10 {
+		t.Errorf("received = %d, want the declared size at most", job.Received)
+	}
+	if err := job.Cancel(later); err != nil {
+		t.Fatal(err)
+	}
+	if job.ReconcileReceived(10) {
+		t.Error("a job that ended was reconciled")
 	}
 }

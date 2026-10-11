@@ -77,6 +77,28 @@ func (s Status) CanTransitionTo(next Status) bool {
 	return false
 }
 
+// FailureReason is the stable code of why a job failed (RF-10b). The UI
+// translates it with i18n keys, so the values never change once shipped.
+type FailureReason string
+
+// The reasons a job can fail with in phase 3 (RF-10b).
+const (
+	// FailureUploadAbandoned: the upload had no activity for AbandonedAfter; its partial file was deleted.
+	FailureUploadAbandoned FailureReason = "upload_abandoned"
+	// FailureUploadMissing: the job was still uploading, but its file is no longer in staging.
+	FailureUploadMissing FailureReason = "upload_missing"
+)
+
+// Valid reports whether r is one of the reasons above.
+func (r FailureReason) Valid() bool {
+	switch r {
+	case FailureUploadAbandoned, FailureUploadMissing:
+		return true
+	default:
+		return false
+	}
+}
+
 var (
 	// ErrInvalidTransition is returned for a move the state machine forbids.
 	ErrInvalidTransition = errors.New("invalid job state transition")
@@ -98,12 +120,22 @@ type UploadJob struct {
 	// (RF-01a), ending with FileName; empty for a file on its own.
 	RelativePath string
 	// Size is the number of bytes the upload declared.
-	Size   int64
-	Status Status
-	// Error is the reason of a failed job, shown to the user.
-	Error     string
+	Size int64
+	// Received is how many of those bytes arrived so far (RF-10b). It never
+	// goes back and never passes Size.
+	Received int64
+	Status   Status
+	// Error is the stable reason of a failed job (RF-10b); empty otherwise.
+	Error     FailureReason
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// JobView is a job with the batch it belongs to: what the API shows and the
+// event stream sends (RF-03, RF-10b).
+type JobView struct {
+	Job   UploadJob
+	Batch Batch
 }
 
 // NewUploadJob starts the job of an upload whose form data is already checked
@@ -130,13 +162,44 @@ func NewUploadJob(id JobID, meta UploadMeta, size int64, now time.Time) (*Upload
 	}, nil
 }
 
-// MarkUploaded records that every byte arrived (uploading → uploaded).
-func (j *UploadJob) MarkUploaded(now time.Time) error {
-	return j.moveTo(StatusUploaded, now)
+// RecordProgress stores how many bytes arrived so far. Only an uploading job
+// takes progress, the count never goes back, and it is capped at Size. It
+// reports whether the job changed.
+func (j *UploadJob) RecordProgress(received int64, now time.Time) bool {
+	if j.Status != StatusUploading || received <= j.Received {
+		return false
+	}
+	j.Received = min(received, j.Size)
+	j.UpdatedAt = now
+	return true
 }
 
-// Fail stops the job with a reason (uploading → failed).
-func (j *UploadJob) Fail(reason string, now time.Time) error {
+// ReconcileReceived raises the received count to the bytes the staged file holds,
+// when that is more than recorded (capped at Size). It keeps UpdatedAt: the file
+// does not tell when its bytes arrived, so reconciling must not reset the idle
+// time of the upload (RF-10b). It reports whether the job changed.
+func (j *UploadJob) ReconcileReceived(staged int64) bool {
+	if j.Status != StatusUploading || staged <= j.Received {
+		return false
+	}
+	j.Received = min(staged, j.Size)
+	return true
+}
+
+// MarkUploaded records that every byte arrived (uploading → uploaded).
+func (j *UploadJob) MarkUploaded(now time.Time) error {
+	if err := j.moveTo(StatusUploaded, now); err != nil {
+		return err
+	}
+	j.Received = j.Size
+	return nil
+}
+
+// Fail stops the job with a stable reason (uploading → failed).
+func (j *UploadJob) Fail(reason FailureReason, now time.Time) error {
+	if !reason.Valid() {
+		return fmt.Errorf("%w: unknown failure reason %q", ErrInvalidTransition, reason)
+	}
 	if err := j.moveTo(StatusFailed, now); err != nil {
 		return err
 	}

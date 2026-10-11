@@ -108,6 +108,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Most recent upload jobs
+         * @description The 100 most recent upload jobs, newest first, each with its batch
+         *     (RF-10b). A job is one file the browser uploaded (RF-10a). These are the
+         *     same objects the event stream sends (`/jobs/events`).
+         */
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live upload job changes (server-sent events, RF-10b)
+         * @description `text/event-stream`, one event for each change of a job's state or
+         *     progress. Every event is named `job` and its `data` line holds one
+         *     UploadJob JSON object with the whole state of the job:
+         *
+         *     ```
+         *     event: job
+         *     data: {"id":"3kQ7Zr1xVb8mNcT2pL0aWq","status":"uploading","received":1048576,...}
+         *
+         *     ```
+         *
+         *     On connect the server sends one `job` event for each job that `GET /jobs`
+         *     would return, then streams the changes. Progress-only events of one job
+         *     are limited to about two per second; a change of status or failure reason
+         *     is never dropped. A client that falls too far behind is disconnected, and
+         *     its `EventSource` reconnects and receives the snapshot again. A comment
+         *     line (`: ping`) is sent every 25 seconds to keep proxies from closing the
+         *     connection. The stream ends when the server shuts down.
+         */
+        get: operations["streamJobEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/images/{kind}/{file}": {
         parameters: {
             query?: never;
@@ -227,6 +285,53 @@ export interface components {
             relation: components["schemas"]["BatchRelation"];
             /** Format: date-time */
             createdAt: string;
+        };
+        /**
+         * @description State of an upload job (RF-10a). `uploading` while the bytes arrive and
+         *     `uploaded` once they all arrived. `waiting_parts`, `extracting`,
+         *     `needs_password`, `filtering` and `done` are reached by the processing of
+         *     the archives and the filtering (later phases). `failed` and `cancelled`
+         *     end the job; `failed` gives its reason in `error`.
+         * @enum {string}
+         */
+        JobStatus: "uploading" | "uploaded" | "waiting_parts" | "extracting" | "needs_password" | "filtering" | "done" | "failed" | "cancelled";
+        /**
+         * @description Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
+         *     keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+         *     partial file was deleted, so the file must be uploaded again.
+         *     `upload_missing`: the job was still uploading, but its file is no longer
+         *     in staging.
+         * @enum {string}
+         */
+        JobFailure: "upload_abandoned" | "upload_missing";
+        /** @description One uploaded file and its state (RF-10a, RF-10b). */
+        UploadJob: {
+            /**
+             * @description Job id. It is also the id of the tus upload (the last segment of its `Location`).
+             * @example 3kQ7Zr1xVb8mNcT2pL0aWq
+             */
+            id: string;
+            batch: components["schemas"]["Batch"];
+            /** @description File name, without folders. */
+            fileName: string;
+            /** @description Path inside the folder dropped in the browser (RF-01a), ending with `fileName`. Empty for a file dropped on its own. */
+            relativePath: string;
+            /**
+             * Format: int64
+             * @description Bytes the upload declared.
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Bytes that arrived so far. Equals `size` once the job is `uploaded`.
+             */
+            received: number;
+            status: components["schemas"]["JobStatus"];
+            error?: components["schemas"]["JobFailure"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         LoginRequest: {
             /** Format: password */
@@ -401,6 +506,48 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The jobs, newest first; at most 100. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadJob"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    streamJobEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event stream. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
             401: components["responses"]["Unauthorized"];
         };
     };

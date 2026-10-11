@@ -15,8 +15,16 @@ import (
 var start = time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
 
 // service builds the ingestion service over a real database in dir, with a
-// clock the test moves forward.
+// clock the test moves forward. Its job changes go to a discarded publisher.
 func service(t *testing.T, dir string, clock *time.Time) (*application.Service, *sql.DB) {
+	t.Helper()
+
+	svc, conn := serviceWith(t, dir, clock, &recorder{})
+	return svc, conn
+}
+
+// serviceWith is service with the publisher of the test, to read the events back.
+func serviceWith(t *testing.T, dir string, clock *time.Time, pub application.Publisher) (*application.Service, *sql.DB) {
 	t.Helper()
 
 	conn, err := database.Open(t.Context(), dir)
@@ -24,7 +32,7 @@ func service(t *testing.T, dir string, clock *time.Time) (*application.Service, 
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	svc := application.NewService(sqlite.NewBatchRepository(conn), sqlite.NewJobRepository(conn), func() time.Time { return *clock })
+	svc := application.NewService(sqlite.NewBatchRepository(conn), sqlite.NewJobRepository(conn), pub, nil, func() time.Time { return *clock })
 	return svc, conn
 }
 

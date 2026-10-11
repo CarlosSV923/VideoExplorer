@@ -16,12 +16,14 @@ type Admission struct {
 
 // Uploads is what the tus adapter asks of the ingestion context. The service
 // implements it: it registers each upload as a job before its bytes are accepted
-// and hears how the upload ends (RF-10a).
+// and hears how the upload goes and ends (RF-10a, RF-10b).
 type Uploads interface {
 	// Admit checks the batch the upload names and registers its job in uploading.
 	// It returns the job id, which becomes the upload's tus id. It returns
 	// domain.ErrBatchNotFound for a batch that does not exist.
 	Admit(ctx context.Context, a Admission) (domain.JobID, error)
+	// UploadProgress records how many bytes of the upload have arrived (RF-10b).
+	UploadProgress(ctx context.Context, id domain.JobID, received int64) error
 	// Completed records that every byte of the upload arrived (uploaded).
 	Completed(ctx context.Context, id domain.JobID) error
 	// Terminated records that the browser deleted the upload (cancelled).

@@ -104,6 +104,63 @@ func (e ImageKind) Valid() bool {
 	}
 }
 
+// Defines values for JobFailure.
+const (
+	UploadAbandoned JobFailure = "upload_abandoned"
+	UploadMissing   JobFailure = "upload_missing"
+)
+
+// Valid indicates whether the value is a known member of the JobFailure enum.
+func (e JobFailure) Valid() bool {
+	switch e {
+	case UploadAbandoned:
+		return true
+	case UploadMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JobStatus.
+const (
+	Cancelled     JobStatus = "cancelled"
+	Done          JobStatus = "done"
+	Extracting    JobStatus = "extracting"
+	Failed        JobStatus = "failed"
+	Filtering     JobStatus = "filtering"
+	NeedsPassword JobStatus = "needs_password"
+	Uploaded      JobStatus = "uploaded"
+	Uploading     JobStatus = "uploading"
+	WaitingParts  JobStatus = "waiting_parts"
+)
+
+// Valid indicates whether the value is a known member of the JobStatus enum.
+func (e JobStatus) Valid() bool {
+	switch e {
+	case Cancelled:
+		return true
+	case Done:
+		return true
+	case Extracting:
+		return true
+	case Failed:
+		return true
+	case Filtering:
+		return true
+	case NeedsPassword:
+		return true
+	case Uploaded:
+		return true
+	case Uploading:
+		return true
+	case WaitingParts:
+		return true
+	default:
+		return false
+	}
+}
+
 // Batch defines model for Batch.
 type Batch struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -201,6 +258,20 @@ type HealthStatus string
 // backdrop w1280, logo w500, still w300.
 type ImageKind string
 
+// JobFailure Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
+// keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+// partial file was deleted, so the file must be uploaded again.
+// `upload_missing`: the job was still uploading, but its file is no longer
+// in staging.
+type JobFailure string
+
+// JobStatus State of an upload job (RF-10a). `uploading` while the bytes arrive and
+// `uploaded` once they all arrived. `waiting_parts`, `extracting`,
+// `needs_password`, `filtering` and `done` are reached by the processing of
+// the archives and the filtering (later phases). `failed` and `cancelled`
+// end the job; `failed` gives its reason in `error`.
+type JobStatus string
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Password string `json:"password"`
@@ -217,6 +288,44 @@ type Problem struct {
 // Session defines model for Session.
 type Session struct {
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// UploadJob One uploaded file and its state (RF-10a, RF-10b).
+type UploadJob struct {
+	Batch     Batch     `json:"batch"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Error Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
+	// keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+	// partial file was deleted, so the file must be uploaded again.
+	// `upload_missing`: the job was still uploading, but its file is no longer
+	// in staging.
+	Error *JobFailure `json:"error,omitempty"`
+
+	// FileName File name, without folders.
+	FileName string `json:"fileName"`
+
+	// Id Job id. It is also the id of the tus upload (the last segment of its `Location`).
+	//
+	// Example: 3kQ7Zr1xVb8mNcT2pL0aWq
+	Id string `json:"id"`
+
+	// Received Bytes that arrived so far. Equals `size` once the job is `uploaded`.
+	Received int64 `json:"received"`
+
+	// RelativePath Path inside the folder dropped in the browser (RF-01a), ending with `fileName`. Empty for a file dropped on its own.
+	RelativePath string `json:"relativePath"`
+
+	// Size Bytes the upload declared.
+	Size int64 `json:"size"`
+
+	// Status State of an upload job (RF-10a). `uploading` while the bytes arrive and
+	// `uploaded` once they all arrived. `waiting_parts`, `extracting`,
+	// `needs_password`, `filtering` and `done` are reached by the processing of
+	// the archives and the filtering (later phases). `failed` and `cancelled`
+	// end the job; `failed` gives its reason in `error`.
+	Status    JobStatus `json:"status"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // BadGateway RFC 9457 problem details.
@@ -260,6 +369,12 @@ type ServerInterface interface {
 	// GetImage Title image served from the local cache
 	// (GET /images/{kind}/{file})
 	GetImage(w http.ResponseWriter, r *http.Request, kind ImageKind, file string)
+	// ListJobs Most recent upload jobs
+	// (GET /jobs)
+	ListJobs(w http.ResponseWriter, r *http.Request)
+	// StreamJobEvents Live upload job changes (server-sent events, RF-10b)
+	// (GET /jobs/events)
+	StreamJobEvents(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -367,6 +482,34 @@ func (siw *ServerInterfaceWrapper) GetImage(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetImage(w, r, kind, file)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamJobEvents operation middleware
+func (siw *ServerInterfaceWrapper) StreamJobEvents(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamJobEvents(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -501,6 +644,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/session", wrapper.GetSession)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/batches", wrapper.CreateBatch)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs", wrapper.ListJobs)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs/events", wrapper.StreamJobEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/images/{kind}/{file}", wrapper.GetImage)
 
 	return m
@@ -858,6 +1003,109 @@ func (response GetImage502ApplicationProblemPlusJSONResponse) VisitGetImageRespo
 	return err
 }
 
+type ListJobsRequestObject struct {
+}
+
+type ListJobsResponseObject interface {
+	VisitListJobsResponse(w http.ResponseWriter) error
+}
+
+type ListJobs200JSONResponse []UploadJob
+
+func (response ListJobs200JSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobs401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListJobs401ApplicationProblemPlusJSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StreamJobEventsRequestObject struct {
+}
+
+type StreamJobEventsResponseObject interface {
+	VisitStreamJobEventsResponse(w http.ResponseWriter) error
+}
+
+type StreamJobEvents200TexteventStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response StreamJobEvents200TexteventStreamResponse) VisitStreamJobEventsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// If w doesn't support flushing, fall back to io.Copy.
+		_, err := io.Copy(w, response.Body)
+		return err
+	}
+	// text/event-stream messages are typically small; use a
+	// modest buffer and flush after each chunk so clients see
+	// events immediately instead of waiting on OS buffering.
+	buf := make([]byte, 4096)
+	for {
+		n, err := response.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+type StreamJobEvents401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response StreamJobEvents401ApplicationProblemPlusJSONResponse) VisitStreamJobEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Login Start a session with the shared password
@@ -878,6 +1126,12 @@ type StrictServerInterface interface {
 	// GetImage Title image served from the local cache
 	// (GET /images/{kind}/{file})
 	GetImage(ctx context.Context, request GetImageRequestObject) (GetImageResponseObject, error)
+	// ListJobs Most recent upload jobs
+	// (GET /jobs)
+	ListJobs(ctx context.Context, request ListJobsRequestObject) (ListJobsResponseObject, error)
+	// StreamJobEvents Live upload job changes (server-sent events, RF-10b)
+	// (GET /jobs/events)
+	StreamJobEvents(ctx context.Context, request StreamJobEventsRequestObject) (StreamJobEventsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1073,6 +1327,54 @@ func (sh *strictHandler) GetImage(w http.ResponseWriter, r *http.Request, kind I
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetImageResponseObject); ok {
 		if err := validResponse.VisitGetImageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListJobs operation middleware
+func (sh *strictHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	var request ListJobsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListJobs(ctx, request.(ListJobsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListJobs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListJobsResponseObject); ok {
+		if err := validResponse.VisitListJobsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StreamJobEvents operation middleware
+func (sh *strictHandler) StreamJobEvents(w http.ResponseWriter, r *http.Request) {
+	var request StreamJobEventsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StreamJobEvents(ctx, request.(StreamJobEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StreamJobEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StreamJobEventsResponseObject); ok {
+		if err := validResponse.VisitStreamJobEventsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -42,8 +42,7 @@ func (q *Queries) CreateUploadJob(ctx context.Context, arg CreateUploadJobParams
 }
 
 const getUploadJob = `-- name: GetUploadJob :one
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at
-FROM upload_jobs WHERE id = ?
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received FROM upload_jobs WHERE id = ?
 `
 
 func (q *Queries) GetUploadJob(ctx context.Context, id string) (UploadJob, error) {
@@ -59,17 +58,163 @@ func (q *Queries) GetUploadJob(ctx context.Context, id string) (UploadJob, error
 		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Received,
 	)
 	return i, err
 }
 
+const listRecentUploadJobs = `-- name: ListRecentUploadJobs :many
+SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.status, j.error,
+       j.created_at, j.updated_at,
+       b.name AS batch_name, b.relation AS batch_relation, b.created_at AS batch_created_at
+FROM upload_jobs j
+JOIN upload_batches b ON b.id = j.batch_id
+ORDER BY j.created_at DESC, j.rowid DESC
+LIMIT ?
+`
+
+type ListRecentUploadJobsRow struct {
+	ID             string
+	BatchID        string
+	FileName       string
+	RelativePath   string
+	Size           int64
+	Received       int64
+	Status         string
+	Error          string
+	CreatedAt      string
+	UpdatedAt      string
+	BatchName      string
+	BatchRelation  string
+	BatchCreatedAt string
+}
+
+func (q *Queries) ListRecentUploadJobs(ctx context.Context, limit int64) ([]ListRecentUploadJobsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentUploadJobs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentUploadJobsRow
+	for rows.Next() {
+		var i ListRecentUploadJobsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.FileName,
+			&i.RelativePath,
+			&i.Size,
+			&i.Received,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BatchName,
+			&i.BatchRelation,
+			&i.BatchCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleUploadJobs = `-- name: ListStaleUploadJobs :many
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received FROM upload_jobs WHERE status = ? AND updated_at < ? ORDER BY updated_at, rowid
+`
+
+type ListStaleUploadJobsParams struct {
+	Status    string
+	UpdatedAt string
+}
+
+func (q *Queries) ListStaleUploadJobs(ctx context.Context, arg ListStaleUploadJobsParams) ([]UploadJob, error) {
+	rows, err := q.db.QueryContext(ctx, listStaleUploadJobs, arg.Status, arg.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UploadJob
+	for rows.Next() {
+		var i UploadJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.FileName,
+			&i.RelativePath,
+			&i.Size,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Received,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUploadJobsByStatus = `-- name: ListUploadJobsByStatus :many
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received FROM upload_jobs WHERE status = ? ORDER BY created_at, rowid
+`
+
+func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]UploadJob, error) {
+	rows, err := q.db.QueryContext(ctx, listUploadJobsByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UploadJob
+	for rows.Next() {
+		var i UploadJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.FileName,
+			&i.RelativePath,
+			&i.Size,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Received,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const saveUploadJob = `-- name: SaveUploadJob :exec
-UPDATE upload_jobs SET status = ?, error = ?, updated_at = ? WHERE id = ?
+UPDATE upload_jobs SET status = ?, error = ?, received = ?, updated_at = ? WHERE id = ?
 `
 
 type SaveUploadJobParams struct {
 	Status    string
 	Error     string
+	Received  int64
 	UpdatedAt string
 	ID        string
 }
@@ -78,8 +223,20 @@ func (q *Queries) SaveUploadJob(ctx context.Context, arg SaveUploadJobParams) er
 	_, err := q.db.ExecContext(ctx, saveUploadJob,
 		arg.Status,
 		arg.Error,
+		arg.Received,
 		arg.UpdatedAt,
 		arg.ID,
 	)
 	return err
+}
+
+const uploadJobExists = `-- name: UploadJobExists :one
+SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE id = ?)
+`
+
+func (q *Queries) UploadJobExists(ctx context.Context, id string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, uploadJobExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

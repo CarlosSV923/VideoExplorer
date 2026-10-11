@@ -27,4 +27,5 @@ type UploadJob struct {
 	Error        string
 	CreatedAt    string
 	UpdatedAt    string
+	Received     int64
 }
