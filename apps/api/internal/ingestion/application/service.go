@@ -39,6 +39,8 @@ type Service struct {
 	work *extraction
 	// filter holds the ports of the filter; nil until WithFiltering (RF-07).
 	filter *filtering
+	// settleMu serializes the decisions on the batches of the filter (RF-07).
+	settleMu sync.Mutex
 }
 
 var _ Uploads = (*Service)(nil)
@@ -163,6 +165,7 @@ func (s *Service) Terminated(ctx context.Context, id domain.JobID) error {
 			s.cancelSet(ctx, group, id) // a claimed set is one work (RF-03)
 		}
 		s.abandonExtraction(id)
+		s.settleAll(ctx) // a job that ends may decide its batch (RF-07)
 	}
 	return nil
 }
@@ -196,6 +199,7 @@ type PurgeResult struct {
 // flight and no grace is needed.
 func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
+	defer s.settleAll(ctx)
 	err := s.reconcile(ctx, s.now(), &res)
 	return res, err
 }
@@ -205,6 +209,7 @@ func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 // RF-10b). Deleting a partial file releases the bytes it reserved (RF-09a).
 func (s *Service) Purge(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
+	defer s.settleAll(ctx) // the purge may have ended jobs of some batch (RF-07)
 	now := s.now()
 	if err := s.reconcile(ctx, now.Add(-missingGrace), &res); err != nil {
 		return res, err

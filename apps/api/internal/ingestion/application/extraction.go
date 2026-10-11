@@ -398,9 +398,11 @@ func (s *Service) fail(ctx context.Context, unit []*domain.UploadJob, reason dom
 	if !reason.Retryable() {
 		s.removeArchives(ctx, unit)
 	}
-	return s.abortedOr(ctx, s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
+	err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.Fail(reason, now)
-	}))
+	})
+	s.settleAll(ctx) // the empty jobs of its batch may now be decided (RF-07)
+	return s.abortedOr(ctx, err)
 }
 
 // removeArchives deletes what is staged of a job, or of its set.

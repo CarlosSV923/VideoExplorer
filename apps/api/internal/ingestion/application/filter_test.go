@@ -79,12 +79,20 @@ func (r *rig) trashedNamed(name string) []application.TrashPut {
 	return out
 }
 
-// reachedFilter waits until the job has been through the filter or has failed.
+// reachedFilter waits until the filter has decided the job: it is kept (filtering with
+// something kept), or it failed or was discarded.
 func (r *rig) reachedFilter(t *testing.T, id domain.JobID) domain.UploadJob {
 	t.Helper()
 
-	return r.waitFor(t, id, "filtered or failed", func(j domain.UploadJob) bool {
-		return j.FilterDone || j.Status == domain.StatusFailed
+	return r.waitFor(t, id, "decided or kept", func(j domain.UploadJob) bool {
+		switch j.Status {
+		case domain.StatusFailed, domain.StatusDiscarded:
+			return true
+		case domain.StatusFiltering:
+			kept, err := r.svc.Kept(t.Context(), j.ID)
+			return j.FilterDone && err == nil && len(kept) > 0
+		}
+		return false
 	})
 }
 
@@ -253,12 +261,16 @@ func TestADroppedFolderIsFilteredFileByFile(t *testing.T) {
 	if job := r.reachedFilter(t, subtitle); job.Status != domain.StatusFiltering {
 		t.Errorf("subtitle: %s, want filtering", job.Status)
 	}
-	// Each file is a job of its own: a file with nothing to keep fails alone (RF-07).
-	if job := r.reachedFilter(t, readme); job.Status != domain.StatusFailed || job.Error != domain.FailureNoVideo {
-		t.Errorf("readme: %s (%q), want no_video", job.Status, job.Error)
+	// Each file is a job of its own. The readme and the sample have nothing to keep, but
+	// their batch keeps the video: they are discarded, not failed (RF-07).
+	if job := r.reachedFilter(t, readme); job.Status != domain.StatusDiscarded {
+		t.Errorf("readme: %s (%q), want discarded", job.Status, job.Error)
 	}
-	if job := r.reachedFilter(t, sample); job.Status != domain.StatusFailed || job.Error != domain.FailureNoVideo {
-		t.Errorf("sample in a folder: %s (%q), want no_video", job.Status, job.Error)
+	if job := r.reachedFilter(t, sample); job.Status != domain.StatusDiscarded {
+		t.Errorf("sample in a folder: %s (%q), want discarded", job.Status, job.Error)
+	}
+	if n := len(r.trash.puts()); n != 2 {
+		t.Errorf("trash entries = %d, want the readme and the sample", n)
 	}
 
 	if got := r.trashedNamed("clip.mkv"); len(got) != 1 || got[0].RelativePath != "Movie/Sample/clip.mkv" ||
@@ -428,5 +440,110 @@ func TestMacOSMetadataInAnArchiveGoesToTheTrash(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(r.extractionDir(id), "Movie", "Movie.mkv")); err != nil {
 		t.Errorf("the video was not kept: %v", err)
+	}
+}
+
+// admitPending admits a file of the rig's batch whose bytes have not arrived yet.
+func (r *rig) admitPending(t *testing.T, meta domain.UploadMeta, size int64) domain.JobID {
+	t.Helper()
+
+	id, err := r.svc.Admit(t.Context(), application.Admission{Meta: meta, Size: size})
+	if err != nil {
+		t.Fatalf("Admit %s: %v", meta.FileName, err)
+	}
+	return id
+}
+
+// complete stages the bytes of an admitted file and completes it, as the tus endpoint does
+// when its last bytes arrive.
+func (r *rig) complete(t *testing.T, id domain.JobID, data []byte) {
+	t.Helper()
+
+	if err := os.WriteFile(filepath.Join(r.staging, string(id)), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.Completed(t.Context(), id); err != nil {
+		t.Fatalf("Completed: %v", err)
+	}
+}
+
+func TestAFolderWithNothingToKeepFailsEveryFileAsNoVideo(t *testing.T) {
+	t.Parallel()
+
+	r := newRig(t, realExtractor(), 1<<40, true, nil)
+	first := r.drop(t, "Extras/readme.txt", []byte("notes"))
+	second := r.drop(t, "Extras/Movie.nfo", []byte("metadata"))
+
+	for _, id := range []domain.JobID{first, second} {
+		job := r.reachedFilter(t, id)
+		if job.Status != domain.StatusFailed || job.Error != domain.FailureNoVideo {
+			t.Errorf("%s: %s (%q), want failed with no_video: nothing in the batch is kept", job.FileName, job.Status, job.Error)
+		}
+		if r.staged(id) {
+			t.Errorf("%s is still in staging", job.FileName)
+		}
+		if _, err := r.svc.Retry(t.Context(), id); !errors.Is(err, application.ErrCannotRetry) {
+			t.Errorf("%s: Retry err = %v, want ErrCannotRetry", job.FileName, err)
+		}
+	}
+	if n := len(r.trash.puts()); n != 2 {
+		t.Errorf("trash entries = %d, want both files", n)
+	}
+}
+
+func TestAJobThatFailsForAnotherCauseDecidesItsEmptyBatchmates(t *testing.T) {
+	t.Parallel()
+
+	r := newRig(t, realExtractor(), 1<<40, true, nil)
+	readme := r.drop(t, "Movie/readme.txt", []byte("notes"))
+	damaged := videoZip(t)
+	broken := r.drop(t, "Movie/Movie.zip", damaged[:len(damaged)/2])
+
+	job := r.reachedFilter(t, broken)
+	if job.Status != domain.StatusFailed || job.Error != domain.FailureArchiveCorrupt {
+		t.Fatalf("the archive: %s (%q), want archive_corrupt", job.Status, job.Error)
+	}
+	// Whatever the order, the readme is decided when the last job of its batch ends:
+	// the batch keeps nothing, so it fails with no_video.
+	if job := r.reachedFilter(t, readme); job.Status != domain.StatusFailed || job.Error != domain.FailureNoVideo {
+		t.Errorf("the readme: %s (%q), want no_video", job.Status, job.Error)
+	}
+}
+
+func TestAnEmptyJobWaitsForItsBatchAcrossARestart(t *testing.T) {
+	t.Parallel()
+
+	r := newRig(t, realExtractor(), 1<<40, false, nil)
+	readme := r.drop(t, "Movie/readme.txt", []byte("notes"))
+	// The video of the same folder is admitted, but its bytes have not arrived.
+	video := r.admitPending(t, r.meta("Movie/Movie.mkv"), int64(len("video bytes")))
+
+	before := r.svc
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	go before.RunExtraction(ctx, 1)
+	waiting := r.waitFor(t, readme, "filtered and waiting", func(j domain.UploadJob) bool { return j.FilterDone })
+	if waiting.Status != domain.StatusFiltering {
+		t.Fatalf("the readme is %s while its batch is incomplete, want filtering and waiting", waiting.Status)
+	}
+	cancel() // the process stops here
+
+	// The process restarts with the readme waiting: nothing is decided yet.
+	after := r.service(ingestionsqlite.NewFilterRepository(r.conn), r.trash)
+	resumeCtx, resumeCancel := context.WithCancel(t.Context())
+	t.Cleanup(resumeCancel)
+	go after.RunExtraction(resumeCtx, 1)
+	r.svc = after
+
+	// The video arrives after the restart: its batch is complete and the readme is discarded.
+	r.complete(t, video, []byte("video bytes"))
+	if job := r.reachedFilter(t, readme); job.Status != domain.StatusDiscarded {
+		t.Fatalf("the readme is %s after its batch completed, want discarded", job.Status)
+	}
+	if got := r.trashedNamed("readme.txt"); len(got) != 1 {
+		t.Errorf("the readme went to the trash %d times, want once", len(got))
+	}
+	if job := r.reachedFilter(t, video); job.Status != domain.StatusFiltering {
+		t.Errorf("the video is %s, want kept (filtering)", job.Status)
 	}
 }

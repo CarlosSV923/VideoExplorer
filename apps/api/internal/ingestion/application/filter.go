@@ -11,9 +11,6 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/domain"
 )
 
-// errNoVideo is the cause of a no_video failure (RF-07), for the log.
-var errNoVideo = errors.New("nothing left to keep after filtering")
-
 // ErrFilteringDisabled means the filter is not wired: nothing is filtered or kept.
 var ErrFilteringDisabled = errors.New("filtering is disabled")
 
@@ -48,9 +45,10 @@ func (s *Service) filterUpload(ctx context.Context, unit []*domain.UploadJob) er
 
 // filterUnit filters the content of a work unit (RF-07): a file uploaded on its own,
 // or the extracted content of an archive, or of a set of volumes. Every discarded file
-// goes to the trash, once; a kept file stays where it is. A unit that keeps nothing
-// fails with no_video. Otherwise its jobs are marked as filtered, and they wait in
-// filtering for the step that moves them to No asignados (RF-08).
+// goes to the trash, once; a kept file stays where it is. Its jobs are then marked as
+// filtered. A job that keeps nothing waits in filtering until its batch is complete,
+// and then it is discarded or fails with no_video (RF-07, see settle.go). A job that
+// keeps something waits for the step that moves it to No asignados (RF-08).
 //
 // What the filter found is recorded before anything moves, so a restart goes on
 // with the same decisions and never trashes a file twice (RF-07, RF-10b).
@@ -84,12 +82,14 @@ func (s *Service) filterUnit(ctx context.Context, unit []*domain.UploadJob, extr
 			return err
 		}
 	}
-	if !slices.ContainsFunc(entries, func(e domain.FilterEntry) bool { return e.Kind.Kept() }) {
-		return s.abortedOr(ctx, s.fail(ctx, unit, domain.FailureNoVideo, errNoVideo))
-	}
-	return s.abortedOr(ctx, s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
+	// Marked even when nothing is kept: the job then waits for its batch to be decided (RF-07).
+	if err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.MarkFiltered(now)
-	}))
+	}); err != nil {
+		return s.abortedOr(ctx, err)
+	}
+	s.settleAll(ctx)
+	return nil
 }
 
 // candidates lists the files of a work unit as the filter sees them: the file of an
@@ -180,6 +180,7 @@ func (s *Service) resumeFiltering(ctx context.Context) {
 	if s.filter == nil {
 		return
 	}
+	defer s.settleAll(ctx) // the batches a restart left waiting are decided (RF-07)
 	filtering, err := s.jobs.ByStatus(ctx, domain.StatusFiltering)
 	if err != nil {
 		s.log.Warn("filtering not resumed", "error", err)

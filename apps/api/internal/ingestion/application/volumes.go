@@ -63,6 +63,8 @@ func (s *Service) checkSet(ctx context.Context, id domain.JobID) error {
 	if s.work == nil {
 		return nil
 	}
+	// Runs after the lock below is released: the set may have ended jobs of its batch (RF-07).
+	defer s.settleAll(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
