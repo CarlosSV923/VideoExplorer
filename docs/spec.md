@@ -165,12 +165,12 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 | Subtítulo | junto a su video | `<nombre base del video>.<idioma>[.forced][.sdh].<ext>` |
 
 - `<T>`: título del disco. Es el **título original** de TMDB si está en alfabeto latino (todas sus letras son de la escritura latina de Unicode, acentos incluidos; dígitos y signos no cuentan); si no (japonés, coreano, ruso…), el **título en inglés** (`en-US`), y si TMDB no tiene título en inglés, el original. `Le Fabuleux Destin d'Amélie Poulain`, `The Godfather`, `Spirited Away` (de `千と千尋の神隠し`).
-- `<A>`: año del estreno (película) o de la primera emisión (serie).
+- `<A>`: año del estreno (película) o de la primera emisión (serie); si se desconoce, se omite ` (<A>)` en carpeta y archivo.
 - `<ids>`: ` [tmdbid-ID]` (formato de Jellyfin) en todo título vinculado a TMDB, salvo que el usuario lo haya quitado (RF-45); vacío en títulos libres o sin etiqueta. En series solo va en la carpeta; en películas también en los archivos (Jellyfin exige que los archivos de versiones empiecen como la carpeta).
 - `<SS>`, `<EE>`: dos dígitos como mínimo (`S01E05`, `S01E105`). Temporada 0 → `Season 00`.
 - `<título cap.>`: de TMDB, pedido en el idioma original de la serie; si ese título está en alfabeto latino (misma regla que `<T>`) se usa, si no el de inglés, y si no hay ninguno de los dos se omite. Los títulos genéricos que TMDB pone cuando no hay uno real (`Episode`, `Episodio`, `Capítulo`/`Capitulo` o `Chapter` seguidos de un número, sin distinguir mayúsculas) cuentan como sin título. Un título sin letras (solo dígitos y signos, p. ej. `1917`) cuenta como latino. Se colapsan los sufijos ` (N)`, `, Part N` y ` N` final cuando todos los títulos del archivo comparten la misma base. Casos en `contracts/naming-cases.json`. Con varios capítulos, los títulos se unen con ` + ` (`Pilot + Cat's in the Bag`); si solo difieren en un número final o entre paréntesis (`The Finale (1)`, `The Finale, Part 2`), se colapsan en el título común (`The Finale`). Si TMDB no tiene título, se omite el segmento ` - <título cap.>`.
 - `<versión>`: etiqueta de RF-24 (`2160p`, `1080p HEVC`, o texto libre del usuario, saneado).
-- `<idioma>`: ISO 639-1 (`es`, `en`, `ja`…) con región opcional, **solo de las que reconoce Jellyfin** (spike 12.2: `es-419`, `pt-BR`, `pt-PT`, `fr-CA`, `zh-TW`; vectores en `naming-cases.json`). En la UI, `es-419` se presenta como «Español (Latinoamérica)». Regiones que Jellyfin no reconoce se normalizan al escribir: `es-MX` y demás variantes latinoamericanas → `es-419`; `es-ES` → `es`; `en-US`, `en-GB` → `en` (decisión 2026-10-10).
+- `<idioma>`: ISO 639-1 (`es`, `en`, `ja`…) con región opcional, **solo de las que reconoce Jellyfin** (spike 12.2: `es-419`, `pt-BR`, `pt-PT`, `fr-CA`, `zh-TW`; vectores en `naming-cases.json`). En la UI, `es-419` se presenta como «Español (Latinoamérica)». Regiones que Jellyfin no reconoce se normalizan al escribir: `es-MX` y demás variantes latinoamericanas (los 19 países hispanohablantes de América más `es-US`) → `es-419`; `es-ES` → `es`; el resto de regiones no reconocidas se eliminan (`en-US`, `en-GB` → `en`, `fr-FR` → `fr`) (decisión 2026-10-10).
 - `<ext>`: la del archivo, en minúsculas.
 
 **Saneamiento** (títulos de disco, de capítulo y etiquetas), en este orden (convención Radarr/Sonarr):
@@ -181,7 +181,7 @@ Raíces dentro de `LIBRARY_PATH` (por defecto `Movies` y `TV Shows`, configurabl
 5. Se eliminan `? * < > |` y los caracteres de control (`What If...?` → `What If...`).
 6. Bloques de espacios → uno; se recortan espacios y puntos iniciales (un nombre no puede empezar por punto: RF-28 ignora los ocultos) y espacios y puntos finales **de cada componente de la ruta completo** (carpeta o nombre de archivo sin extensión), no de cada título: `What If... (2021)` y `… - Cat's in the Bag... - 2160p` conservan sus puntos.
 
-Una ruta cuyo componente supere 255 bytes recorta primero el título del capítulo; un nombre que siga siendo demasiado largo recorta su base en un carácter completo, contando sufijo y extensión. Un nombre que queda vacío tras sanear pasa a `Sin nombre`.
+Una ruta cuyo componente supere 255 bytes recorta primero el título del capítulo; después el título de disco; año, etiqueta de ID, códigos y versión se conservan; solo si ni así cabe se recorta la cola. Siempre en un carácter completo, contando sufijo y extensión. Un nombre que queda vacío tras sanear pasa a `Sin nombre`.
 
 ## 6. Datos de TMDB
 
@@ -191,7 +191,7 @@ Una ruta cuyo componente supere 255 bytes recorta primero el título del capítu
   - Un título libre se puede **vincular a TMDB** más tarde desde Editar (RF-44), lo que puede renombrarlo.
   - La importación (RF-29) sin TMDB registra los títulos con su nombre y año de la carpeta como títulos libres.
   - La atribución a TMDB solo aparece si está configurado.
-- Se usan: búsqueda de películas y series, detalle (títulos, año, géneros, sinopsis, colección, imágenes y logos), temporadas y capítulos, colecciones, idioma original.
+- Se usan: búsqueda de películas y series, detalle (títulos, año, géneros, sinopsis, colección, imágenes y logos), temporadas y capítulos, colecciones, idioma original. Para nombrar capítulos, cada temporada se pide también en el idioma original de la serie y en `en-US` (§5); si esas peticiones fallan, el nombre no se calcula y se informa del error, para que el nombre del archivo no dependa en silencio de la disponibilidad de TMDB.
 - Caché local de imágenes en `/data/cache/images` y de respuestas en SQLite con caducidad por tipo (decisión 2026-10-10): búsquedas 24 h; series, temporadas y capítulos 24 h (capítulos nuevos y «Series incompletas» al día siguiente); películas, colecciones y géneros 30 días. Una entrada caducada se recarga al pedirla; si TMDB no responde, se sirve la caducada. Las imágenes no caducan y se borran cuando ningún título las usa. Tamaños descargados: póster `w500`, backdrop `w1280`, logo `w500`, miniatura de capítulo `w300`; el navegador las pide a `/api/images/…` (con sesión), nunca a TMDB (RNF-10); solo JPEG y PNG (los logos SVG de TMDB se descartan al elegir logo y el hero cae al título en texto). Errores de `/api/images`: nombre o tipo no válido 400; imagen no cacheada que TMDB no tiene o TMDB sin configurar 404; TMDB falla 502. Respeto de los límites de TMDB: reintento con espera ante 429 y errores 5xx (hasta 3 intentos); si TMDB pide esperar más de 10 s, se desiste y se sirve la caché caducada o, sin caché, se trata como TMDB no disponible (§6, nombre libre).
 
 ## 7. Ambientes
