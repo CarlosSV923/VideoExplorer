@@ -17,6 +17,7 @@ type fakeProvider struct {
 	mu    sync.Mutex
 	calls []string // "method:language" in call order
 
+	series      domain.Series
 	seasons     map[string]domain.Season // by language
 	collections map[string]domain.Collection
 	genres      map[string][]domain.Genre
@@ -71,7 +72,10 @@ func (f *fakeProvider) Movie(_ context.Context, language string, _ int64) (domai
 }
 
 func (f *fakeProvider) Series(_ context.Context, language string, _ int64) (domain.Series, error) {
-	return domain.Series{}, f.record("Series", language)
+	if err := f.record("Series", language); err != nil {
+		return domain.Series{}, err
+	}
+	return f.series, nil
 }
 
 func (f *fakeProvider) Season(_ context.Context, language string, _ int64, _ int) (domain.Season, error) {
@@ -172,8 +176,9 @@ func TestSeasonFillsMissingTextFromFallbacks(t *testing.T) {
 	if s.Episodes[1].Title != "Cat's in the Bag" || s.Episodes[1].Overview != "Resumen" {
 		t.Errorf("episode 2 = %+v, want English title and own overview", s.Episodes[1])
 	}
-	// The bare language "es" is asked before en-US; one request per season, not per episode.
-	want := []string{"Season:es-MX", "Season:es", "Season:en-US"}
+	// en-US is asked for the chapter names first; the bare language "es" is then the
+	// first fallback of the text. One request per season, not per episode.
+	want := []string{"Season:es-MX", "Season:en-US", "Season:es"}
 	if got := f.callsTo("Season"); !slices.Equal(got, want) {
 		t.Errorf("season calls = %v, want %v", got, want)
 	}
@@ -196,8 +201,10 @@ func TestSeasonUsesSameLanguageBeforeEnglish(t *testing.T) {
 	if s.Episodes[0].Title != "Piloto" || s.Episodes[0].Overview != "Resumen en español" {
 		t.Errorf("episode = %+v, want own title and the es overview", s.Episodes[0])
 	}
-	if got := f.callsTo("Season"); len(got) != 2 {
-		t.Errorf("season calls = %v, want es-MX and es only (en-US not needed)", got)
+	// en-US is asked for the chapter names; the text itself comes from "es", which is asked first.
+	want := []string{"Season:es-MX", "Season:en-US", "Season:es"}
+	if got := f.callsTo("Season"); !slices.Equal(got, want) {
+		t.Errorf("season calls = %v, want %v", got, want)
 	}
 }
 
@@ -249,8 +256,149 @@ func TestSeasonSkipsFallbackWhenTextIsComplete(t *testing.T) {
 	if _, err := svc.Season(t.Context(), 1396, 1); err != nil {
 		t.Fatalf("Season: %v", err)
 	}
-	if got := f.callsTo("Season"); len(got) != 1 {
-		t.Errorf("season calls = %v, want one (no fallback needed)", got)
+	// No fallback for the text; only the en-US season for the chapter names.
+	want := []string{"Season:es-MX", "Season:en-US"}
+	if got := f.callsTo("Season"); !slices.Equal(got, want) {
+		t.Errorf("season calls = %v, want %v (no text fallback needed)", got, want)
+	}
+}
+
+func TestSeasonGivesChapterTitlesInOriginalAndEnglish(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{
+		series: domain.Series{OriginalLanguage: "ja"},
+		seasons: map[string]domain.Season{
+			"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto", Overview: "Resumen"}}},
+			"ja":    {Episodes: []domain.Episode{{Number: 1, Title: "パイロット", Overview: "概要"}}},
+			"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot", Overview: "English"}}},
+		},
+	}
+	svc := application.NewService(f, "es-MX")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season: %v", err)
+	}
+	ep := s.Episodes[0]
+	if ep.OriginalTitle != "パイロット" || ep.EnglishTitle != "Pilot" || ep.Title != "Piloto" {
+		t.Errorf("episode = %+v, want the Japanese and English chapter titles and the own title", ep)
+	}
+	// The series' language and en-US: two season requests besides the configured one.
+	want := []string{"Season:es-MX", "Season:en-US", "Season:ja"}
+	if got := f.callsTo("Season"); !slices.Equal(got, want) {
+		t.Errorf("season calls = %v, want %v", got, want)
+	}
+}
+
+func TestSeasonAsksTheSameLanguageOnce(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{
+		series: domain.Series{OriginalLanguage: "ja"},
+		seasons: map[string]domain.Season{
+			"ja":    {Episodes: []domain.Episode{{Number: 1, Title: "パイロット"}}},
+			"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot"}}},
+		},
+	}
+	svc := application.NewService(f, "ja")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season: %v", err)
+	}
+	if ep := s.Episodes[0]; ep.OriginalTitle != "パイロット" || ep.EnglishTitle != "Pilot" {
+		t.Errorf("episode = %+v, want the original and English titles", ep)
+	}
+	// The configured language is the original one: it is not asked again.
+	want := []string{"Season:ja", "Season:en-US"}
+	if got := f.callsTo("Season"); !slices.Equal(got, want) {
+		t.Errorf("season calls = %v, want %v", got, want)
+	}
+}
+
+func TestSeasonInAnEnglishSeriesUsesOneSourceForBothNames(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{
+		series: domain.Series{OriginalLanguage: "en"},
+		seasons: map[string]domain.Season{
+			"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto", Overview: "Resumen"}}},
+			"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot", Overview: "Summary"}}},
+		},
+	}
+	svc := application.NewService(f, "es-MX")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season: %v", err)
+	}
+	if ep := s.Episodes[0]; ep.OriginalTitle != "Pilot" || ep.EnglishTitle != "Pilot" {
+		t.Errorf("episode = %+v, want Pilot as both names", ep)
+	}
+	want := []string{"Season:es-MX", "Season:en-US"}
+	if got := f.callsTo("Season"); !slices.Equal(got, want) {
+		t.Errorf("season calls = %v, want %v", got, want)
+	}
+}
+
+func TestSeasonWithoutOriginalLanguageHasNoOriginalTitle(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{seasons: map[string]domain.Season{
+		"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto"}}},
+		"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot"}}},
+	}}
+	svc := application.NewService(f, "es-MX")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season: %v", err)
+	}
+	if ep := s.Episodes[0]; ep.OriginalTitle != "" || ep.EnglishTitle != "Pilot" {
+		t.Errorf("episode = %+v, want no original title and the English one", ep)
+	}
+	if got := f.callsTo("Season"); slices.Contains(got, "Season:ja") {
+		t.Errorf("season calls = %v, want no request for an unknown original language", got)
+	}
+}
+
+func TestSeasonNotFoundInOriginalLanguageLeavesItsTitlesEmpty(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{
+		series: domain.Series{OriginalLanguage: "ja"},
+		seasons: map[string]domain.Season{
+			"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto", Overview: "R"}}},
+			"en-US": {Episodes: []domain.Episode{{Number: 1, Title: "Pilot", Overview: "E"}}},
+		},
+		failures: map[string]error{"Season:ja": domain.ErrNotFound},
+	}
+	svc := application.NewService(f, "es-MX")
+
+	s, err := svc.Season(t.Context(), 1396, 1)
+	if err != nil {
+		t.Fatalf("Season with the original language unknown to TMDB: %v", err)
+	}
+	if ep := s.Episodes[0]; ep.OriginalTitle != "" || ep.EnglishTitle != "Pilot" {
+		t.Errorf("episode = %+v, want no original title and the English one", ep)
+	}
+}
+
+func TestSeasonUpstreamFailureOfAChapterNameIsReturned(t *testing.T) {
+	t.Parallel()
+
+	f := &fakeProvider{
+		series: domain.Series{OriginalLanguage: "ja"},
+		seasons: map[string]domain.Season{
+			"es-MX": {Episodes: []domain.Episode{{Number: 1, Title: "Piloto", Overview: "R"}}},
+		},
+		failures: map[string]error{"Season:ja": domain.ErrUpstream},
+	}
+	svc := application.NewService(f, "es-MX")
+
+	if _, err := svc.Season(t.Context(), 1396, 1); !errors.Is(err, domain.ErrUpstream) {
+		t.Errorf("Season err = %v, want the upstream error: the chapter names would be wrong", err)
 	}
 }
 

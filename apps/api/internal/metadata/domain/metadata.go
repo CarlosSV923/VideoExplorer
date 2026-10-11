@@ -198,16 +198,21 @@ type Season struct {
 }
 
 // Episode is one chapter. Title and Overview may be empty when TMDB has no
-// text for them in any language the app asks for.
+// text for them in any language the app asks for. OriginalTitle is the title in
+// the original language of the series and EnglishTitle the en-US one: the
+// chapter title of spec §5 is chosen from them (see ChapterTitle). Either is
+// empty when TMDB has no such title.
 type Episode struct {
-	ID           int64
-	SeasonNumber int
-	Number       int
-	Title        string
-	Overview     string
-	AirDate      time.Time // zero when unknown
-	Runtime      int       // minutes; 0 when unknown
-	StillPath    string
+	ID            int64
+	SeasonNumber  int
+	Number        int
+	Title         string
+	OriginalTitle string
+	EnglishTitle  string
+	Overview      string
+	AirDate       time.Time // zero when unknown
+	Runtime       int       // minutes; 0 when unknown
+	StillPath     string
 }
 
 // Collection is a TMDB collection (a saga of movies).
