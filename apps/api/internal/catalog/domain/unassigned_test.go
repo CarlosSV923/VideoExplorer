@@ -173,24 +173,3 @@ func TestNewUnassignedEntryAndFileRefuseWhatTheSectionCannotHold(t *testing.T) {
 		})
 	}
 }
-
-func TestAnEntryIsCompleteWhenEveryFileIsInPlace(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, time.October, 11, 9, 0, 0, 0, time.UTC)
-	entry, err := domain.NewUnassignedEntry("batch", "Movie", false, "b1", domain.RelationParts, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if entry.Complete() {
-		t.Fatal("an entry without files is complete")
-	}
-	entry.Files = []domain.UnassignedFile{{Source: "s1", Rel: "a.mkv", Moved: true}, {Source: "s2", Rel: "b.srt"}}
-	if entry.Complete() {
-		t.Fatal("an entry with a file still in staging is complete")
-	}
-	entry.Files[1].Moved = true
-	if !entry.Complete() {
-		t.Fatal("an entry whose files are all in place is not complete")
-	}
-}

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"path/filepath"
+	"log/slog"
 	"time"
 
 	catalogapplication "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -14,26 +14,27 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 )
 
-// trashDir is the library's trash: .videoexplorer/trash, on the library's file
-// system so that a move into it is a rename (RF-30, RNF-04).
-func trashDir(libraryPath string) string {
-	return filepath.Join(libraryPath, ".videoexplorer", "trash")
-}
-
 // catalogWiring is the catalog context as the composition root builds it.
 type catalogWiring struct {
+	// Engine performs every change of the library, through its journal (RNF-04). Recover
+	// undoes what a restart interrupted, and must run before anything else touches the library.
+	Engine *catalogapplication.Engine
 	// Trash sends files to the trash with their metadata (RF-06, RF-30).
 	Trash *catalogapplication.Trash
 	// Unassigned moves the content the ingestion keeps into No asignados (RF-08, RF-08a).
 	Unassigned *catalogapplication.Unassigned
 }
 
-// newCatalog wires the catalog's trash and unassigned section over the shared database.
-func newCatalog(conn *sql.DB, cfg config.Config) catalogWiring {
-	files := libraryfs.New(cfg.LibraryPath, trashDir(cfg.LibraryPath))
+// newCatalog wires the catalog's engine, trash and unassigned section over the shared
+// database. The trash and the operations live inside the library, so a move is a rename
+// (RF-30, RNF-04).
+func newCatalog(conn *sql.DB, cfg config.Config, log *slog.Logger) catalogWiring {
+	files := libraryfs.New(cfg.LibraryPath)
+	engine := catalogapplication.NewEngine(files, catalogsqlite.NewJournal(conn), time.Now, log)
 	return catalogWiring{
-		Trash:      catalogapplication.NewTrash(catalogsqlite.NewTrashRepository(conn), files, time.Now),
-		Unassigned: catalogapplication.NewUnassigned(catalogsqlite.NewUnassignedRepository(conn), files, time.Now),
+		Engine:     engine,
+		Trash:      catalogapplication.NewTrash(catalogsqlite.NewTrashRepository(conn), files, engine, time.Now),
+		Unassigned: catalogapplication.NewUnassigned(catalogsqlite.NewUnassignedRepository(conn), files, engine, time.Now),
 	}
 }
 

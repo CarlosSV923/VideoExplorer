@@ -30,8 +30,9 @@ const OriginUpload = "upload"
 var ErrInvalidEntry = errors.New("invalid unassigned entry")
 
 // UnassignedEntry is an entry of No asignados (spec RF-08, RF-08a): a folder of
-// _unassigned/ or one loose file. Its files are recorded before they move, so that a
-// move that a failure or a restart interrupted goes on from them.
+// _unassigned/ or one loose file. It is recorded together with its files once they are
+// in place (the library's journal, RNF-04): a move that a failure or a restart cut is
+// undone, and the content goes on from staging.
 type UnassignedEntry struct {
 	ID int64
 	// Source is what the move is for, chosen by the caller: the batch, or the unit of a
@@ -50,15 +51,13 @@ type UnassignedEntry struct {
 	Files []UnassignedFile
 }
 
-// UnassignedFile is one file of an unassigned entry.
+// UnassignedFile is one file of an unassigned entry, already in its place in _unassigned/.
 type UnassignedFile struct {
-	// Source is where the file was when the entry was recorded (its staging path).
+	// Source is where the file was before it moved (its staging path).
 	Source string
 	// Rel is its place inside the entry, with "/" separators. Empty for a loose entry.
 	Rel  string
 	Size int64
-	// Moved is set once the file is in its place in _unassigned/.
-	Moved bool
 }
 
 // NewUnassignedEntry checks the values of a new entry, which has no files yet.
@@ -100,19 +99,6 @@ func NewUnassignedFile(source, rel string, size int64, loose bool) (UnassignedFi
 		return UnassignedFile{}, fmt.Errorf("%w: relative path %q", ErrInvalidEntry, rel)
 	}
 	return UnassignedFile{Source: source, Rel: rel, Size: size}, nil
-}
-
-// Complete reports whether the entry has files and every one of them is in its place.
-func (e UnassignedEntry) Complete() bool {
-	if len(e.Files) == 0 {
-		return false
-	}
-	for _, f := range e.Files {
-		if !f.Moved {
-			return false
-		}
-	}
-	return true
 }
 
 // NameSet holds names compared as a Windows or SMB share compares them: without regard

@@ -59,7 +59,7 @@ func (q *Queries) InsertUnassignedEntry(ctx context.Context, arg InsertUnassigne
 }
 
 const insertUnassignedFile = `-- name: InsertUnassignedFile :exec
-INSERT INTO unassigned_files (entry_id, source, rel, size, moved) VALUES (?, ?, ?, ?, ?)
+INSERT INTO unassigned_files (entry_id, source, rel, size) VALUES (?, ?, ?, ?)
 `
 
 type InsertUnassignedFileParams struct {
@@ -67,7 +67,6 @@ type InsertUnassignedFileParams struct {
 	Source  string
 	Rel     string
 	Size    int64
-	Moved   int64
 }
 
 func (q *Queries) InsertUnassignedFile(ctx context.Context, arg InsertUnassignedFileParams) error {
@@ -76,20 +75,18 @@ func (q *Queries) InsertUnassignedFile(ctx context.Context, arg InsertUnassigned
 		arg.Source,
 		arg.Rel,
 		arg.Size,
-		arg.Moved,
 	)
 	return err
 }
 
 const listUnassignedFiles = `-- name: ListUnassignedFiles :many
-SELECT source, rel, size, moved FROM unassigned_files WHERE entry_id = ? ORDER BY rowid
+SELECT source, rel, size FROM unassigned_files WHERE entry_id = ? ORDER BY rowid
 `
 
 type ListUnassignedFilesRow struct {
 	Source string
 	Rel    string
 	Size   int64
-	Moved  int64
 }
 
 func (q *Queries) ListUnassignedFiles(ctx context.Context, entryID int64) ([]ListUnassignedFilesRow, error) {
@@ -101,12 +98,7 @@ func (q *Queries) ListUnassignedFiles(ctx context.Context, entryID int64) ([]Lis
 	var items []ListUnassignedFilesRow
 	for rows.Next() {
 		var i ListUnassignedFilesRow
-		if err := rows.Scan(
-			&i.Source,
-			&i.Rel,
-			&i.Size,
-			&i.Moved,
-		); err != nil {
+		if err := rows.Scan(&i.Source, &i.Rel, &i.Size); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -145,18 +137,4 @@ func (q *Queries) ListUnassignedNames(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const markUnassignedFileMoved = `-- name: MarkUnassignedFileMoved :exec
-UPDATE unassigned_files SET moved = 1 WHERE entry_id = ? AND source = ?
-`
-
-type MarkUnassignedFileMovedParams struct {
-	EntryID int64
-	Source  string
-}
-
-func (q *Queries) MarkUnassignedFileMoved(ctx context.Context, arg MarkUnassignedFileMovedParams) error {
-	_, err := q.db.ExecContext(ctx, markUnassignedFileMoved, arg.EntryID, arg.Source)
-	return err
 }

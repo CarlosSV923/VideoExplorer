@@ -34,7 +34,7 @@ func TestTrashEntriesSurviveTheDatabase(t *testing.T) {
 		},
 	}
 	for _, e := range entries {
-		saved, err := repo.Insert(t.Context(), e)
+		saved, err := insertTrash(t.Context(), conn, e)
 		if err != nil {
 			t.Fatalf("Insert(%s): %v", e.Dir, err)
 		}
@@ -70,20 +70,19 @@ func TestTrashRejectsWhatTheSchemaDoes(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	repo := catalogsqlite.NewTrashRepository(conn)
 
 	base := domain.TrashEntry{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, Dir: "cc", TrashedAt: time.Now()}
-	if _, err := repo.Insert(t.Context(), base); err != nil {
+	if _, err := insertTrash(t.Context(), conn, base); err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
 	duplicate := base
-	if _, err := repo.Insert(t.Context(), duplicate); err == nil {
+	if _, err := insertTrash(t.Context(), conn, duplicate); err == nil {
 		t.Error("two entries share a folder")
 	}
 	unknownOrigin := base
 	unknownOrigin.Dir = "dd"
 	unknownOrigin.Origin = "library"
-	if _, err := repo.Insert(t.Context(), unknownOrigin); err == nil {
+	if _, err := insertTrash(t.Context(), conn, unknownOrigin); err == nil {
 		t.Error("an origin the schema does not know was stored")
 	}
 }

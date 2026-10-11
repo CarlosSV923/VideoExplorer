@@ -12,6 +12,15 @@ type FilterFile struct {
 	Trashed int64
 }
 
+type LibraryOperation struct {
+	ID        string
+	Kind      string
+	Source    string
+	Steps     string
+	Started   int64
+	CreatedAt string
+}
+
 type MediaProbe struct {
 	Device  int64
 	Inode   int64
@@ -67,7 +76,6 @@ type UnassignedFile struct {
 	Source  string
 	Rel     string
 	Size    int64
-	Moved   int64
 }
 
 type UploadBatch struct {

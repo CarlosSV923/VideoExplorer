@@ -16,50 +16,17 @@ import (
 // timeLayout is fixed-width UTC, so string comparison in SQL equals time order.
 const timeLayout = "2006-01-02T15:04:05.000000000Z"
 
-// TrashRepository implements application.TrashRepository.
+// TrashRepository implements application.TrashRepository. The entries are written by the
+// commit of the change that trashes them (see records).
 type TrashRepository struct {
-	db *sql.DB
-	q  *sqlcgen.Queries
+	q *sqlcgen.Queries
 }
 
 var _ application.TrashRepository = (*TrashRepository)(nil)
 
 // NewTrashRepository builds the repository over an open database.
 func NewTrashRepository(db *sql.DB) *TrashRepository {
-	return &TrashRepository{db: db, q: sqlcgen.New(db)}
-}
-
-// Insert implements application.TrashRepository. The entry and its files are
-// stored in one transaction.
-func (r *TrashRepository) Insert(ctx context.Context, entry domain.TrashEntry) (domain.TrashEntry, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return domain.TrashEntry{}, fmt.Errorf("catalog: begin trash entry: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	q := r.q.WithTx(tx)
-	id, err := q.InsertTrashEntry(ctx, sqlcgen.InsertTrashEntryParams{
-		Origin:       string(entry.Origin),
-		Reason:       string(entry.Reason),
-		Dir:          entry.Dir,
-		TrashedAt:    formatTime(entry.TrashedAt),
-		BatchID:      entry.BatchID,
-		RelativePath: entry.RelativePath,
-	})
-	if err != nil {
-		return domain.TrashEntry{}, fmt.Errorf("catalog: insert trash entry: %w", err)
-	}
-	for _, f := range entry.Files {
-		if err := q.InsertTrashFile(ctx, sqlcgen.InsertTrashFileParams{EntryID: id, Name: f.Name, Size: f.Size}); err != nil {
-			return domain.TrashEntry{}, fmt.Errorf("catalog: insert trash file: %w", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return domain.TrashEntry{}, fmt.Errorf("catalog: commit trash entry: %w", err)
-	}
-	entry.ID = id
-	return entry, nil
+	return &TrashRepository{q: sqlcgen.New(db)}
 }
 
 // Entries implements application.TrashRepository.

@@ -115,13 +115,21 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 	log.Info("metadata ready", "tmdb", meta.Service.Configured(), "language", cfg.TMDBLanguage)
 
+	// The library changes that a previous run left in the journal are undone before anything
+	// else touches the library (RNF-04).
+	catalog := newCatalog(conn, cfg, log)
+	if n, err := catalog.Engine.Recover(ctx); err != nil {
+		log.Error("interrupted library changes not undone", "operations", n, "error", err)
+	} else if n > 0 {
+		log.Info("interrupted library changes undone", "operations", n)
+	}
+
 	ingest := newIngestion(conn, log, ctx.Done())
 	uploads := newUploads(cfg, log, ingest.Service)
 	if uploads.adapter != nil {
 		// The staging area is known only now: the adapter needs the service first.
 		ingest.Service.WithStaging(uploads.adapter)
 		// Archives are extracted in the staging area and their originals go to the trash (RF-04, RF-06).
-		catalog := newCatalog(conn, cfg)
 		ingest.Service.WithExtraction(workspace.New(stagingDir(cfg.LibraryPath), nil), sevenzip.New(""), trashForIngestion{trash: catalog.Trash})
 		withFiltering(ingest.Service, conn, cfg)
 		ingest.Service.WithLibrary(unassignedForIngestion{unassigned: catalog.Unassigned}) // the filtered content moves to No asignados (RF-08a)

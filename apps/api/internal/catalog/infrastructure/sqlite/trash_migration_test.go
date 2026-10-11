@@ -74,7 +74,7 @@ func TestTrashMigrationKeepsTheEntriesAndTheirIDs(t *testing.T) {
 	}
 
 	// The rebuilt tables still cascade and accept the new reason.
-	saved, err := repo.Insert(t.Context(), domain.TrashEntry{
+	saved, err := insertTrash(t.Context(), conn, domain.TrashEntry{
 		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonFiltered, Dir: "bb",
 		BatchID: "b1", RelativePath: "Movie/sample.mkv", Files: []domain.TrashFile{{Name: "sample.mkv", Size: 1}},
 	})

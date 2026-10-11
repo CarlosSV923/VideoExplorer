@@ -6,17 +6,12 @@ import (
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
 	catalogsqlite "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/infrastructure/sqlite"
-	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
 )
 
 func TestUnassignedEntriesSurviveTheDatabase(t *testing.T) {
 	t.Parallel()
 
-	conn, err := database.Open(t.Context(), t.TempDir())
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = conn.Close() })
+	conn := openDB(t)
 	repo := catalogsqlite.NewUnassignedRepository(conn)
 
 	now := time.Date(2026, time.October, 11, 9, 0, 0, 0, time.UTC)
@@ -25,42 +20,39 @@ func TestUnassignedEntriesSurviveTheDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry.Files = []domain.UnassignedFile{
-		{Source: "/staging/j1/a.mkv", Rel: "Season 01/a.mkv", Size: 10, Moved: true},
+		{Source: "/staging/j1/a.mkv", Rel: "Season 01/a.mkv", Size: 10},
 		{Source: "/staging/j1/a.srt", Rel: "Season 01/a.srt", Size: 2},
 	}
-	saved, err := repo.Record(t.Context(), entry)
+	id, err := recordUnassigned(t.Context(), conn, entry)
 	if err != nil {
-		t.Fatalf("Record: %v", err)
+		t.Fatalf("record: %v", err)
 	}
-	if saved.ID == 0 {
-		t.Fatal("Record returned no id")
+	if id == 0 {
+		t.Fatal("the record returned no id")
 	}
 
 	got, found, err := repo.BySource(t.Context(), "batch-1")
 	if err != nil || !found {
 		t.Fatalf("BySource = %v, %v; want the entry", found, err)
 	}
-	if got.Name != "Mission - Impossible" || got.Loose || got.BatchID != "batch-1" || got.Relation != domain.RelationParts ||
+	if got.ID != id || got.Name != "Mission - Impossible" || got.Loose || got.BatchID != "batch-1" || got.Relation != domain.RelationParts ||
 		got.Origin != domain.OriginUpload || !got.CreatedAt.Equal(now) {
-		t.Errorf("entry = %+v; want its name, batch, relation, origin and time back", got)
+		t.Errorf("entry = %+v; want its id, name, batch, relation, origin and time back", got)
 	}
-	if len(got.Files) != 2 || got.Files[0].Rel != "Season 01/a.mkv" || !got.Files[0].Moved || got.Files[1].Moved {
-		t.Errorf("files = %+v; want both, in order, with the first moved", got.Files)
+	if len(got.Files) != 2 || got.Files[0].Rel != "Season 01/a.mkv" || got.Files[1].Source != "/staging/j1/a.srt" {
+		t.Errorf("files = %+v; want both, in order", got.Files)
 	}
 
-	if err := repo.MarkMoved(t.Context(), saved.ID, "/staging/j1/a.srt"); err != nil {
-		t.Fatalf("MarkMoved: %v", err)
-	}
 	extra := domain.UnassignedFile{Source: "/staging/j2/b.srt", Rel: "Season 01/b.srt", Size: 1}
-	if err := repo.AddFiles(t.Context(), saved.ID, []domain.UnassignedFile{extra}); err != nil {
-		t.Fatalf("AddFiles: %v", err)
+	if err := addUnassignedFiles(t.Context(), conn, id, []domain.UnassignedFile{extra}); err != nil {
+		t.Fatalf("add files: %v", err)
 	}
 	got, _, err = repo.BySource(t.Context(), "batch-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Files[1].Moved || len(got.Files) != 3 || got.Files[2].Source != extra.Source {
-		t.Errorf("after MarkMoved and AddFiles: files = %+v", got.Files)
+	if len(got.Files) != 3 || got.Files[2].Source != extra.Source {
+		t.Errorf("after adding a file: files = %+v", got.Files)
 	}
 
 	names, err := repo.Names(t.Context())
@@ -75,11 +67,7 @@ func TestUnassignedEntriesSurviveTheDatabase(t *testing.T) {
 func TestUnassignedEntriesRefuseWhatTheSchemaDoes(t *testing.T) {
 	t.Parallel()
 
-	conn, err := database.Open(t.Context(), t.TempDir())
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = conn.Close() })
+	conn := openDB(t)
 	repo := catalogsqlite.NewUnassignedRepository(conn)
 
 	now := time.Date(2026, time.October, 11, 9, 0, 0, 0, time.UTC)
@@ -87,8 +75,8 @@ func TestUnassignedEntriesRefuseWhatTheSchemaDoes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Record(t.Context(), first); err != nil {
-		t.Fatalf("Record: %v", err)
+	if _, err := recordUnassigned(t.Context(), conn, first); err != nil {
+		t.Fatalf("record: %v", err)
 	}
 
 	sameSource, err := domain.NewUnassignedEntry("s1", "Other", false, "b1", domain.RelationNone, now)
@@ -109,8 +97,8 @@ func TestUnassignedEntriesRefuseWhatTheSchemaDoes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := repo.Record(t.Context(), tt.entry); err == nil {
-				t.Error("Record accepted it")
+			if _, err := recordUnassigned(t.Context(), conn, tt.entry); err == nil {
+				t.Error("record accepted it")
 			}
 		})
 	}
