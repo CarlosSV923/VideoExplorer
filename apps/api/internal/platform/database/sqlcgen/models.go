@@ -11,11 +11,13 @@ type MetadataCache struct {
 }
 
 type TrashEntry struct {
-	ID        int64
-	Origin    string
-	Reason    string
-	Dir       string
-	TrashedAt string
+	ID           int64
+	Origin       string
+	Reason       string
+	Dir          string
+	TrashedAt    string
+	BatchID      string
+	RelativePath string
 }
 
 type TrashFile struct {

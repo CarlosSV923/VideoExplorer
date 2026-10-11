@@ -10,14 +10,16 @@ import (
 )
 
 const insertTrashEntry = `-- name: InsertTrashEntry :one
-INSERT INTO trash_entries (origin, reason, dir, trashed_at) VALUES (?, ?, ?, ?) RETURNING id
+INSERT INTO trash_entries (origin, reason, dir, trashed_at, batch_id, relative_path) VALUES (?, ?, ?, ?, ?, ?) RETURNING id
 `
 
 type InsertTrashEntryParams struct {
-	Origin    string
-	Reason    string
-	Dir       string
-	TrashedAt string
+	Origin       string
+	Reason       string
+	Dir          string
+	TrashedAt    string
+	BatchID      string
+	RelativePath string
 }
 
 func (q *Queries) InsertTrashEntry(ctx context.Context, arg InsertTrashEntryParams) (int64, error) {
@@ -26,6 +28,8 @@ func (q *Queries) InsertTrashEntry(ctx context.Context, arg InsertTrashEntryPara
 		arg.Reason,
 		arg.Dir,
 		arg.TrashedAt,
+		arg.BatchID,
+		arg.RelativePath,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -48,7 +52,7 @@ func (q *Queries) InsertTrashFile(ctx context.Context, arg InsertTrashFileParams
 }
 
 const listTrashEntries = `-- name: ListTrashEntries :many
-SELECT id, origin, reason, dir, trashed_at FROM trash_entries ORDER BY trashed_at, id
+SELECT id, origin, reason, dir, trashed_at, batch_id, relative_path FROM trash_entries ORDER BY trashed_at, id
 `
 
 func (q *Queries) ListTrashEntries(ctx context.Context) ([]TrashEntry, error) {
@@ -66,6 +70,8 @@ func (q *Queries) ListTrashEntries(ctx context.Context) ([]TrashEntry, error) {
 			&i.Reason,
 			&i.Dir,
 			&i.TrashedAt,
+			&i.BatchID,
+			&i.RelativePath,
 		); err != nil {
 			return nil, err
 		}

@@ -43,11 +43,13 @@ var _ ingestionapplication.Trash = trashForIngestion{}
 // Put implements ingestionapplication.Trash.
 func (t trashForIngestion) Put(ctx context.Context, p ingestionapplication.TrashPut) error {
 	_, err := t.trash.Put(ctx, catalogapplication.PutRequest{
-		Origin: catalogdomain.TrashOrigin(p.Origin),
-		Reason: catalogdomain.TrashReason(p.Reason),
-		Name:   p.Name,
-		Source: p.Source,
-		Size:   p.Size,
+		Origin:       catalogdomain.TrashOrigin(p.Origin),
+		Reason:       catalogdomain.TrashReason(p.Reason),
+		BatchID:      p.BatchID,
+		RelativePath: p.RelativePath,
+		Name:         p.Name,
+		Source:       p.Source,
+		Size:         p.Size,
 	})
 	return err
 }

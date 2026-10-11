@@ -40,10 +40,12 @@ func (r *TrashRepository) Insert(ctx context.Context, entry domain.TrashEntry) (
 
 	q := r.q.WithTx(tx)
 	id, err := q.InsertTrashEntry(ctx, sqlcgen.InsertTrashEntryParams{
-		Origin:    string(entry.Origin),
-		Reason:    string(entry.Reason),
-		Dir:       entry.Dir,
-		TrashedAt: formatTime(entry.TrashedAt),
+		Origin:       string(entry.Origin),
+		Reason:       string(entry.Reason),
+		Dir:          entry.Dir,
+		TrashedAt:    formatTime(entry.TrashedAt),
+		BatchID:      entry.BatchID,
+		RelativePath: entry.RelativePath,
 	})
 	if err != nil {
 		return domain.TrashEntry{}, fmt.Errorf("catalog: insert trash entry: %w", err)
@@ -81,12 +83,14 @@ func (r *TrashRepository) Entries(ctx context.Context) ([]domain.TrashEntry, err
 			return nil, fmt.Errorf("catalog: trash entry %d: %w", row.ID, err)
 		}
 		out = append(out, domain.TrashEntry{
-			ID:        row.ID,
-			Origin:    domain.TrashOrigin(row.Origin),
-			Reason:    domain.TrashReason(row.Reason),
-			Dir:       row.Dir,
-			TrashedAt: at,
-			Files:     byEntry[row.ID],
+			ID:           row.ID,
+			Origin:       domain.TrashOrigin(row.Origin),
+			Reason:       domain.TrashReason(row.Reason),
+			Dir:          row.Dir,
+			TrashedAt:    at,
+			BatchID:      row.BatchID,
+			RelativePath: row.RelativePath,
+			Files:        byEntry[row.ID],
 		})
 	}
 	return out, nil

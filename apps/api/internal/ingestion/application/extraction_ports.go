@@ -116,6 +116,7 @@ type Trash interface {
 const (
 	TrashOriginUpload    = "upload"
 	TrashReasonExtracted = "extracted"
+	TrashReasonFiltered  = "filtered"
 )
 
 // TrashPut is one file that goes to the trash.
@@ -126,6 +127,10 @@ type TrashPut struct {
 	Reason string
 	// Name is the file's name, kept in the trash.
 	Name string
+	// BatchID is the batch the file was dropped with, and RelativePath its path in
+	// that drop, ending in its name (RF-30).
+	BatchID      string
+	RelativePath string
 	// Source is the file's current path, which is inside the library.
 	Source string
 	Size   int64

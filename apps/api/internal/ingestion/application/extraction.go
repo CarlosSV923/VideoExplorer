@@ -302,6 +302,15 @@ func (s *Service) archivePath(job *domain.UploadJob) string {
 	return s.work.workspace.ArchivePath(job.ID)
 }
 
+// originPath is where a dropped file was in the drop: its path in the folder
+// dropped in the browser, or its name when it was dropped on its own (RF-30).
+func originPath(job *domain.UploadJob) string {
+	if job.RelativePath != "" {
+		return job.RelativePath
+	}
+	return job.FileName
+}
+
 // leaderOf is the id of the job an extraction runs for: the job itself, or for a
 // set the id of its claim (its first volume). Its folder is named after it.
 func leaderOf(job *domain.UploadJob) domain.JobID {
@@ -321,7 +330,8 @@ func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
 	for _, m := range unit {
 		if err := x.trash.Put(ctx, TrashPut{
 			Origin: TrashOriginUpload, Reason: TrashReasonExtracted,
-			Name: m.FileName, Source: s.archivePath(m), Size: m.Size,
+			Name: m.FileName, BatchID: string(m.BatchID), RelativePath: originPath(m),
+			Source: s.archivePath(m), Size: m.Size,
 		}); err != nil {
 			allMoved = false
 			s.log.Error("archive not sent to the trash", "job", m.ID, "error", err)

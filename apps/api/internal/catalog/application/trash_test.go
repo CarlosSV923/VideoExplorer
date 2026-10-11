@@ -58,7 +58,7 @@ func TestPutMovesTheFileIntoTheTrashWithItsMetadata(t *testing.T) {
 
 	entry, err := trash.Put(t.Context(), application.PutRequest{
 		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted,
-		Name: "Movie.zip", Source: source, Size: 25,
+		BatchID: "b1", RelativePath: "Folder/Movie.zip", Name: "Movie.zip", Source: source, Size: 25,
 	})
 	if err != nil {
 		t.Fatalf("Put: %v", err)
@@ -75,6 +75,9 @@ func TestPutMovesTheFileIntoTheTrashWithItsMetadata(t *testing.T) {
 		t.Fatalf("entry not recorded: %+v", repo.entries)
 	}
 	got := repo.entries[0]
+	if got.BatchID != "b1" || got.RelativePath != "Folder/Movie.zip" {
+		t.Errorf("provenance = %q %q, want the batch and the relative path it was dropped with", got.BatchID, got.RelativePath)
+	}
 	if got.Origin != domain.TrashOriginUpload || got.Reason != domain.TrashReasonExtracted ||
 		!got.TrashedAt.Equal(now) || len(got.Files) != 1 || got.Files[0] != (domain.TrashFile{Name: "Movie.zip", Size: 25}) {
 		t.Errorf("metadata = %+v", got)
@@ -89,10 +92,16 @@ func TestPutRefusesWhatIsNotAValidEntryAndMovesNothing(t *testing.T) {
 		req  func(source string) application.PutRequest
 	}{
 		{name: "an unknown reason", req: func(s string) application.PutRequest {
-			return application.PutRequest{Origin: domain.TrashOriginUpload, Reason: "deleted", Name: "Movie.zip", Source: s}
+			return application.PutRequest{Origin: domain.TrashOriginUpload, Reason: "deleted", BatchID: "b1", RelativePath: "Movie.zip", Name: "Movie.zip", Source: s}
+		}},
+		{name: "no batch", req: func(s string) application.PutRequest {
+			return application.PutRequest{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, RelativePath: "Movie.zip", Name: "Movie.zip", Source: s}
+		}},
+		{name: "a relative path that leaves the drop", req: func(s string) application.PutRequest {
+			return application.PutRequest{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonFiltered, BatchID: "b1", RelativePath: "../Movie.zip", Name: "Movie.zip", Source: s}
 		}},
 		{name: "a file name that is a path", req: func(s string) application.PutRequest {
-			return application.PutRequest{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, Name: "../Movie.zip", Source: s}
+			return application.PutRequest{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, BatchID: "b1", RelativePath: "Movie.zip", Name: "../Movie.zip", Source: s}
 		}},
 	}
 	for _, tt := range tests {
@@ -123,7 +132,7 @@ func TestPutGivesTheFileBackWhenTheEntryCannotBeRecorded(t *testing.T) {
 	trash := application.NewTrash(repo, libraryfs.New(root, filepath.Join(root, ".videoexplorer", "trash")), nil)
 
 	_, err := trash.Put(t.Context(), application.PutRequest{
-		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, Name: "Movie.zip", Source: source, Size: 25,
+		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, BatchID: "b1", RelativePath: "Folder/Movie.zip", Name: "Movie.zip", Source: source, Size: 25,
 	})
 	if err == nil {
 		t.Fatal("Put succeeded without a recorded entry")
@@ -148,12 +157,34 @@ func TestPutRecordsTheEntryInTheDatabase(t *testing.T) {
 	t.Cleanup(func() { _ = conn.Close() })
 	trash := application.NewTrash(catalogsqlite.NewTrashRepository(conn), libraryfs.New(root, filepath.Join(root, ".videoexplorer", "trash")), nil)
 	if _, err := trash.Put(t.Context(), application.PutRequest{
-		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, Name: "Movie.zip", Source: source, Size: 25,
+		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, BatchID: "b1", RelativePath: "Folder/Movie.zip", Name: "Movie.zip", Source: source, Size: 25,
 	}); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	entries, err := trash.Entries(t.Context())
 	if err != nil || len(entries) != 1 || entries[0].Files[0].Name != "Movie.zip" {
 		t.Fatalf("Entries = %+v, %v", entries, err)
+	}
+}
+
+func TestPutKeepsFilteredFilesWithTheReasonAndTheirDropPath(t *testing.T) {
+	t.Parallel()
+
+	root, source := library(t)
+	repo := &memRepo{}
+	trash := application.NewTrash(repo, libraryfs.New(root, filepath.Join(root, ".videoexplorer", "trash")), nil)
+
+	if _, err := trash.Put(t.Context(), application.PutRequest{
+		Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonFiltered,
+		BatchID: "b7", RelativePath: "Movie/Samples/sample.mkv", Name: "sample.mkv", Source: source, Size: 25,
+	}); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got := repo.entries[0]
+	if got.Reason != domain.TrashReasonFiltered || got.BatchID != "b7" || got.RelativePath != "Movie/Samples/sample.mkv" {
+		t.Errorf("entry = %+v, want the filtered reason with its batch and drop path", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".videoexplorer", "trash", got.Dir, "sample.mkv")); err != nil {
+		t.Errorf("the discarded file is not in its trash entry: %v", err)
 	}
 }

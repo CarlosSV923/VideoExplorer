@@ -24,10 +24,12 @@ func TestTrashEntriesSurviveTheDatabase(t *testing.T) {
 	entries := []domain.TrashEntry{
 		{
 			Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, Dir: "aa", TrashedAt: first,
+			BatchID: "b1", RelativePath: "Movie.zip",
 			Files: []domain.TrashFile{{Name: "Movie.zip", Size: 10}},
 		},
 		{
-			Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, Dir: "bb", TrashedAt: second,
+			Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonFiltered, Dir: "bb", TrashedAt: second,
+			BatchID: "b2", RelativePath: "Show/sample.7z",
 			Files: []domain.TrashFile{{Name: "Show.7z", Size: 20}},
 		},
 	}
@@ -50,6 +52,10 @@ func TestTrashEntriesSurviveTheDatabase(t *testing.T) {
 	}
 	if !got[0].TrashedAt.Equal(first) || got[0].Origin != domain.TrashOriginUpload || got[0].Reason != domain.TrashReasonExtracted {
 		t.Errorf("first entry = %+v", got[0])
+	}
+	if got[0].BatchID != "b1" || got[0].RelativePath != "Movie.zip" || got[1].Reason != domain.TrashReasonFiltered ||
+		got[1].BatchID != "b2" || got[1].RelativePath != "Show/sample.7z" {
+		t.Errorf("provenance and reasons = %+v", got)
 	}
 	if len(got[1].Files) != 1 || got[1].Files[0] != (domain.TrashFile{Name: "Show.7z", Size: 20}) {
 		t.Errorf("files of the second entry = %+v", got[1].Files)

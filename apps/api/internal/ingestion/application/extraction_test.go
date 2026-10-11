@@ -307,6 +307,7 @@ func TestAnArchiveIsExtractedAndItsOriginalGoesToTheTrash(t *testing.T) {
 	}
 	puts := r.trash.puts()
 	if len(puts) != 1 || puts[0].Name != "Movie.zip" || puts[0].Origin != application.TrashOriginUpload ||
+		puts[0].BatchID != string(r.batch) || puts[0].RelativePath != "Movie.zip" ||
 		puts[0].Reason != application.TrashReasonExtracted || puts[0].Size != int64(len(data)) {
 		t.Fatalf("trash = %+v", puts)
 	}

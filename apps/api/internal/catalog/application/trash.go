@@ -62,6 +62,9 @@ func randomName() string {
 type PutRequest struct {
 	Origin domain.TrashOrigin
 	Reason domain.TrashReason
+	// BatchID and RelativePath are where the file came from (RF-30): see domain.Provenance.
+	BatchID      string
+	RelativePath string
 	// Name is the file's name, kept in the trash.
 	Name string
 	// Source is the file's current path inside the library.
@@ -74,7 +77,9 @@ type PutRequest struct {
 // file is never in the trash without its metadata.
 func (t *Trash) Put(ctx context.Context, r PutRequest) (domain.TrashEntry, error) {
 	dir := t.newID()
-	entry, err := domain.NewTrashEntry(r.Origin, r.Reason, dir, domain.TrashFile{Name: r.Name, Size: r.Size}, t.now())
+	entry, err := domain.NewTrashEntry(r.Origin, r.Reason, dir,
+		domain.Provenance{BatchID: r.BatchID, RelativePath: r.RelativePath},
+		domain.TrashFile{Name: r.Name, Size: r.Size}, t.now())
 	if err != nil {
 		return domain.TrashEntry{}, err
 	}
