@@ -48,11 +48,11 @@ Depende de: 1 · Cubre: RF-01 a RF-03, RF-09, RF-10, §9.6
 Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 - [x] Extractor 7zz (de GameExplorer): multiparte (`waiting_parts`), contraseña, espacio libre, CRC32, zip-slip, fallos y Reintentar de RF-10c; comprimido original a la papelera (adelanta la papelera mínima del contexto `catalog`, con el formato de GameExplorer, tras un puerto)
 - [x] Filtrado por extensión y detección de *samples*; descartes a la papelera (parte de `filtering`, contenido en `staging/extract/<id>/`; previo: el `.rar` de un conjunto `.r00` en el mismo lote también da `legacy_volume`)
-- [ ] Puerto `Prober` + adaptador ffprobe (resolución, códecs, pistas, duración) con caché
+- [x] Puerto `Prober` + adaptador ffprobe (resolución, códecs, pistas, duración) con caché
 - [ ] Analizador de nombres de archivo (película/serie, título, año, `SxxEyy`, `1x02`, varios capítulos, partes, idioma de subtítulos) + vectores `filename-cases.json`
 - [ ] Detección de idioma de subtítulos *offline*
 - [ ] Hash parcial para «Copia exacta»
-- [ ] Resultado a `_unassigned/<lote>/` (RF-08); decidir qué pasa con un error de E/S durante el filtrado (hoy el trabajo queda en `filtering` hasta el siguiente arranque)
+- [ ] Resultado a `_unassigned/<lote>/` (RF-08); decidir qué pasa con un error de E/S durante el filtrado (hoy el trabajo queda en `filtering` hasta el siguiente arranque); encolar el sondeo ffprobe de los videos tras moverlos (la caché por inodo sobrevive al `rename`)
 
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
