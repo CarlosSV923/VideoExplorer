@@ -54,13 +54,26 @@ type recordingTrash struct {
 	mu  sync.Mutex
 	put []application.TrashPut
 	err error
+	// attempts counts the calls, failed or not; before, when set, sees each call first.
+	attempts int
+	before   func(context.Context, application.TrashPut)
+	// failName makes the next call for a file with this name fail, once.
+	failName string
 }
 
-func (r *recordingTrash) Put(_ context.Context, p application.TrashPut) error {
+func (r *recordingTrash) Put(ctx context.Context, p application.TrashPut) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.attempts++
+	if r.before != nil {
+		r.before(ctx, p)
+	}
 	if r.err != nil {
 		return r.err
+	}
+	if r.failName != "" && p.Name == r.failName {
+		r.failName = ""
+		return errors.New("input/output error")
 	}
 	dest := filepath.Join(r.dir, fmt.Sprint(len(r.put)), p.Name)
 	if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
@@ -77,6 +90,20 @@ func (r *recordingTrash) puts() []application.TrashPut {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]application.TrashPut(nil), r.put...)
+}
+
+// setErr makes the next calls fail with err (nil makes them work again).
+func (r *recordingTrash) setErr(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.err = err
+}
+
+// calls returns how many times Put was called.
+func (r *recordingTrash) calls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.attempts
 }
 
 // tamperingExtractor reports a CRC32 in the index that the file does not have, as
@@ -216,6 +243,21 @@ func (r *rig) staged(id domain.JobID) bool {
 	return err == nil
 }
 
+// waitTrashed waits until the trash has received n originals. A job is filtering before its
+// original goes to the trash (finish saves the state first), so a test that waits for the
+// filtering state waits for the trash too.
+func (r *rig) waitTrashed(t *testing.T, n int) {
+	t.Helper()
+
+	deadline := time.Now().Add(extractionGuard)
+	for len(r.trash.puts()) < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("the trash holds %d originals, want %d", len(r.trash.puts()), n)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // zipBytes builds a zip in memory with the given entries, in any mode.
 func zipBytes(t *testing.T, entries ...zipEntry) []byte {
 	t.Helper()
@@ -303,6 +345,7 @@ func TestAnArchiveIsExtractedAndItsOriginalGoesToTheTrash(t *testing.T) {
 	if err != nil || string(got) != "fictitious video bytes" {
 		t.Fatalf("extracted video = %q, %v", got, err)
 	}
+	r.waitTrashed(t, 1)
 	if r.staged(id) {
 		t.Error("the archive is still in staging")
 	}
@@ -361,6 +404,7 @@ func TestAnEncryptedArchiveWaitsForAPasswordThatOpensIt(t *testing.T) {
 	if job.Error != "" {
 		t.Errorf("error = %q after a right password", job.Error)
 	}
+	r.waitTrashed(t, 1)
 	if len(r.trash.puts()) != 1 {
 		t.Errorf("trash entries = %d, want 1", len(r.trash.puts()))
 	}

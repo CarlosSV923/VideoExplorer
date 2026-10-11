@@ -333,14 +333,33 @@ func leaderOf(job *domain.UploadJob) domain.JobID {
 	return job.ID
 }
 
-// finish moves the originals to the trash (RF-06), records the extraction as done
-// and filters the extracted content (RF-07). An original is removed from staging
-// only once it is in the trash; if the move fails, it stays where it is, known to
-// its job, and the job goes on.
+// finish records the extraction as done, moves the originals to the trash (RF-06) and
+// filters the extracted content (RF-07). The state is saved before the originals move: a
+// restart that finds an original still in staging of a job past its extraction moves it to
+// the trash then (trashLeftovers), so no cut leaves a job waiting for a file that is already
+// in the trash. If a move fails, the original stays where it is, known to its job, and the
+// job goes on.
 func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
+	if err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
+		return j.FinishExtraction(now)
+	}); err != nil {
+		return s.abortedOr(ctx, err)
+	}
+	s.trashArchives(ctx, unit)
+	// The extracted content goes on to the filter (RF-07), in the same worker.
+	return s.abortedOr(ctx, s.filterUnit(ctx, unit, true))
+}
+
+// trashArchives moves the originals of a unit to the trash (RF-06), one entry per file. An
+// original that is no longer in staging is already there, so a repeated call moves nothing
+// twice. A failed move is logged and its original stays in staging, for the next start.
+func (s *Service) trashArchives(ctx context.Context, unit []*domain.UploadJob) {
 	x := s.work
 	allMoved := true
 	for _, m := range unit {
+		if !x.workspace.FileExists(s.archivePath(m)) {
+			continue
+		}
 		if err := x.trash.Put(ctx, TrashPut{
 			Origin: TrashOriginUpload, Reason: TrashReasonExtracted,
 			Name: m.FileName, BatchID: string(m.BatchID), RelativePath: originPath(m),
@@ -361,13 +380,39 @@ func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
 			s.log.Warn("set folder not removed", "group", unit[0].VolumeGroup, "error", err)
 		}
 	}
-	if err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
-		return j.FinishExtraction(now)
-	}); err != nil {
-		return s.abortedOr(ctx, err)
+}
+
+// trashLeftovers moves to the trash the originals that a restart found still in staging,
+// of the jobs past their extraction (RF-06). finish saves the state before it moves an
+// original, so an interrupted move of a single archive or of a set's volumes is finished
+// here, one volume at a time, and the rest of the set is not left in staging. It runs once
+// at start, before the library is served.
+func (s *Service) trashLeftovers(ctx context.Context) {
+	if s.work == nil {
+		return
 	}
-	// The extracted content goes on to the filter (RF-07), in the same worker.
-	return s.abortedOr(ctx, s.filterUnit(ctx, unit, true))
+	filtering, err := s.jobs.ByStatus(ctx, domain.StatusFiltering)
+	if err != nil {
+		s.log.Warn("originals not checked", "error", err)
+		return
+	}
+	seen := map[domain.JobID]bool{}
+	for _, job := range filtering {
+		leader := leaderOf(job)
+		if seen[leader] {
+			continue
+		}
+		seen[leader] = true
+		if !job.IsVolume() && !s.work.workspace.ExtractionExists(leader) {
+			continue // a file uploaded on its own: it is kept, not extracted
+		}
+		unit, err := s.unitOf(ctx, job)
+		if err != nil {
+			s.log.Warn("originals not trashed", "job", job.ID, "error", err)
+			continue
+		}
+		s.trashArchives(ctx, unit)
+	}
 }
 
 // stop ends an extraction that did not succeed. Whatever was extracted is

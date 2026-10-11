@@ -214,6 +214,7 @@ func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
 	defer s.settleAll(ctx)
 	err := s.reconcile(ctx, s.now(), &res)
+	s.trashLeftovers(ctx) // the originals a cut left in staging go to the trash before any batch settles (RF-06)
 	return res, err
 }
 
