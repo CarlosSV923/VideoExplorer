@@ -157,7 +157,7 @@ func TestAnArchiveKeepsItsVideoAndTrashesEverythingElse(t *testing.T) {
 		zipEntry{name: "Movie/sample.mkv", content: "small sample", mode: 0o644},
 		zipEntry{name: "Movie/Movie.nfo", content: "metadata", mode: 0o644},
 		zipEntry{name: "Movie/poster.jpg", content: "image", mode: 0o644},
-		zipEntry{name: "Samples/clip.mkv", content: "clip", mode: 0o644},
+		zipEntry{name: "Sample/clip.mkv", content: "clip", mode: 0o644},
 		zipEntry{name: "Movie/Movie.es.srt", content: "1\n00:00:01,000 --> 00:00:02,000\nHola\n", mode: 0o644},
 	))
 	job := r.reachedFilter(t, id)
@@ -170,7 +170,7 @@ func TestAnArchiveKeepsItsVideoAndTrashesEverythingElse(t *testing.T) {
 			t.Errorf("%s was not kept in staging: %v", kept, err)
 		}
 	}
-	for _, gone := range []string{"Movie/sample.mkv", "Movie/Movie.nfo", "Movie/poster.jpg", "Samples/clip.mkv"} {
+	for _, gone := range []string{"Movie/sample.mkv", "Movie/Movie.nfo", "Movie/poster.jpg", "Sample/clip.mkv"} {
 		if _, err := os.Stat(filepath.Join(r.extractionDir(id), filepath.FromSlash(gone))); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s is still in staging: %v", gone, err)
 		}
@@ -183,7 +183,7 @@ func TestAnArchiveKeepsItsVideoAndTrashesEverythingElse(t *testing.T) {
 		"sample.mkv": "Movie.zip/Movie/sample.mkv",
 		"Movie.nfo":  "Movie.zip/Movie/Movie.nfo",
 		"poster.jpg": "Movie.zip/Movie/poster.jpg",
-		"clip.mkv":   "Movie.zip/Samples/clip.mkv",
+		"clip.mkv":   "Movie.zip/Sample/clip.mkv",
 	}
 	for name, origin := range discarded {
 		got := r.trashedNamed(name)
@@ -245,7 +245,7 @@ func TestADroppedFolderIsFilteredFileByFile(t *testing.T) {
 	video := r.drop(t, "Movie/Movie.mkv", []byte("video"))
 	subtitle := r.drop(t, "Movie/Movie.es.srt", []byte("subtitle"))
 	readme := r.drop(t, "Movie/readme.txt", []byte("notes"))
-	sample := r.dropSparse(t, "Movie/Samples/clip.mkv", 5*mb)
+	sample := r.dropSparse(t, "Movie/Sample/clip.mkv", 5*mb)
 
 	if job := r.reachedFilter(t, video); job.Status != domain.StatusFiltering {
 		t.Errorf("video: %s, want filtering", job.Status)
@@ -261,7 +261,7 @@ func TestADroppedFolderIsFilteredFileByFile(t *testing.T) {
 		t.Errorf("sample in a folder: %s (%q), want no_video", job.Status, job.Error)
 	}
 
-	if got := r.trashedNamed("clip.mkv"); len(got) != 1 || got[0].RelativePath != "Movie/Samples/clip.mkv" ||
+	if got := r.trashedNamed("clip.mkv"); len(got) != 1 || got[0].RelativePath != "Movie/Sample/clip.mkv" ||
 		got[0].BatchID != string(r.batch) || got[0].Reason != application.TrashReasonFiltered {
 		t.Errorf("the sample of the folder: %+v, want its drop path and batch", got)
 	}
@@ -404,5 +404,29 @@ func TestAFilterInterruptedByARestartDoesNotTrashAFileTwice(t *testing.T) {
 				t.Errorf("Kept after the restart = %+v, %v; want the video", kept, err)
 			}
 		})
+	}
+}
+
+func TestMacOSMetadataInAnArchiveGoesToTheTrash(t *testing.T) {
+	t.Parallel()
+
+	r := newRig(t, realExtractor(), 1<<40, true, nil)
+	id := r.upload(t, "Movie.zip", zipBytes(t,
+		zipEntry{name: "Movie/Movie.mkv", content: "video", mode: 0o644},
+		zipEntry{name: "Movie/._Movie.mkv", content: "resource fork", mode: 0o644},
+		zipEntry{name: "__MACOSX/Movie/Movie.mkv", content: "copy", mode: 0o644},
+	))
+	if job := r.reachedFilter(t, id); job.Status != domain.StatusFiltering {
+		t.Fatalf("job = %s (%q), want filtering", job.Status, job.Error)
+	}
+	// The resource fork and the copy under __MACOSX each go to the trash, once.
+	if got := r.trashedNamed("._Movie.mkv"); len(got) != 1 {
+		t.Errorf("the resource fork: %d trash entries, want 1", len(got))
+	}
+	if got := r.trashedNamed("Movie.mkv"); len(got) != 1 || got[0].RelativePath != "Movie.zip/__MACOSX/Movie/Movie.mkv" {
+		t.Errorf("the copy under __MACOSX: %+v, want one entry with its path in the archive", got)
+	}
+	if _, err := os.Stat(filepath.Join(r.extractionDir(id), "Movie", "Movie.mkv")); err != nil {
+		t.Errorf("the video was not kept: %v", err)
 	}
 }

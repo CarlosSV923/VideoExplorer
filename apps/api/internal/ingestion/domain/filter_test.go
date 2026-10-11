@@ -63,7 +63,7 @@ func TestClassifyCompareExtensionsInAnyCaseWhateverTheConfiguredCase(t *testing.
 	}
 }
 
-func TestClassifyDiscardsSamplesByNameOrFolderInAnyCase(t *testing.T) {
+func TestClassifyDiscardsSamplesWithTheWordSampleInNameOrFolderInAnyCase(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -72,18 +72,21 @@ func TestClassifyDiscardsSamplesByNameOrFolderInAnyCase(t *testing.T) {
 		size int64
 		want domain.FileKind
 	}{
-		{name: "sample name", path: "sample.mkv", size: 1 << 20, want: domain.KindDiscard},
-		{name: "sample as a suffix", path: "Movie-sample.mkv", size: 1 << 20, want: domain.KindDiscard},
+		{name: "sample as the name", path: "sample.mkv", size: 1 << 20, want: domain.KindDiscard},
+		{name: "sample after a dash", path: "Movie-sample.mkv", size: 1 << 20, want: domain.KindDiscard},
+		{name: "sample between dots", path: "movie.sample.mkv", size: 1 << 20, want: domain.KindDiscard},
 		{name: "upper case", path: "Movie.SAMPLE.mkv", size: 1 << 20, want: domain.KindDiscard},
-		{name: "sample folder", path: "Samples/clip.mkv", size: 1 << 20, want: domain.KindDiscard},
+		{name: "sample folder", path: "Sample/clip.mkv", size: 1 << 20, want: domain.KindDiscard},
 		{name: "folder of a dropped folder", path: "Movie.Sample/Movie.mkv", size: 1 << 20, want: domain.KindDiscard},
 		{name: "deep folder", path: "Movie/extras/sample/x.mkv", size: 1 << 20, want: domain.KindDiscard},
-		{name: "sample as part of a word", path: "Resampled.mkv", size: 1 << 20, want: domain.KindDiscard},
 		{name: "sample subtitle", path: "Movie.sample.srt", size: 10, want: domain.KindDiscard},
 		{name: "zero-byte sample", path: "sample.mkv", size: 0, want: domain.KindDiscard},
+		{name: "resampled is not the word", path: "Resampled.mkv", size: 1 << 20, want: domain.KindVideo},
+		{name: "plural folder is not the word", path: "Samples/clip.mkv", size: 1 << 20, want: domain.KindVideo},
+		{name: "sample with a digit is not the word", path: "sample2.mkv", size: 1 << 20, want: domain.KindVideo},
 		{name: "not a sample word", path: "Example.mkv", size: 1 << 20, want: domain.KindVideo},
 		{name: "a sample name but too big", path: "sample.mkv", size: big, want: domain.KindVideo},
-		{name: "a sample folder but too big", path: "Samples/Movie.mkv", size: big + 1, want: domain.KindVideo},
+		{name: "a sample folder but too big", path: "Sample/Movie.mkv", size: big + 1, want: domain.KindVideo},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -97,7 +100,7 @@ func TestClassifyDiscardsSamplesByNameOrFolderInAnyCase(t *testing.T) {
 	}
 }
 
-func TestClassifySampleLimitIsExactly150MB(t *testing.T) {
+func TestClassifySampleLimitIsExactlyTheSpecLimit(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -117,11 +120,52 @@ func TestClassifySampleLimitIsExactly150MB(t *testing.T) {
 	}
 }
 
-func TestSampleLimitIsDecimal150MegabytesAndNotMiB(t *testing.T) {
+func TestSampleLimitIs150000000Bytes(t *testing.T) {
 	t.Parallel()
 
 	if domain.SampleMaxSize != 150_000_000 {
-		t.Fatalf("SampleMaxSize = %d, want 150 MB = 150000000 bytes (spec §3, RF-07)", domain.SampleMaxSize)
+		t.Fatalf("SampleMaxSize = %d, want 150 000 000 bytes (spec RF-07)", domain.SampleMaxSize)
+	}
+}
+
+func TestClassifyDiscardsMacOSMetadataWhateverItIs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		size int64
+	}{
+		{name: "resource fork of a video", path: "Movie/._Movie.mkv", size: 4096},
+		{name: "resource fork at the root", path: "._Movie.mkv", size: 4096},
+		{name: "resource fork of a subtitle", path: "Movie/._Movie.srt", size: 300},
+		{name: "a big file under __MACOSX", path: "__MACOSX/Movie/Movie.mkv", size: big + 1},
+		{name: "under __MACOSX at any level", path: "Movie/__MACOSX/Movie.mkv", size: big + 1},
+		{name: "a resource fork in __MACOSX", path: "__MACOSX/Movie/._Movie.mkv", size: big + 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := defaultRules().Classify(domain.Candidate{Path: tt.path, Size: tt.size}); got != domain.KindDiscard {
+				t.Errorf("Classify(%q) = %s, want discard", tt.path, got)
+			}
+		})
+	}
+}
+
+func TestClassifyDoesNotTakeOrdinaryNamesForMacOSMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := []string{"Movie._x.mkv", "Movie/_Movie.mkv", "MacOSX/Movie.mkv", "__macosx_note/Movie.mkv"}
+	for _, p := range tests {
+		t.Run(p, func(t *testing.T) {
+			t.Parallel()
+
+			if got := defaultRules().Classify(domain.Candidate{Path: p, Size: big}); got != domain.KindVideo {
+				t.Errorf("Classify(%q) = %s, want video", p, got)
+			}
+		})
 	}
 }
 

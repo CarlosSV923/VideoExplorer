@@ -4,6 +4,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 // FileKind says what filtering does with a file of the content it receives (RF-07).
@@ -15,7 +16,7 @@ const (
 	KindVideo FileKind = "video"
 	// KindSubtitle: an external subtitle, kept and associated later (SUBTITLE_EXTENSIONS).
 	KindSubtitle FileKind = "subtitle"
-	// KindDiscard: sent to the trash, not deleted (samples and everything else).
+	// KindDiscard: sent to the trash, not deleted (samples, macOS metadata and everything else).
 	KindDiscard FileKind = "discard"
 )
 
@@ -24,15 +25,21 @@ func (k FileKind) Kept() bool {
 	return k == KindVideo || k == KindSubtitle
 }
 
-// SampleMaxSize is the size under which a file is a sample when its path says so (RF-07).
-// The spec writes "150 MB", and it writes binary units (MiB, GiB) when it means them,
-// so this is 150 × 10⁶ bytes.
+// SampleMaxSize is the size under which a file is a sample when its path says so (RF-07):
+// 150 000 000 bytes, as the spec writes it.
 const SampleMaxSize int64 = 150 * 1000 * 1000
 
-// sampleWord is the text that marks a sample. It is matched in any letter case and
-// anywhere in the path, so "Movie-SAMPLE.mkv", "Samples/clip.mkv" and "Resampled.mkv"
-// all match: the spec says «sample» in the name or the folder, not as a whole word.
+// sampleWord is the word that marks a sample (RF-07). It is a whole word of the path, in
+// any letter case, and a word is what lies between characters that are not letters or
+// digits: "Movie-sample.mkv", "Sample/clip.mkv" and "movie.sample.mkv" match, while
+// "Resampled.mkv" does not.
 const sampleWord = "sample"
+
+// macOSFolder is the folder macOS adds to an archive with the metadata of its files (RF-07).
+const macOSFolder = "__MACOSX"
+
+// appleDoublePrefix starts the metadata files macOS writes next to each file (RF-07).
+const appleDoublePrefix = "._"
 
 // FilterRules are the extensions kept as video and as external subtitle (RF-07).
 // The lists are compared in lower case, with the dot.
@@ -54,13 +61,14 @@ type Candidate struct {
 	Size int64
 }
 
-// Classify says what happens to a file (RF-07). A sample (under SampleMaxSize, with
-// "sample" in its path) is discarded first, even when it is a video or a subtitle.
-// Then the extension decides: a video or a subtitle is kept, anything else is discarded
-// (.nfo, .txt, images, .url, .exe, files without an extension…). Extensions are
-// compared in any letter case.
+// Classify says what happens to a file (RF-07). The macOS metadata (a file named "._*"
+// or anything under a "__MACOSX" folder) is discarded first, whatever it is. Then a
+// sample (under SampleMaxSize, with "sample" as a word in its path) is discarded, even
+// when it is a video or a subtitle. Then the extension decides: a video or a subtitle is
+// kept, anything else is discarded (.nfo, .txt, images, .url, .exe, files without an
+// extension…). Extensions are compared in any letter case.
 func (r FilterRules) Classify(c Candidate) FileKind {
-	if c.Size < SampleMaxSize && strings.Contains(strings.ToLower(c.Path), sampleWord) {
+	if isMacOSMetadata(c.Path) || (c.Size < SampleMaxSize && isSample(c.Path)) {
 		return KindDiscard
 	}
 	ext := strings.ToLower(path.Ext(c.Path))
@@ -74,6 +82,29 @@ func (r FilterRules) Classify(c Candidate) FileKind {
 	default:
 		return KindDiscard
 	}
+}
+
+// isSample reports whether the word "sample" is in the path: in the name or in any folder.
+func isSample(p string) bool {
+	return slices.Contains(words(p), sampleWord)
+}
+
+// words splits a path into its words, in lower case: the runs of letters and digits.
+func words(p string) []string {
+	return strings.FieldsFunc(strings.ToLower(p), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+}
+
+// isMacOSMetadata reports whether the path is macOS metadata: a file whose name starts
+// with "._", or anything inside a "__MACOSX" folder at any level.
+func isMacOSMetadata(p string) bool {
+	parts := strings.Split(p, "/")
+	name := parts[len(parts)-1]
+	if strings.HasPrefix(name, appleDoublePrefix) {
+		return true
+	}
+	return slices.Contains(parts[:len(parts)-1], macOSFolder)
 }
 
 func lowerAll(items []string) []string {
