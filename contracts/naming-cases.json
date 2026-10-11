@@ -1,5 +1,5 @@
 {
-  "description": "Naming rules of spec §5, as data for both implementations. Phase 2 pins the title choice: discTitle is the <T> of a movie or series, chapterTitle is the <título cap.> of the file's chapters. original is the TMDB title in the original language (for a chapter, in the series' original language); english is the en-US title. An absent English title is a missing key or an empty string. Sanitizing, folders and file names are added in phase 5. Conservative choices: a title with no letters (digits and signs only) counts as Latin; combining marks are not letters, so a decomposed accent does not make a title non-Latin; a generic title is one of Episode, Episodio, Capítulo, Capitulo or Chapter followed by a number, in any case, whatever the number; the suffix that can be collapsed is ' (N)', ', Part N' or ', Parte N' or a final ' N' (so 'Odisea 2001' and 'Odisea 2002' would share the base 'Odisea'), and the base must not be empty.",
+  "description": "Naming rules of spec §5, as data for both implementations. Phase 2 pins the title choice: discTitle is the <T> of a movie or series, chapterTitle is the <título cap.> of the file's chapters. original is the TMDB title in the original language (for a chapter, in the series' original language); english is the en-US title. An absent English title is a missing key or an empty string. The sanitizing of spec §5 (steps 1 to 6) is pinned in phase 4 (section `sanitize`). Folders and file names are added in phase 5. Conservative choices: a title with no letters (digits and signs only) counts as Latin; combining marks are not letters, so a decomposed accent does not make a title non-Latin; a generic title is one of Episode, Episodio, Capítulo, Capitulo or Chapter followed by a number, in any case, whatever the number; the suffix that can be collapsed is ' (N)', ', Part N' or ', Parte N' or a final ' N' (so 'Odisea 2001' and 'Odisea 2002' would share the base 'Odisea'), and the base must not be empty.",
   "discTitle": {
     "description": "Disc title <T>: the original title when all its letters are Latin, else the English title, else the original title. Empty only when both are empty.",
     "cases": [
@@ -288,6 +288,142 @@
         "input": {
           "chapters": [{ "original": "Episodio 1" }, { "original": "第2話" }]
         },
+        "expected": ""
+      }
+    ]
+  },
+  "sanitize": {
+    "description": "Sanitizing of spec §5 (steps 1 to 6) for one path component: a disc title, a chapter title, a tag or the name of an unassigned entry. In this order: NFC; ': ' becomes ' - ' and ':' becomes '-'; '/' and '\\' become '-'; '\"' becomes \"'\"; '?', '*', '<', '>', '|' and the control characters are removed; each block of white space (Unicode White_Space; a tab is a control character and goes in step 5) becomes one space; then the leading spaces and the trailing spaces and dots of the whole component are removed (not of each title in it). An empty expected means nothing is left: the caller uses fallback instead (decision of phase 4, not in spec §5).",
+    "fallback": "Sin nombre",
+    "cases": [
+      {
+        "name": "a colon and a space become a dash",
+        "input": { "name": "Mission: Impossible" },
+        "expected": "Mission - Impossible"
+      },
+      {
+        "name": "a colon without a space becomes a dash",
+        "input": { "name": "Mission:Impossible" },
+        "expected": "Mission-Impossible"
+      },
+      {
+        "name": "a colon at the start keeps the dash and loses the leading space",
+        "input": { "name": ": Start" },
+        "expected": "- Start"
+      },
+      {
+        "name": "a question mark is removed and the dots before it stay inside the name",
+        "input": { "name": "What If...? (2021)" },
+        "expected": "What If... (2021)"
+      },
+      {
+        "name": "a name that ends in dots loses them",
+        "input": { "name": "What If...?" },
+        "expected": "What If"
+      },
+      {
+        "name": "slashes and backslashes become dashes",
+        "input": { "name": "AC/DC\\Live" },
+        "expected": "AC-DC-Live"
+      },
+      {
+        "name": "a double quote becomes a single quote",
+        "input": { "name": "The \"Best\" Movie" },
+        "expected": "The 'Best' Movie"
+      },
+      {
+        "name": "asterisks, angle brackets, pipes and question marks are removed",
+        "input": { "name": "A*B<C>D|E?F" },
+        "expected": "ABCDEF"
+      },
+      {
+        "name": "control characters, tabs included, are removed",
+        "input": { "name": "A\u0001B\tC\u007fD" },
+        "expected": "ABCD"
+      },
+      {
+        "name": "a block of spaces becomes one space",
+        "input": { "name": "Movie    Night" },
+        "expected": "Movie Night"
+      },
+      {
+        "name": "leading and trailing spaces are removed",
+        "input": { "name": "  Movie  " },
+        "expected": "Movie"
+      },
+      {
+        "name": "trailing dots and spaces are removed",
+        "input": { "name": "Movie. . " },
+        "expected": "Movie"
+      },
+      {
+        "name": "dots inside a name stay",
+        "input": { "name": "Dr. Strangelove" },
+        "expected": "Dr. Strangelove"
+      },
+      {
+        "name": "a decomposed accent is composed (NFC)",
+        "input": { "name": "Amélie" },
+        "expected": "Amélie"
+      },
+      {
+        "name": "a decomposed ñ is composed (NFC)",
+        "input": { "name": "Año" },
+        "expected": "Año"
+      },
+      {
+        "name": "accents, ñ and ™ are kept",
+        "input": { "name": "Año Nuevo™" },
+        "expected": "Año Nuevo™"
+      },
+      {
+        "name": "an apostrophe and accents are kept",
+        "input": { "name": "Le Fabuleux Destin d'Amélie Poulain" },
+        "expected": "Le Fabuleux Destin d'Amélie Poulain"
+      },
+      {
+        "name": "a non-Latin title is kept",
+        "input": { "name": "千と千尋の神隠し" },
+        "expected": "千と千尋の神隠し"
+      },
+      {
+        "name": "a dot after a suffix is removed",
+        "input": { "name": "Movie (2021)." },
+        "expected": "Movie (2021)"
+      },
+      {
+        "name": "a non-breaking space is white space",
+        "input": { "name": "A  B" },
+        "expected": "A B"
+      },
+      {
+        "name": "the steps apply in order: a slash in a colon title",
+        "input": { "name": "A/B: C" },
+        "expected": "A-B - C"
+      },
+      {
+        "name": "a colon before a question mark",
+        "input": { "name": "Who?: Me" },
+        "expected": "Who - Me"
+      },
+      {
+        "name": "only signs leave nothing",
+        "input": { "name": "?*" },
+        "expected": ""
+      },
+      {
+        "name": "a name made of dots leaves nothing",
+        "input": { "name": ".." },
+        "expected": ""
+      },
+      {
+        "name": "an empty name leaves nothing",
+        "input": { "name": "" },
+        "expected": ""
+      },
+      {
+        "name": "only white space leaves nothing",
+        "input": { "name": "   " },
         "expected": ""
       }
     ]
