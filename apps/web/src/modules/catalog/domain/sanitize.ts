@@ -22,7 +22,7 @@ export function sanitizeName(raw: string): string {
   name = name.replace(/"/g, "'") // 4
   name = name.replace(/[?*<>|\p{Cc}]/gu, '') // 5
   name = name.replace(whiteSpace, ' ') // 6
-  return name.replace(/^ +/, '').replace(/[ .]+$/, '')
+  return name.replace(/^[ .]+/, '').replace(/[ .]+$/, '')
 }
 
 /** The name of an unassigned entry: sanitized, or FALLBACK_NAME when nothing is left of it. */

@@ -23,8 +23,9 @@ var dashes = strings.NewReplacer("/", "-", `\`, "-", `"`, "'")
 //  3. "/" and "\" become "-".
 //  4. '"' becomes "'".
 //  5. "?", "*", "<", ">", "|" and the control characters are removed.
-//  6. Each block of white space becomes one space; the leading spaces and the trailing
-//     spaces and dots of the whole component are removed, not those of each title in it.
+//  6. Each block of white space becomes one space; the leading spaces and dots, and the
+//     trailing spaces and dots, of the whole component are removed, not those of each title
+//     in it: a name never starts with a dot (RF-28 hides dot names).
 func SanitizeName(s string) string {
 	s = norm.NFC.String(s)
 	s = strings.ReplaceAll(s, ": ", " - ")
@@ -37,7 +38,7 @@ func SanitizeName(s string) string {
 		return r
 	}, s)
 	s = collapseSpaces(s)
-	return strings.TrimRight(strings.TrimLeft(s, " "), " .")
+	return strings.TrimRight(strings.TrimLeft(s, " ."), " .")
 }
 
 // EntryName returns the name of an unassigned entry from the name it was given:
