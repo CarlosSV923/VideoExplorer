@@ -36,7 +36,7 @@ type UploadMeta struct {
 	// RelativePath is the path of the file inside the folder the browser dropped
 	// (RF-01a), ending with FileName. Empty for a file dropped on its own.
 	RelativePath string
-	// BatchID groups the files dropped together (RF-03). Empty when there is none.
+	// BatchID is the batch the file was dropped with (RF-03, RF-09a). Required.
 	BatchID string
 }
 
@@ -44,6 +44,7 @@ type UploadMeta struct {
 // are trimmed. Anything that could leave the upload's folder is rejected:
 // separators, '.' and '..', control characters, names longer than 255 bytes
 // and relative paths that are absolute or that do not end with the file name.
+// batchID is required: every upload belongs to a batch (RF-09a).
 func NewUploadMeta(fileName, relativePath, batchID string) (UploadMeta, error) {
 	name, err := cleanComponent(fileName)
 	if err != nil {
@@ -59,12 +60,10 @@ func NewUploadMeta(fileName, relativePath, batchID string) (UploadMeta, error) {
 		meta.RelativePath = rel
 	}
 
-	if batchID != "" {
-		if !batchIDPattern.MatchString(batchID) {
-			return UploadMeta{}, fmt.Errorf("%w: batchId must be 1 to 64 letters, digits, '-' or '_'", ErrInvalidMetadata)
-		}
-		meta.BatchID = batchID
+	if !batchIDPattern.MatchString(batchID) {
+		return UploadMeta{}, fmt.Errorf("%w: batchId is required and must be 1 to 64 letters, digits, '-' or '_'", ErrInvalidMetadata)
 	}
+	meta.BatchID = batchID
 	return meta, nil
 }
 

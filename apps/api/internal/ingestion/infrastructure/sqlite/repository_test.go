@@ -108,19 +108,22 @@ func TestUploadJobRoundTripAndStateAfterRestart(t *testing.T) {
 	}
 }
 
-func TestUploadJobWithoutBatchAndFailureReason(t *testing.T) {
+func TestUploadJobFailureReasonIsKept(t *testing.T) {
 	t.Parallel()
 
 	conn := open(t, t.TempDir())
 	jobs := sqlite.NewJobRepository(conn)
 	ctx := t.Context()
+	if err := sqlite.NewBatchRepository(conn).Create(ctx, &domain.Batch{ID: "b-2", Relation: domain.RelationNone, CreatedAt: created}); err != nil {
+		t.Fatal(err)
+	}
 
-	job, err := domain.NewUploadJob("job-2", domain.UploadMeta{FileName: "a.mkv"}, 10, created)
+	job, err := domain.NewUploadJob("job-2", domain.UploadMeta{FileName: "a.mkv", BatchID: "b-2"}, 10, created)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := jobs.Create(ctx, job); err != nil {
-		t.Fatalf("Create without batch: %v", err)
+		t.Fatalf("Create: %v", err)
 	}
 	if err := job.Fail("disk full", created); err != nil {
 		t.Fatal(err)
@@ -133,8 +136,8 @@ func TestUploadJobWithoutBatchAndFailureReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.BatchID != "" {
-		t.Errorf("batch = %q, want none", got.BatchID)
+	if got.BatchID != "b-2" {
+		t.Errorf("batch = %q, want b-2", got.BatchID)
 	}
 	if got.Status != domain.StatusFailed || got.Error != "disk full" {
 		t.Errorf("job = %s %q, want failed with its reason", got.Status, got.Error)

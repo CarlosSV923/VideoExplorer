@@ -21,10 +21,11 @@ info:
     is declared up front. Upload-Metadata keys: `filename` (required, the file
     name without folders), `relativePath` (optional, the file's path inside a
     folder dropped in the browser, ending with `filename`, RF-01a) and `batchId`
-    (optional, the id that `POST /batches` returned for the files dropped
-    together, RF-03). Names are trimmed; separators, `.`, `..` and control
-    characters are refused. Refusals: 400 for bad metadata or an unknown
-    `batchId` (`ERR_INVALID_METADATA`), 400 for a 0-byte file
+    (required, the id that `POST /batches` returned for the files dropped
+    together, RF-03, RF-09a). Names are trimmed; separators, `.`, `..` and
+    control characters are refused. Refusals: 400 for bad metadata, a missing
+    `batchId` or one that names no batch (`ERR_INVALID_METADATA`), 400 for a
+    0-byte file
     (`ERR_EMPTY_FILE`, RF-09a), 507 when the library has no room for the file
     plus 1 GiB, counting the bytes still to arrive from uploads in progress
     (`ERR_INSUFFICIENT_STORAGE`, RF-05, RF-09a); 503 when the library is not

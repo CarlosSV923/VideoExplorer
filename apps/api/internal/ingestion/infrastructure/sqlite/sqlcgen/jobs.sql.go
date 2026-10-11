@@ -7,7 +7,6 @@ package sqlcgen
 
 import (
 	"context"
-	"database/sql"
 )
 
 const createUploadJob = `-- name: CreateUploadJob :exec
@@ -17,7 +16,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 type CreateUploadJobParams struct {
 	ID           string
-	BatchID      sql.NullString
+	BatchID      string
 	FileName     string
 	RelativePath string
 	Size         int64

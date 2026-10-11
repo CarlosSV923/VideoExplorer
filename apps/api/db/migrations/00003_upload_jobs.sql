@@ -12,8 +12,8 @@ CREATE TABLE upload_batches (
 
 CREATE TABLE upload_jobs (
     id            TEXT    NOT NULL PRIMARY KEY,
-    -- NULL for an upload that declared no batch.
-    batch_id      TEXT    REFERENCES upload_batches (id),
+    -- Every upload belongs to the batch it was dropped with (RF-09a).
+    batch_id      TEXT    NOT NULL REFERENCES upload_batches (id),
     file_name     TEXT    NOT NULL,
     -- Path inside the folder dropped in the browser (RF-01a); empty for a file on its own.
     relative_path TEXT    NOT NULL DEFAULT '',

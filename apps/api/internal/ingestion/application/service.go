@@ -49,14 +49,11 @@ func (s *Service) CreateBatch(ctx context.Context, name string, relation domain.
 	return batch, nil
 }
 
-// Admit implements Uploads. An upload that names a batch must name one that
-// exists (domain.ErrBatchNotFound otherwise); an upload without batch is a job
-// without batch.
+// Admit implements Uploads. The upload must name a batch that exists
+// (domain.ErrBatchNotFound otherwise, also for an empty batch id).
 func (s *Service) Admit(ctx context.Context, a Admission) (domain.JobID, error) {
-	if a.Meta.BatchID != "" {
-		if _, err := s.batches.Get(ctx, domain.BatchID(a.Meta.BatchID)); err != nil {
-			return "", err
-		}
+	if _, err := s.batches.Get(ctx, domain.BatchID(a.Meta.BatchID)); err != nil {
+		return "", err
 	}
 	job, err := domain.NewUploadJob(domain.JobID(s.newID()), a.Meta, a.Size, s.now())
 	if err != nil {

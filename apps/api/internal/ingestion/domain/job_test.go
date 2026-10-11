@@ -129,7 +129,7 @@ func TestUploadJobUploadTransitions(t *testing.T) {
 
 	now := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
 	later := now.Add(time.Minute)
-	meta := domain.UploadMeta{FileName: "a.mkv"}
+	meta := domain.UploadMeta{FileName: "a.mkv", BatchID: "b1"}
 
 	t.Run("uploading to uploaded keeps the time of the change", func(t *testing.T) {
 		t.Parallel()
@@ -193,4 +193,14 @@ func TestUploadJobUploadTransitions(t *testing.T) {
 			t.Errorf("status = %s, want cancelled after the refused moves", job.Status)
 		}
 	})
+}
+
+func TestNewUploadJobNeedsABatch(t *testing.T) {
+	t.Parallel()
+
+	// Every upload belongs to a batch (RF-09a): a job without one is refused.
+	_, err := domain.NewUploadJob("job-1", domain.UploadMeta{FileName: "a.mkv"}, 10, time.Now())
+	if !errors.Is(err, domain.ErrInvalidMetadata) {
+		t.Fatalf("err = %v, want ErrInvalidMetadata", err)
+	}
 }

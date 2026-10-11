@@ -98,7 +98,7 @@ func New(dir, basePath string, log *slog.Logger, freeSpace FreeSpaceFunc, upload
 // admit refuses an upload before any byte is accepted, or registers it. The
 // form data must be valid, the size declared and not zero, the library must
 // have room for it with the margin of RF-05 and the bytes of the uploads in
-// progress reserved (RF-09a), and a batch it names must exist.
+// progress reserved (RF-09a), and the batch it names, which is required, must exist.
 func (a *Adapter) admit(ctx context.Context, info tusd.FileInfo) (domain.JobID, error) {
 	meta, err := parseMeta(info.MetaData)
 	if err != nil {

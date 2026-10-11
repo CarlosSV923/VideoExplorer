@@ -22,6 +22,8 @@ import (
 
 const (
 	uploadsPath = "/api/uploads/"
+	// testBatch is a batch id the tests upload into (RF-09a: every upload names one).
+	testBatch = "lote-1"
 	// guard bounds every wait on a background event. It only matters when
 	// something is broken; a healthy run never gets near it.
 	guard = 10 * time.Second
@@ -243,7 +245,7 @@ func TestInterruptedUploadResumesFromItsOffset(t *testing.T) {
 	t.Parallel()
 
 	f := newFixture(t, 50<<30)
-	res := f.create(t, 10, metadata("filename", "a.mkv"))
+	res := f.create(t, 10, metadata("filename", "a.mkv", "batchId", testBatch))
 	location := res.Header.Get("Location")
 
 	// The first request is cut after five bytes: the browser keeps no state.
@@ -275,7 +277,7 @@ func TestDeletedUploadIsReportedWithItsJob(t *testing.T) {
 	t.Parallel()
 
 	f := newFixture(t, 50<<30)
-	location := f.create(t, 10, metadata("filename", "a.mkv")).Header.Get("Location")
+	location := f.create(t, 10, metadata("filename", "a.mkv", "batchId", testBatch)).Header.Get("Location")
 
 	if res := f.remove(t, location); res.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete = %d, want 204", res.StatusCode)
@@ -304,7 +306,7 @@ func TestCreateChecksFreeSpaceWithTheMargin(t *testing.T) {
 			t.Parallel()
 
 			f := newFixture(t, tt.free)
-			res := f.create(t, size, metadata("filename", "a.mkv"))
+			res := f.create(t, size, metadata("filename", "a.mkv", "batchId", testBatch))
 			if res.StatusCode != tt.wantStatus {
 				t.Fatalf("create status = %d, want %d", res.StatusCode, tt.wantStatus)
 			}
@@ -328,13 +330,13 @@ func TestCreateReservesTheBytesOfUploadsInProgress(t *testing.T) {
 	const size = 1000
 	f := newFixture(t, domain.FreeSpaceMargin+1500)
 
-	first := f.create(t, size, metadata("filename", "first.mkv"))
+	first := f.create(t, size, metadata("filename", "first.mkv", "batchId", testBatch))
 	if first.StatusCode != http.StatusCreated {
 		t.Fatalf("first create = %d, want 201", first.StatusCode)
 	}
 	firstLocation := first.Header.Get("Location")
 
-	second := f.create(t, size, metadata("filename", "second.mkv"))
+	second := f.create(t, size, metadata("filename", "second.mkv", "batchId", testBatch))
 	if second.StatusCode != http.StatusInsufficientStorage {
 		t.Fatalf("second create with the first one still empty = %d, want 507", second.StatusCode)
 	}
@@ -345,7 +347,7 @@ func TestCreateReservesTheBytesOfUploadsInProgress(t *testing.T) {
 	if res := f.patch(t, firstLocation, 0, strings.Repeat("x", size/2)); res.StatusCode != http.StatusNoContent {
 		t.Fatalf("half of the first upload = %d, want 204", res.StatusCode)
 	}
-	second = f.create(t, size, metadata("filename", "second.mkv"))
+	second = f.create(t, size, metadata("filename", "second.mkv", "batchId", testBatch))
 	if second.StatusCode != http.StatusCreated {
 		t.Fatalf("second create after half of the first arrived = %d, want 201", second.StatusCode)
 	}
@@ -358,7 +360,7 @@ func TestCreateRefusesAnEmptyFile(t *testing.T) {
 	t.Parallel()
 
 	f := newFixture(t, 50<<30)
-	if res := f.create(t, 0, metadata("filename", "a.mkv")); res.StatusCode != http.StatusBadRequest {
+	if res := f.create(t, 0, metadata("filename", "a.mkv", "batchId", testBatch)); res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("0-byte create status = %d, want 400", res.StatusCode)
 	}
 	if n := stagedUploads(t, f.dir); n != 0 {
@@ -391,11 +393,13 @@ func TestCreateRefusesInvalidMetadata(t *testing.T) {
 		metadata string
 	}{
 		{name: "no filename", metadata: metadata("batchId", "b1")},
-		{name: "parent folder as name", metadata: metadata("filename", "..")},
-		{name: "path in the file name", metadata: metadata("filename", "../etc/passwd")},
-		{name: "absolute relative path", metadata: metadata("filename", "a.mkv", "relativePath", "/etc/a.mkv")},
-		{name: "relative path with parent", metadata: metadata("filename", "a.mkv", "relativePath", "x/../a.mkv")},
-		{name: "relative path not ending in the file name", metadata: metadata("filename", "a.mkv", "relativePath", "x/b.mkv")},
+		{name: "no batch id", metadata: metadata("filename", "a.mkv")},
+		{name: "empty batch id", metadata: metadata("filename", "a.mkv", "batchId", "")},
+		{name: "parent folder as name", metadata: metadata("filename", "..", "batchId", testBatch)},
+		{name: "path in the file name", metadata: metadata("filename", "../etc/passwd", "batchId", testBatch)},
+		{name: "absolute relative path", metadata: metadata("filename", "a.mkv", "relativePath", "/etc/a.mkv", "batchId", testBatch)},
+		{name: "relative path with parent", metadata: metadata("filename", "a.mkv", "relativePath", "x/../a.mkv", "batchId", testBatch)},
+		{name: "relative path not ending in the file name", metadata: metadata("filename", "a.mkv", "relativePath", "x/b.mkv", "batchId", testBatch)},
 		{name: "batch id with a path", metadata: metadata("filename", "a.mkv", "batchId", "../b")},
 	}
 	for _, tt := range tests {
@@ -423,7 +427,7 @@ func TestCreateRequiresTheSizeUpFront(t *testing.T) {
 	req := request(t, http.MethodPost, f.srv.URL+uploadsPath, nil)
 	req.Header.Set("Tus-Resumable", "1.0.0")
 	req.Header.Set("Upload-Defer-Length", "1")
-	req.Header.Set("Upload-Metadata", metadata("filename", "a.mkv"))
+	req.Header.Set("Upload-Metadata", metadata("filename", "a.mkv", "batchId", testBatch))
 	if res := do(t, req); res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("deferred length status = %d, want 400", res.StatusCode)
 	}

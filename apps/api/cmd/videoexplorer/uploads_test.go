@@ -66,7 +66,8 @@ func TestUploadsWithSessionCreateAnUpload(t *testing.T) {
 		t.Fatal("login did not set the session cookie")
 	}
 
-	rec := tusCreate(t, h, "Iron Man (2008).mkv", cookie)
+	batchID := newBatchID(t, h, cookie)
+	rec := tusCreateWith(t, h, "filename "+b64("Iron Man (2008).mkv")+",batchId "+b64(batchID), cookie)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, want 201; body %s", rec.Code, rec.Body.String())
 	}

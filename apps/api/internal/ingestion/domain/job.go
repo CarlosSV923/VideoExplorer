@@ -90,7 +90,7 @@ var (
 // batch form the batch's files (RF-03).
 type UploadJob struct {
 	ID JobID
-	// BatchID is the batch the file was dropped with; empty when none was declared.
+	// BatchID is the batch the file was dropped with (RF-09a). Always set.
 	BatchID BatchID
 	// FileName is the name of the file, without folders.
 	FileName string
@@ -109,6 +109,9 @@ type UploadJob struct {
 // NewUploadJob starts the job of an upload whose form data is already checked
 // (UploadMeta) and whose size is declared. The job starts uploading.
 func NewUploadJob(id JobID, meta UploadMeta, size int64, now time.Time) (*UploadJob, error) {
+	if meta.BatchID == "" {
+		return nil, fmt.Errorf("%w: an upload belongs to a batch", ErrInvalidMetadata)
+	}
 	if size == 0 {
 		return nil, ErrEmptyFile
 	}

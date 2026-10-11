@@ -132,23 +132,16 @@ func TestAdmitRefusesAnUnknownBatch(t *testing.T) {
 	}
 }
 
-func TestAdmitWithoutBatchIsAJobWithoutBatch(t *testing.T) {
+func TestAdmitRefusesAnUploadWithoutBatch(t *testing.T) {
 	t.Parallel()
 
 	clock := start
 	svc, _ := service(t, t.TempDir(), &clock)
-	ctx := t.Context()
 
-	id, err := svc.Admit(ctx, application.Admission{Meta: domain.UploadMeta{FileName: "a.mkv"}, Size: 10})
-	if err != nil {
-		t.Fatal(err)
-	}
-	job, err := svc.Job(ctx, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if job.BatchID != "" {
-		t.Errorf("batch = %q, want none", job.BatchID)
+	// Every upload belongs to a batch (RF-09a): an empty batch id names no batch.
+	_, err := svc.Admit(t.Context(), application.Admission{Meta: domain.UploadMeta{FileName: "a.mkv"}, Size: 10})
+	if !errors.Is(err, domain.ErrBatchNotFound) {
+		t.Fatalf("err = %v, want ErrBatchNotFound", err)
 	}
 }
 
@@ -157,8 +150,12 @@ func TestAdmitRefusesAnEmptyFile(t *testing.T) {
 
 	clock := start
 	svc, _ := service(t, t.TempDir(), &clock)
+	batch, err := svc.CreateBatch(t.Context(), "", domain.RelationNone)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := svc.Admit(t.Context(), application.Admission{Meta: domain.UploadMeta{FileName: "a.mkv"}, Size: 0})
+	_, err = svc.Admit(t.Context(), application.Admission{Meta: domain.UploadMeta{FileName: "a.mkv", BatchID: string(batch.ID)}, Size: 0})
 	if !errors.Is(err, domain.ErrEmptyFile) {
 		t.Fatalf("err = %v, want ErrEmptyFile", err)
 	}
@@ -171,12 +168,16 @@ func TestUploadEndsAreRecordedAndSurviveARestart(t *testing.T) {
 	clock := start
 	svc, conn := service(t, dir, &clock)
 	ctx := t.Context()
-
-	uploaded, err := svc.Admit(ctx, application.Admission{Meta: domain.UploadMeta{FileName: "a.mkv"}, Size: 10})
+	batch, err := svc.CreateBatch(ctx, "", domain.RelationNone)
 	if err != nil {
 		t.Fatal(err)
 	}
-	deleted, err := svc.Admit(ctx, application.Admission{Meta: domain.UploadMeta{FileName: "b.mkv"}, Size: 10})
+
+	uploaded, err := svc.Admit(ctx, application.Admission{Meta: domain.UploadMeta{FileName: "a.mkv", BatchID: string(batch.ID)}, Size: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := svc.Admit(ctx, application.Admission{Meta: domain.UploadMeta{FileName: "b.mkv", BatchID: string(batch.ID)}, Size: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

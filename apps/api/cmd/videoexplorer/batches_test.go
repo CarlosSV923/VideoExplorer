@@ -201,3 +201,32 @@ func testConfigFor(t *testing.T) config.Config {
 	t.Helper()
 	return config.Config{LibraryPath: t.TempDir()}
 }
+
+// newBatchID creates a batch for the session and returns its id.
+func newBatchID(t *testing.T, h http.Handler, cookie *http.Cookie) string {
+	t.Helper()
+
+	rec := createBatch(t, h, `{"relation":"none"}`, cookie)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create batch = %d, want 201; body %s", rec.Code, rec.Body.String())
+	}
+	var got struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	return got.ID
+}
+
+func TestUploadWithoutABatchIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Every upload belongs to a batch (RF-09a): a file without batchId is refused.
+	h := newTestRoutes(t, false)
+	cookie := loginCookie(t, h)
+
+	if rec := tusCreateWith(t, h, "filename "+b64("a.mkv"), cookie); rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body %s", rec.Code, rec.Body.String())
+	}
+}

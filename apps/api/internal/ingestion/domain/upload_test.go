@@ -20,10 +20,12 @@ func TestNewUploadMeta(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "file on its own",
+			name:     "file in its batch",
 			fileName: "Iron Man (2008).mkv",
-			want:     domain.UploadMeta{FileName: "Iron Man (2008).mkv"},
+			batchID:  "b0",
+			want:     domain.UploadMeta{FileName: "Iron Man (2008).mkv", BatchID: "b0"},
 		},
+		{name: "no batch id", fileName: "Iron Man (2008).mkv", wantErr: true},
 		{
 			name:     "names are trimmed",
 			fileName: "  Iron Man.mkv  ",
@@ -41,7 +43,8 @@ func TestNewUploadMeta(t *testing.T) {
 		{
 			name:     "characters that later naming rules sanitize are kept",
 			fileName: "Mission: Impossible?.mkv",
-			want:     domain.UploadMeta{FileName: "Mission: Impossible?.mkv"},
+			batchID:  "b1",
+			want:     domain.UploadMeta{FileName: "Mission: Impossible?.mkv", BatchID: "b1"},
 		},
 		{name: "empty file name", fileName: "   ", wantErr: true},
 		{name: "dot", fileName: ".", wantErr: true},
@@ -53,7 +56,7 @@ func TestNewUploadMeta(t *testing.T) {
 		{name: "tab in file name", fileName: "a\tb.mkv", wantErr: true},
 		{name: "invalid UTF-8", fileName: "a\xffb.mkv", wantErr: true},
 		{name: "name longer than 255 bytes", fileName: strings.Repeat("a", 256), wantErr: true},
-		{name: "name of exactly 255 bytes", fileName: strings.Repeat("a", 255), want: domain.UploadMeta{FileName: strings.Repeat("a", 255)}},
+		{name: "name of exactly 255 bytes", fileName: strings.Repeat("a", 255), batchID: "b1", want: domain.UploadMeta{FileName: strings.Repeat("a", 255), BatchID: "b1"}},
 		{name: "relative path with parent", fileName: "a.mkv", relPath: "../a.mkv", wantErr: true},
 		{name: "relative path with parent in the middle", fileName: "a.mkv", relPath: "x/../a.mkv", wantErr: true},
 		{name: "absolute relative path", fileName: "a.mkv", relPath: "/x/a.mkv", wantErr: true},

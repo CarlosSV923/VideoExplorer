@@ -27,7 +27,7 @@ func NewJobRepository(db *sql.DB) *JobRepository {
 func (r *JobRepository) Create(ctx context.Context, j *domain.UploadJob) error {
 	err := r.q.CreateUploadJob(ctx, sqlcgen.CreateUploadJobParams{
 		ID:           string(j.ID),
-		BatchID:      nullBatch(j.BatchID),
+		BatchID:      string(j.BatchID),
 		FileName:     j.FileName,
 		RelativePath: j.RelativePath,
 		Size:         j.Size,
@@ -58,7 +58,7 @@ func (r *JobRepository) Get(ctx context.Context, id domain.JobID) (*domain.Uploa
 	}
 	return &domain.UploadJob{
 		ID:           domain.JobID(row.ID),
-		BatchID:      domain.BatchID(row.BatchID.String),
+		BatchID:      domain.BatchID(row.BatchID),
 		FileName:     row.FileName,
 		RelativePath: row.RelativePath,
 		Size:         row.Size,
@@ -81,11 +81,4 @@ func (r *JobRepository) Save(ctx context.Context, j *domain.UploadJob) error {
 		return fmt.Errorf("ingestion: save upload job: %w", err)
 	}
 	return nil
-}
-
-func nullBatch(id domain.BatchID) sql.NullString {
-	if id == "" {
-		return sql.NullString{}
-	}
-	return sql.NullString{String: string(id), Valid: true}
 }
