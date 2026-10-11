@@ -52,7 +52,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 - [x] Analizador de nombres de archivo (película/serie, título, año, `SxxEyy`, `1x02`, varios capítulos, partes, idioma de subtítulos) + vectores `filename-cases.json`
 - [x] ~~Detección de idioma de subtítulos *offline*~~ descartada (decisión 2026-10-10, RF-23): el idioma sale solo del nombre o lo elige el usuario
 - [x] Hash parcial para «Copia exacta»
-- [~] Resultado a `_unassigned/<lote>/` (RF-08, RF-08a): una entrada por lote o por trabajo según la relación, nombre saneado (añade la sección de saneamiento a `contracts/naming-cases.json`), metadatos en SQLite, `done`, reencolar sondeo y hash, `filter_failed`/`move_failed` con Reintentar
+- [x] Resultado a `_unassigned/<lote>/` (RF-08, RF-08a): una entrada por lote o por trabajo según la relación, nombre saneado (añade la sección de saneamiento a `contracts/naming-cases.json`), metadatos en SQLite, `done`, reencolar sondeo y hash, `filter_failed`/`move_failed` con Reintentar
 
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
