@@ -6,11 +6,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 SELECT * FROM upload_jobs WHERE id = ?;
 
 -- name: SaveUploadJob :exec
-UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume_group = ?, updated_at = ? WHERE id = ?;
+UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume_group = ?, filter_done = ?, updated_at = ? WHERE id = ?;
 
 -- name: ListRecentUploadJobs :many
 SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.progress, j.status, j.error,
-       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.created_at, j.updated_at,
+       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.created_at, j.updated_at,
        b.name AS batch_name, b.relation AS batch_relation, b.created_at AS batch_created_at
 FROM upload_jobs j
 JOIN upload_batches b ON b.id = j.batch_id

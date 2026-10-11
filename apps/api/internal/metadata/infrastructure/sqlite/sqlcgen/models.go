@@ -4,6 +4,14 @@
 
 package sqlcgen
 
+type FilterFile struct {
+	JobID   string
+	Path    string
+	Size    int64
+	Kind    string
+	Trashed int64
+}
+
 type MetadataCache struct {
 	Key       string
 	Payload   []byte
@@ -50,4 +58,5 @@ type UploadJob struct {
 	VolumeSet    string
 	VolumeIndex  int64
 	VolumeGroup  string
+	FilterDone   int64
 }

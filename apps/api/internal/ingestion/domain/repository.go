@@ -32,3 +32,16 @@ type JobRepository interface {
 	// Exists reports whether a job has the id.
 	Exists(ctx context.Context, id JobID) (bool, error)
 }
+
+// FilterRepository persists what the filter found, so that a restart goes on where it
+// stopped without sending a discarded file to the trash twice (RF-07). A work unit is
+// keyed by the job that leads it: a single file, or the first volume of a set.
+type FilterRepository interface {
+	// Entries returns what filtering recorded for the unit, by path. It is empty until Record.
+	Entries(ctx context.Context, unit JobID) ([]FilterEntry, error)
+	// Record stores what filtering found for the unit. A path already recorded keeps
+	// its entry, so recording again changes nothing.
+	Record(ctx context.Context, unit JobID, entries []FilterEntry) error
+	// MarkTrashed records that the discarded file at path went to the trash.
+	MarkTrashed(ctx context.Context, unit JobID, path string) error
+}

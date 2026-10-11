@@ -104,6 +104,8 @@ const (
 	FailurePartsMissing FailureReason = "parts_missing"
 	// FailureLegacyVolume: an old-style RAR volume (.r00, .r01…), which is not supported (RF-03).
 	FailureLegacyVolume FailureReason = "legacy_volume"
+	// FailureNoVideo: nothing is left to keep after filtering: no video and no subtitle (RF-07).
+	FailureNoVideo FailureReason = "no_video"
 )
 
 // Valid reports whether r is one of the reasons above.
@@ -111,7 +113,7 @@ func (r FailureReason) Valid() bool {
 	switch r {
 	case FailureUploadAbandoned, FailureUploadMissing, FailureNoSpace, FailureArchiveCorrupt,
 		FailureCRCMismatch, FailureArchiveUnsafe, FailureWrongPassword, FailurePartsMismatch,
-		FailurePartsMissing, FailureLegacyVolume:
+		FailurePartsMissing, FailureLegacyVolume, FailureNoVideo:
 		return true
 	default:
 		return false
@@ -168,6 +170,10 @@ type UploadJob struct {
 	// VolumeGroup is the extraction of the set this volume is part of, once the
 	// set is complete: the id of its first volume. Empty while the volume waits.
 	VolumeGroup string
+	// FilterDone marks a job whose content the filter has been through (RF-07): what
+	// it keeps is in the filter's records and the job waits for the step that moves
+	// it to No asignados. It is internal: the API does not show it.
+	FilterDone bool
 	// Error is the stable reason of a failed job (RF-10b, RF-10c), or of a job
 	// in needs_password whose password was wrong; empty otherwise.
 	Error     FailureReason
@@ -359,6 +365,22 @@ func (j *UploadJob) ResumeAfterRestart(now time.Time) bool {
 	}
 	j.Status, j.Progress, j.UpdatedAt = StatusUploaded, 0, now
 	return true
+}
+
+// StartFiltering moves an uploaded file that is not an archive to filtering: the
+// file is kept as it was uploaded, and the filter takes it from here (RF-07, RF-10a).
+func (j *UploadJob) StartFiltering(now time.Time) error {
+	return j.moveTo(StatusFiltering, now)
+}
+
+// MarkFiltered records that the filter went through the content of the job (RF-07).
+// The job stays filtering: moving the kept files to No asignados is a later step.
+func (j *UploadJob) MarkFiltered(now time.Time) error {
+	if j.Status != StatusFiltering {
+		return fmt.Errorf("%w: only a job being filtered is marked as filtered, not %s", ErrInvalidTransition, j.Status)
+	}
+	j.FilterDone, j.UpdatedAt = true, now
+	return nil
 }
 
 // Cancel stops the job at the user's or the browser's request (uploading or

@@ -83,3 +83,12 @@ func lowerAll(items []string) []string {
 	}
 	return out
 }
+
+// FilterEntry is one file that filtering found in a work unit, with what it decided
+// for it. Trashed is set once a discarded file went to the trash.
+type FilterEntry struct {
+	Path    string
+	Size    int64
+	Kind    FileKind
+	Trashed bool
+}

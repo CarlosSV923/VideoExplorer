@@ -57,7 +57,7 @@ func (r *JobRepository) Get(ctx context.Context, id domain.JobID) (*domain.Uploa
 	return toDomain(jobRow{
 		ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 		Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
-		PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup,
+		PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 }
@@ -70,6 +70,7 @@ func (r *JobRepository) Save(ctx context.Context, j *domain.UploadJob) error {
 		Received:    j.Received,
 		Progress:    int64(j.Progress),
 		VolumeGroup: j.VolumeGroup,
+		FilterDone:  boolInt(j.FilterDone),
 		UpdatedAt:   formatTime(j.UpdatedAt),
 		ID:          string(j.ID),
 	})
@@ -90,7 +91,7 @@ func (r *JobRepository) Recent(ctx context.Context, limit int) ([]domain.JobView
 		job, err := toDomain(jobRow{
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
-			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup,
+			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
 			CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
@@ -168,6 +169,7 @@ type jobRow struct {
 	Status, Error                       string
 	PartsTotal, VolumeIndex             int64
 	VolumeSet, VolumeGroup              string
+	FilterDone                          bool
 	CreatedAt, UpdatedAt                string
 }
 
@@ -177,7 +179,7 @@ func toDomainAll(rows []sqlcgen.UploadJob) ([]*domain.UploadJob, error) {
 		j, err := toDomain(jobRow{
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
-			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup,
+			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
 			CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
@@ -209,6 +211,7 @@ func toDomain(row jobRow) (*domain.UploadJob, error) {
 		VolumeSet:    row.VolumeSet,
 		VolumeIndex:  int(row.VolumeIndex),
 		VolumeGroup:  row.VolumeGroup,
+		FilterDone:   row.FilterDone,
 		CreatedAt:    created,
 		UpdatedAt:    updated,
 	}, nil
@@ -216,4 +219,12 @@ func toDomain(row jobRow) (*domain.UploadJob, error) {
 
 func parseTime(s string) (time.Time, error) {
 	return time.Parse(timeLayout, s)
+}
+
+// boolInt stores a flag as the 0 or 1 the schema keeps.
+func boolInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }
