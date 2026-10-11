@@ -16,8 +16,9 @@ var allowed = map[domain.Status][]domain.Status{
 	domain.StatusWaitingParts:  {domain.StatusExtracting, domain.StatusFailed, domain.StatusCancelled},
 	domain.StatusExtracting:    {domain.StatusNeedsPassword, domain.StatusFiltering, domain.StatusFailed, domain.StatusCancelled},
 	domain.StatusNeedsPassword: {domain.StatusExtracting, domain.StatusFailed, domain.StatusCancelled},
-	domain.StatusFiltering:     {domain.StatusDone, domain.StatusFailed, domain.StatusCancelled},
+	domain.StatusFiltering:     {domain.StatusDone, domain.StatusDiscarded, domain.StatusFailed, domain.StatusCancelled},
 	domain.StatusDone:          nil,
+	domain.StatusDiscarded:     nil,
 	domain.StatusFailed:        nil,
 	domain.StatusCancelled:     nil,
 }
@@ -63,6 +64,7 @@ func TestTerminalStates(t *testing.T) {
 		{status: domain.StatusUploaded, want: false},
 		{status: domain.StatusFiltering, want: false},
 		{status: domain.StatusDone, want: true},
+		{status: domain.StatusDiscarded, want: true},
 		{status: domain.StatusFailed, want: true},
 		{status: domain.StatusCancelled, want: true},
 	}

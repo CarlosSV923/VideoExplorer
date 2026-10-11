@@ -34,6 +34,8 @@ const (
 	StatusFiltering Status = "filtering"
 	// StatusDone: the content is in No asignados ("En No asignados").
 	StatusDone Status = "done"
+	// StatusDiscarded: the filter discarded everything of the job while its batch keeps something ("Descartado", RF-07). Its content is in the trash.
+	StatusDiscarded Status = "discarded"
 	// StatusFailed: stopped by an error, with its reason ("Error").
 	StatusFailed Status = "failed"
 	// StatusCancelled: stopped by the user or by the browser ("Cancelado").
@@ -43,7 +45,7 @@ const (
 // allStatuses lists every state of RF-10a, in the order of the spec.
 var allStatuses = []Status{
 	StatusUploading, StatusUploaded, StatusWaitingParts, StatusExtracting,
-	StatusNeedsPassword, StatusFiltering, StatusDone, StatusFailed, StatusCancelled,
+	StatusNeedsPassword, StatusFiltering, StatusDone, StatusDiscarded, StatusFailed, StatusCancelled,
 }
 
 // transitions lists the states each state may move to. A state missing from the
@@ -55,7 +57,7 @@ var transitions = map[Status][]Status{
 	StatusWaitingParts:  {StatusExtracting, StatusFailed, StatusCancelled},
 	StatusExtracting:    {StatusNeedsPassword, StatusFiltering, StatusFailed, StatusCancelled},
 	StatusNeedsPassword: {StatusExtracting, StatusFailed, StatusCancelled},
-	StatusFiltering:     {StatusDone, StatusFailed, StatusCancelled},
+	StatusFiltering:     {StatusDone, StatusDiscarded, StatusFailed, StatusCancelled},
 }
 
 // Statuses returns every state of RF-10a.
@@ -381,6 +383,12 @@ func (j *UploadJob) MarkFiltered(now time.Time) error {
 	}
 	j.FilterDone, j.UpdatedAt = true, now
 	return nil
+}
+
+// Discard ends a job the filter emptied while its batch keeps something (filtering →
+// discarded, RF-07). Its files are in the trash.
+func (j *UploadJob) Discard(now time.Time) error {
+	return j.moveTo(StatusDiscarded, now)
 }
 
 // Cancel stops the job at the user's or the browser's request (uploading or
