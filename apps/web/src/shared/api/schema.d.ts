@@ -342,12 +342,14 @@ export interface components {
          *     when it is extracted, to `filtering` (the filtering comes in a later
          *     phase). A volume of a multi-volume archive waits in `waiting_parts` until its set is
          *     complete, then the whole set is extracted together from its first volume;
-         *     `done` is reached by a later phase. `failed`
+         *     `done` is reached by a later phase. `discarded` (RF-07) ends a job whose
+         *     content the filter discarded entirely while its batch keeps something; its
+         *     files are in the trash. `failed`
          *     gives its reason in `error`; a failed job may move back to `extracting`
          *     with `POST /jobs/{id}/retry`. `cancelled` ends the job.
          * @enum {string}
          */
-        JobStatus: "uploading" | "uploaded" | "waiting_parts" | "extracting" | "needs_password" | "filtering" | "done" | "failed" | "cancelled";
+        JobStatus: "uploading" | "uploaded" | "waiting_parts" | "extracting" | "needs_password" | "filtering" | "done" | "discarded" | "failed" | "cancelled";
         /**
          * @description Stable reason of a job (RF-10b, RF-10c). The UI translates it with i18n
          *     keys. A `failed` job gives its reason here:

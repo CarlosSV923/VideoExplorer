@@ -152,6 +152,7 @@ func (e JobFailure) Valid() bool {
 // Defines values for JobStatus.
 const (
 	Cancelled     JobStatus = "cancelled"
+	Discarded     JobStatus = "discarded"
 	Done          JobStatus = "done"
 	Extracting    JobStatus = "extracting"
 	Failed        JobStatus = "failed"
@@ -166,6 +167,8 @@ const (
 func (e JobStatus) Valid() bool {
 	switch e {
 	case Cancelled:
+		return true
+	case Discarded:
 		return true
 	case Done:
 		return true
@@ -311,7 +314,9 @@ type JobFailure string
 // when it is extracted, to `filtering` (the filtering comes in a later
 // phase). A volume of a multi-volume archive waits in `waiting_parts` until its set is
 // complete, then the whole set is extracted together from its first volume;
-// `done` is reached by a later phase. `failed`
+// `done` is reached by a later phase. `discarded` (RF-07) ends a job whose
+// content the filter discarded entirely while its batch keeps something; its
+// files are in the trash. `failed`
 // gives its reason in `error`; a failed job may move back to `extracting`
 // with `POST /jobs/{id}/retry`. `cancelled` ends the job.
 type JobStatus string
@@ -392,7 +397,9 @@ type UploadJob struct {
 	// when it is extracted, to `filtering` (the filtering comes in a later
 	// phase). A volume of a multi-volume archive waits in `waiting_parts` until its set is
 	// complete, then the whole set is extracted together from its first volume;
-	// `done` is reached by a later phase. `failed`
+	// `done` is reached by a later phase. `discarded` (RF-07) ends a job whose
+	// content the filter discarded entirely while its batch keeps something; its
+	// files are in the trash. `failed`
 	// gives its reason in `error`; a failed job may move back to `extracting`
 	// with `POST /jobs/{id}/retry`. `cancelled` ends the job.
 	Status    JobStatus `json:"status"`
