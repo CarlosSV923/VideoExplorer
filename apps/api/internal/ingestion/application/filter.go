@@ -52,10 +52,29 @@ func (s *Service) filterUpload(ctx context.Context, unit []*domain.UploadJob) er
 //
 // What the filter found is recorded before anything moves, so a restart goes on
 // with the same decisions and never trashes a file twice (RF-07, RF-10b).
+//
+// An error of the staging area fails the unit's jobs with filter_failed, which Reintentar
+// retries (RF-08a). A stopped service leaves them as they are: the next start goes on.
 func (s *Service) filterUnit(ctx context.Context, unit []*domain.UploadJob, extracted bool) error {
 	if s.filter == nil {
 		return nil
 	}
+	err := s.filterContent(ctx, unit, extracted)
+	if err == nil || ctx.Err() != nil {
+		return nil
+	}
+	s.log.Warn("filter failed", "unit", leaderOf(unit[0]), "error", err)
+	if ferr := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
+		return j.Fail(domain.FailureFilterFailed, now)
+	}); ferr != nil && ctx.Err() == nil {
+		s.log.Warn("filter failure not recorded", "unit", leaderOf(unit[0]), "error", ferr)
+	}
+	s.settleAll(ctx) // the failed unit ends, which may let its batch be decided (RF-07)
+	return nil
+}
+
+// filterContent is the filter of a work unit, without its failure handling: see filterUnit.
+func (s *Service) filterContent(ctx context.Context, unit []*domain.UploadJob, extracted bool) error {
 	leader := leaderOf(unit[0])
 	entries, err := s.filter.entries.Entries(ctx, leader)
 	if err != nil {
@@ -86,7 +105,7 @@ func (s *Service) filterUnit(ctx context.Context, unit []*domain.UploadJob, extr
 	if err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.MarkFiltered(now)
 	}); err != nil {
-		return s.abortedOr(ctx, err)
+		return err
 	}
 	s.queueKeptVideos(unit, extracted, entries) // read in the background; the job does not wait (RF-24)
 	s.settleAll(ctx)
@@ -102,8 +121,8 @@ func (s *Service) candidates(unit []*domain.UploadJob, extracted bool) ([]domain
 	}
 	files, err := s.work.workspace.ExtractedFiles(leaderOf(unit[0]))
 	if err != nil {
-		// Nothing is decided on an unreadable folder: no file is discarded or failed,
-		// and the unit is filtered again on the next start.
+		// Nothing is decided on an unreadable folder: no file is discarded, and the unit
+		// fails with filter_failed (see filterUnit).
 		return nil, fmt.Errorf("filter: list extracted content: %w", err)
 	}
 	out := make([]domain.Candidate, 0, len(files))

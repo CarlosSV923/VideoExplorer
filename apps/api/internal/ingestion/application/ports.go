@@ -30,3 +30,34 @@ type Staging interface {
 type Publisher interface {
 	Publish(view domain.JobView)
 }
+
+// Library moves the content a batch kept into No asignados (RF-08, RF-08a). The catalog
+// context implements it, with the unassigned section.
+type Library interface {
+	// PutAside moves the files of an entry into No asignados and returns the place of each
+	// file, by its source. A call that fails can be repeated: it goes on from what it recorded.
+	PutAside(ctx context.Context, req AsideRequest) (map[string]string, error)
+}
+
+// AsideRequest is the content of one entry of No asignados.
+type AsideRequest struct {
+	// Source is what the move is for: a repeated request with it goes to the same entry.
+	Source string
+	// Name is the name before sanitizing (RF-08); Loose keeps a single file as it is.
+	Name  string
+	Loose bool
+	// BatchID and Relation are the batch the entry came from (RF-08a).
+	BatchID  string
+	Relation string
+	Files    []AsideFile
+}
+
+// AsideFile is one file of an AsideRequest.
+type AsideFile struct {
+	// Source is the file's path in staging, and Rel its place in the entry ("/" separators).
+	Source string
+	Rel    string
+	Size   int64
+	// Video says the file is a video, which is read again in its new place (RF-24).
+	Video bool
+}

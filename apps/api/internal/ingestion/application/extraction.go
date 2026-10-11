@@ -59,6 +59,11 @@ type extractionRequest struct {
 	id       domain.JobID
 	password string
 	started  bool
+	// refilter filters again a job that failed with filter_failed (RF-07, RF-08a).
+	refilter bool
+	// settle decides the batches of the filter again, so that a job that failed with move_failed
+	// moves its content again (RF-08a).
+	settle bool
 }
 
 // WithExtraction enables the extraction of archives: where they wait and are
@@ -208,6 +213,13 @@ func (s *Service) extract(ctx context.Context, r extractionRequest) error {
 	job, err := s.Job(ctx, r.id)
 	if err != nil {
 		return err
+	}
+	if r.settle {
+		s.settleAll(ctx)
+		return nil
+	}
+	if r.refilter {
+		return s.refilter(ctx, job)
 	}
 	if !extractable(job, r) {
 		return nil
@@ -395,7 +407,7 @@ func (s *Service) stop(ctx context.Context, unit []*domain.UploadJob, cause erro
 func (s *Service) fail(ctx context.Context, unit []*domain.UploadJob, reason domain.FailureReason, cause error) error {
 	s.removeExtraction(leaderOf(unit[0]))
 	s.log.Info("extraction failed", "job", unit[0].ID, "reason", reason, "detail", cause.Error())
-	if !reason.Retryable() {
+	if !reason.RetriesExtraction() {
 		s.removeArchives(ctx, unit)
 	}
 	err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
@@ -506,9 +518,11 @@ func (s *Service) SubmitPassword(ctx context.Context, id domain.JobID, password 
 	return s.view(ctx, job)
 }
 
-// Retry extracts again a job that failed for a retryable reason (RF-10c). Its
-// archive must still be in staging; the files of the failed attempt are gone. A
-// volume retries its whole set.
+// Retry sends a failed job back to the step that failed (RF-10c, RF-07, RF-08a): an
+// extraction that failed for a retryable reason is extracted again from its archive, which
+// must still be in staging; a filter failure is filtered again from what was recorded; a move
+// failure moves the content again from where it stopped. The jobs of the same move (the batch,
+// or the unit of a batch without relation) are sent back together. A volume retries its set.
 func (s *Service) Retry(ctx context.Context, id domain.JobID) (domain.JobView, error) {
 	if s.work == nil {
 		return domain.JobView{}, ErrExtractionDisabled
@@ -517,9 +531,24 @@ func (s *Service) Retry(ctx context.Context, id domain.JobID) (domain.JobView, e
 	if err != nil {
 		return domain.JobView{}, err
 	}
-	if job.Status != domain.StatusFailed || !job.Error.Retryable() {
+	if job.Status != domain.StatusFailed {
 		return domain.JobView{}, ErrCannotRetry
 	}
+	switch job.Error {
+	case domain.FailureFilterFailed:
+		return s.retryFiltering(ctx, job, false)
+	case domain.FailureMoveFailed:
+		return s.retryFiltering(ctx, job, true)
+	}
+	if !job.Error.RetriesExtraction() {
+		return domain.JobView{}, ErrCannotRetry
+	}
+	return s.retryExtraction(ctx, job)
+}
+
+// retryExtraction extracts again a job that failed for a retryable extraction reason (RF-10c).
+// Its archive must still be in staging; the files of the failed attempt are gone.
+func (s *Service) retryExtraction(ctx context.Context, job *domain.UploadJob) (domain.JobView, error) {
 	unit, err := s.unitOf(ctx, job)
 	if err != nil {
 		return domain.JobView{}, ErrCannotRetry
@@ -536,11 +565,76 @@ func (s *Service) Retry(ctx context.Context, id domain.JobID) (domain.JobView, e
 		return domain.JobView{}, err
 	}
 	s.work.enqueue(extractionRequest{id: leaderOf(job), started: true})
-	job, err = s.Job(ctx, id)
+	return s.reloaded(ctx, job.ID)
+}
+
+// retryFiltering sends the jobs of a failed filter or move back to filtering (RF-07, RF-08a).
+// A filter failure is filtered again by the worker; a move failure is settled again, and the
+// batch moves what is left of its content.
+func (s *Service) retryFiltering(ctx context.Context, job *domain.UploadJob, move bool) (domain.JobView, error) {
+	group, err := s.retryGroup(ctx, job, move)
+	if err != nil {
+		return domain.JobView{}, ErrCannotRetry
+	}
+	if err := s.applyAll(ctx, group, func(j *domain.UploadJob, now time.Time) error {
+		return j.RetryFiltering(now)
+	}); err != nil {
+		if errors.Is(err, domain.ErrInvalidTransition) {
+			return domain.JobView{}, ErrCannotRetry
+		}
+		return domain.JobView{}, err
+	}
+	s.work.enqueue(extractionRequest{id: leaderOf(job), refilter: !move, settle: move})
+	return s.reloaded(ctx, job.ID)
+}
+
+// retryGroup returns the jobs a retry sends back together: the unit of the job, or for a
+// move that a batch with a relation made, every job of the batch that failed the same way.
+func (s *Service) retryGroup(ctx context.Context, job *domain.UploadJob, move bool) ([]*domain.UploadJob, error) {
+	if !move {
+		return s.unitOf(ctx, job)
+	}
+	batch, err := s.batches.Get(ctx, job.BatchID)
+	if err != nil {
+		return nil, err
+	}
+	if batch.Relation == domain.RelationNone {
+		return s.unitOf(ctx, job)
+	}
+	jobs, err := s.jobs.ByBatch(ctx, job.BatchID)
+	if err != nil {
+		return nil, err
+	}
+	var group []*domain.UploadJob
+	for _, j := range jobs {
+		if j.Status == domain.StatusFailed && j.Error == domain.FailureMoveFailed {
+			group = append(group, j)
+		}
+	}
+	return group, nil
+}
+
+// reloaded returns a job as it is now, with its batch.
+func (s *Service) reloaded(ctx context.Context, id domain.JobID) (domain.JobView, error) {
+	job, err := s.Job(ctx, id)
 	if err != nil {
 		return domain.JobView{}, err
 	}
 	return s.view(ctx, job)
+}
+
+// refilter filters again a job that failed with filter_failed: the content is filtered from
+// what the filter recorded, and the job goes on to the move once its batch is decided (RF-07).
+func (s *Service) refilter(ctx context.Context, job *domain.UploadJob) error {
+	if job.Status != domain.StatusFiltering || job.FilterDone {
+		return nil
+	}
+	unit, err := s.unitOf(ctx, job)
+	if err != nil {
+		return err
+	}
+	extracted := job.IsVolume() || s.work.workspace.ExtractionExists(leaderOf(job))
+	return s.filterUnit(ctx, unit, extracted)
 }
 
 // archiveStaged reports whether the archive of a failed job, or the set's first

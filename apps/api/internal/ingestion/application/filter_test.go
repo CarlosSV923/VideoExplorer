@@ -393,15 +393,26 @@ func TestAFilterInterruptedByARestartDoesNotTrashAFileTwice(t *testing.T) {
 				t.Fatal("the interruption never happened")
 			}
 
-			// The process restarts: a new service over the same database and folders
-			// resumes the filter from what it recorded.
+			// The error of the staging area ends the job with filter_failed (RF-08a).
+			failed := r.waitFor(t, id, "failed with filter_failed", func(j domain.UploadJob) bool {
+				return j.Status == domain.StatusFailed
+			})
+			if failed.Error != domain.FailureFilterFailed {
+				t.Fatalf("job failed with %q, want filter_failed", failed.Error)
+			}
+
+			// The process restarts: a new service over the same database and folders, and
+			// Reintentar filters the content again from what the filter recorded.
 			after := r.service(ingestionsqlite.NewFilterRepository(r.conn), r.trash)
 			resumeCtx, resumeCancel := context.WithCancel(t.Context())
 			t.Cleanup(resumeCancel)
 			go after.RunExtraction(resumeCtx, 1)
 			r.svc = after
+			if _, err := after.Retry(t.Context(), id); err != nil {
+				t.Fatalf("Retry: %v", err)
+			}
 
-			job := r.waitFor(t, id, "resumed and filtered", func(j domain.UploadJob) bool { return j.FilterDone })
+			job := r.waitFor(t, id, "filtered again", func(j domain.UploadJob) bool { return j.FilterDone })
 			if job.Status != domain.StatusFiltering {
 				t.Fatalf("job = %s, want filtering", job.Status)
 			}

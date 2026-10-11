@@ -173,6 +173,16 @@ func (s *Service) queueKeptVideos(unit []*domain.UploadJob, extracted bool, entr
 	}
 }
 
+// queueFinal queues the reading of a kept video at its place in No asignados, once it moved
+// there (RF-08a): its probe and its partial hash are read again at the new path. The inode
+// is the same, so the caches answer.
+func (s *Service) queueFinal(job domain.JobID, path string) {
+	if s.probes == nil {
+		return
+	}
+	s.probes.enqueue(probeRequest{job: job, path: path})
+}
+
 // enqueue queues a read. It never blocks the caller (a filter worker calls it).
 func (p *probing) enqueue(req probeRequest) {
 	p.mu.Lock()

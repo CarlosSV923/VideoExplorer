@@ -43,6 +43,8 @@ type Service struct {
 	probes *probing
 	// hashes is the partial hash of the files (RF-24); nil until WithPartialHashing.
 	hashes *hashing
+	// library moves the content of a batch into No asignados (RF-08a); nil until WithLibrary.
+	library Library
 	// settleMu serializes the decisions on the batches of the filter (RF-07).
 	settleMu sync.Mutex
 }
@@ -60,6 +62,13 @@ func NewService(batches domain.BatchRepository, jobs domain.JobRepository, pub P
 		now = time.Now
 	}
 	return &Service{batches: batches, jobs: jobs, pub: pub, staging: noStaging{}, log: log, now: now, newID: randomID}
+}
+
+// WithLibrary sets the unassigned section the filtered content moves into (RF-08a). Until it
+// is set, a batch whose content is filtered waits where it is.
+func (s *Service) WithLibrary(library Library) *Service {
+	s.library = library
+	return s
 }
 
 // WithStaging sets the staging area that the purge inspects. It is set after

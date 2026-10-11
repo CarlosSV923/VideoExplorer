@@ -39,13 +39,17 @@ func (s *Service) settleAll(ctx context.Context) {
 // the batch at all, they fail with no_video. Nothing is decided while a job of the batch
 // is still uploading, extracting, waiting for its parts or for its password, or still
 // being filtered: those jobs decide later, when they end.
+//
+// Once the batch is complete, what it kept moves to No asignados (RF-08, RF-08a): see
+// placeBatch. A job that failed or was cancelled on the way counts as ended: it does not
+// move, and Reintentar moves it later.
 func (s *Service) settleBatch(ctx context.Context, batch domain.BatchID) error {
 	jobs, err := s.jobs.ByBatch(ctx, batch)
 	if err != nil {
 		return err
 	}
 	keeps := false
-	var empty []*domain.UploadJob
+	var empty, keptJobs []*domain.UploadJob
 	keptBy := map[domain.JobID]bool{}
 	for _, job := range jobs {
 		switch job.Status {
@@ -56,15 +60,16 @@ func (s *Service) settleBatch(ctx context.Context, batch domain.BatchID) error {
 				return nil // still being filtered
 			}
 			leader := leaderOf(job)
-			kept, known := keptBy[leader]
+			keptUnit, known := keptBy[leader]
 			if !known {
-				if kept, err = s.hasKept(ctx, leader); err != nil {
+				if keptUnit, err = s.hasKept(ctx, leader); err != nil {
 					return err
 				}
-				keptBy[leader] = kept
+				keptBy[leader] = keptUnit
 			}
-			if kept {
+			if keptUnit {
 				keeps = true
+				keptJobs = append(keptJobs, job)
 			} else {
 				empty = append(empty, job)
 			}
@@ -75,13 +80,17 @@ func (s *Service) settleBatch(ctx context.Context, batch domain.BatchID) error {
 			// failed, cancelled or discarded: ended by another cause, or by an earlier decision.
 		}
 	}
-	if len(empty) == 0 {
-		return nil
-	}
 	for _, unit := range groupByUnit(empty) {
 		s.endEmpty(ctx, unit, keeps)
 	}
-	return nil
+	if len(keptJobs) == 0 || s.library == nil {
+		return nil
+	}
+	b, err := s.batches.Get(ctx, batch)
+	if err != nil {
+		return err
+	}
+	return s.placeBatch(ctx, b, keptJobs)
 }
 
 // hasKept reports whether filtering kept any file of the unit led by the job.

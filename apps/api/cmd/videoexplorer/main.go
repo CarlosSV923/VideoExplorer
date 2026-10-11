@@ -124,6 +124,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		catalog := newCatalog(conn, cfg)
 		ingest.Service.WithExtraction(workspace.New(stagingDir(cfg.LibraryPath), nil), sevenzip.New(""), trashForIngestion{trash: catalog.Trash})
 		withFiltering(ingest.Service, conn, cfg)
+		ingest.Service.WithLibrary(unassignedForIngestion{unassigned: catalog.Unassigned}) // the filtered content moves to No asignados (RF-08a)
 		withProbing(ingest.Service, conn, cfg.LibraryPath, log)
 		// Reconciled before the upload endpoint serves anything, so no upload is in flight (RF-10b).
 		if res, err := ingest.Service.Recover(ctx); err != nil {
