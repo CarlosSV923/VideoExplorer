@@ -1,5 +1,5 @@
 {
-  "description": "Filename analysis of spec RF-20, RF-22 and RF-23, with the naming of spec §5, as data for both implementations. Input: the path of a file relative to its entry (its folders included, separators '/' or '\\') and its kind, 'video' or 'subtitle'. Output: type ('movie', 'episode' or 'unknown'); title (dots and underscores become spaces; the year, quality, source, codec, audio, group and language tags are left out); year; season (0 for specials); chapter and lastChapter (SxxEyy, SxxEyyEzz, SxxEy-Ezz, SxxEy-zz, NxNN, NxNN-zz); part (movies only: cdN, discN, partN, ptN). For subtitles: language (ISO 639-1, with a region only where Jellyfin recognizes it), forced and sdh. A key that is absent means no information; forced and sdh appear only when true. Matching is exact. The expected object lists everything the analysis must read, so a missing key must be missing in the output too. Conservative choices, where spec §5 and RF-20 do not decide: (1) the file's own name wins over its folders; a missing title or year is taken from the nearest folder (the folder above the season folder for episodes), and the year comes only together with the title it belongs to; (2) a season folder (Season N, Temporada N, SN, Specials, Especiales; Specials is season 0) makes the file an episode, and then the file name is a chapter title unless it is only a number; (3) a file named only with a number (01, 01 - Pilot) is an episode chapter only inside a season folder, otherwise unknown; (4) 'Title - NNN' with 1 to 3 digits and no season is absolute numbering (anime, spec §8): unknown, with no chapter; (5) the names movie, film, video, main, feature and index are not titles when the name has no year; (6) the year is the last 4-digit token (1900 to 2099) after a title and before the first tag, so 'Blade.Runner.2049.1080p' reads 2049 as the year (a known limit: the user corrects it in Assign); (7) the first tag (resolution, source, codec, audio, HDR, streaming service, bit depth) ends the title, and a group after a tag goes with it; a group with no tag before it stays in the title ('Movie-RARBG'); (8) 'Part 2' with a space is title, only the joined form (part2, cd1) is a part; (9) a language name or code at the end of a video title is removed, codes must be lowercase there ('spa', 'es'); uppercase codes count only in subtitles; (10) subtitle flags: 'forced'; 'sdh', 'cc' and 'hi' mean SDH, except that a 'hi' that is the only tag is Hindi; (11) regions: 'es-MX' and the other Latin American Spanish regions become 'es-419', 'es-ES' becomes 'es', 'en-US' and 'en-GB' become 'en', 'pt-BR', 'pt-PT', 'fr-CA' and 'zh-TW' are kept, and any other region is dropped; (12) languages accept ISO 639-1 and 639-2 codes (2 and 3 letters) and English and Spanish names of common languages. Sections: videos (no folders), folders (the folders decide or complete), subtitles, unknown.",
+  "description": "Filename analysis of spec RF-20, RF-22 and RF-23, with the naming of spec §5, as data for both implementations. Input: the path of a file relative to its entry (its folders included, separators '/' or '\\') and its kind, 'video' or 'subtitle'. Output: type ('movie', 'episode' or 'unknown'); title (dots and underscores become spaces; the year, quality, source, codec, audio, group and language tags are left out); year; season (0 for specials); chapter and lastChapter (SxxEyy, SxxEyyEzz, SxxEy-Ezz, SxxEy-zz, NxNN, NxNN-zz); part (movies only: cdN, discN, partN, ptN). For subtitles: language (ISO 639-1, with a region only where Jellyfin recognizes it), forced and sdh. A key that is absent means no information; forced and sdh appear only when true. Matching is exact. The expected object lists everything the analysis must read, so a missing key must be missing in the output too. Conservative choices, where spec §5 and RF-20 do not decide: (1) the file's own name wins over its folders; a missing title or year is taken from the nearest folder (the folder above the season folder for episodes), and the year comes only together with the title it belongs to; (2) a season folder (Season N, Temporada N, SN, Specials, Especiales; Specials is season 0) makes the file an episode, and then the file name is a chapter title unless it is only a number; (3) a file named only with a number (01, 01 - Pilot) is an episode chapter only inside a season folder, otherwise unknown; (4) 'Title - NNN' with 1 to 3 digits and no season is absolute numbering (anime, spec §8): unknown, with no chapter; (5) the names movie, film, video, main, feature and index (without a year) are not titles: the folder gives the title, and with no folder there is none; (6) the year is the last 4-digit token (1900 to 2099) after a title and before the first tag, so 'Blade.Runner.2049.1080p' reads 2049 as the year (a known limit: the user corrects it in Assign); (7) the first tag (resolution, source, codec, audio, HDR, streaming service, bit depth) ends the title, and a group after a tag goes with it; a group with no tag before it stays in the title ('Heat-RARBG'); (8) 'Part 2' with a space is title, only the joined form (part2, cd1) is a part; (9) a language name or code at the end of a video title is removed, codes must be lowercase there ('spa', 'es'); uppercase codes count only in subtitles; (10) subtitle flags: 'forced'; 'sdh', 'cc' and 'hi' mean SDH, except that a 'hi' that is the only tag is Hindi; (11) regions: 'es-MX' and the other Latin American Spanish regions become 'es-419', 'es-ES' becomes 'es', 'en-US' and 'en-GB' become 'en', 'pt-BR', 'pt-PT', 'fr-CA' and 'zh-TW' are kept, and any other region is dropped; (12) languages accept ISO 639-1 and 639-2 codes (2 and 3 letters) and English and Spanish names of common languages. Sections: videos (no folders), folders (the folders decide or complete), subtitles, unknown.",
   "videos": {
     "description": "Video file names with no folder: episode markers, years, parts, tags and title cleaning. Parts are read only for movies.",
     "cases": [
@@ -120,8 +120,8 @@
       },
       {
         "name": "a movie name with no year",
-        "input": { "path": "Movie.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie" }
+        "input": { "path": "Heat.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat" }
       },
       {
         "name": "a §5 movie name keeps its year, drops the tag and the version",
@@ -193,8 +193,8 @@
       },
       {
         "name": "a dash before the year is not in the title",
-        "input": { "path": "Movie - 2008.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008 }
+        "input": { "path": "Heat - 2008.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "year": 2008 }
       },
       {
         "name": "a movie part in §5 form",
@@ -203,66 +203,66 @@
       },
       {
         "name": "a movie part joined to a title with no year",
-        "input": { "path": "Movie.cd1.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "part": 1 }
+        "input": { "path": "Heat.cd1.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "part": 1 }
       },
       {
         "name": "CD2 in capitals is part 2",
-        "input": { "path": "Movie.CD2.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "part": 2 }
+        "input": { "path": "Heat.CD2.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "part": 2 }
       },
       {
         "name": "disc1 is part 1",
-        "input": { "path": "Movie.disc1.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "part": 1 }
+        "input": { "path": "Heat.disc1.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "part": 1 }
       },
       {
         "name": "pt2 is part 2",
-        "input": { "path": "Movie.pt2.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "part": 2 }
+        "input": { "path": "Heat.pt2.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "part": 2 }
       },
       {
         "name": "a scene name with codec, audio and group",
         "input": {
-          "path": "Movie.2008.1080p.BluRay.HEVC.10bit.DDP5.1.x265-GROUP.mkv",
+          "path": "Heat.2008.1080p.BluRay.HEVC.10bit.DDP5.1.x265-GROUP.mkv",
           "kind": "video"
         },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008 }
+        "expected": { "type": "movie", "title": "Heat", "year": 2008 }
       },
       {
         "name": "a scene name with x264 and a group",
-        "input": { "path": "Movie.2008.1080p.BluRay.x264-RARBG.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008 }
+        "input": { "path": "Heat.2008.1080p.BluRay.x264-RARBG.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "year": 2008 }
       },
       {
         "name": "H.264 with dots is a codec",
-        "input": { "path": "Movie.2008.H.264.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008 }
+        "input": { "path": "Heat.2008.H.264.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "year": 2008 }
       },
       {
         "name": "a bracketed site tag is removed",
-        "input": { "path": "Movie.2008.[YTS.MX].mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008 }
+        "input": { "path": "Heat.2008.[YTS.MX].mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "year": 2008 }
       },
       {
         "name": "a group after a year is removed",
-        "input": { "path": "Movie.2008-RARBG.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008 }
+        "input": { "path": "Heat.2008-RARBG.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat", "year": 2008 }
       },
       {
         "name": "a group with no tag before it stays in the title",
-        "input": { "path": "Movie-RARBG.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie-RARBG" }
+        "input": { "path": "Heat-RARBG.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat-RARBG" }
       },
       {
         "name": "a language name at the end of a video title is removed",
-        "input": { "path": "Movie.Spanish.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie" }
+        "input": { "path": "Heat.Spanish.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat" }
       },
       {
         "name": "a lowercase three-letter code before a tag is removed",
-        "input": { "path": "Movie.spa.1080p.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Movie" }
+        "input": { "path": "Heat.spa.1080p.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat" }
       }
     ]
   },
@@ -382,113 +382,113 @@
     "cases": [
       {
         "name": "a two-letter code is the language",
-        "input": { "path": "Movie.es.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.es.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "es-MX is Latin American Spanish, which Jellyfin calls es-419",
-        "input": { "path": "Movie.es-MX.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es-419" }
+        "input": { "path": "Heat.es-MX.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es-419" }
       },
       {
         "name": "es-419 is kept",
-        "input": { "path": "Movie.es-419.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es-419" }
+        "input": { "path": "Heat.es-419.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es-419" }
       },
       {
         "name": "es-ES is es",
-        "input": { "path": "Movie.es-ES.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.es-ES.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "a three-letter code is the language",
-        "input": { "path": "Movie.spa.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.spa.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "a language name is the language",
-        "input": { "path": "Movie.Spanish.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.Spanish.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "a language name in Spanish is the language",
-        "input": { "path": "Movie.Español.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.Español.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "an uppercase two-letter code counts in subtitles",
-        "input": { "path": "Movie.ES.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.ES.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "a three-letter code in capitals counts in subtitles",
-        "input": { "path": "Movie.SPA.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "es" }
+        "input": { "path": "Heat.SPA.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
       },
       {
         "name": "a three-letter ISO 639-2 English code",
-        "input": { "path": "Movie.eng.forced.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "en", "forced": true }
+        "input": { "path": "Heat.eng.forced.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "en", "forced": true }
       },
       {
         "name": "forced is a flag after the language",
-        "input": { "path": "Movie.en.forced.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "en", "forced": true }
+        "input": { "path": "Heat.en.forced.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "en", "forced": true }
       },
       {
         "name": "sdh is a flag after the language",
-        "input": { "path": "Movie.en.sdh.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "en", "sdh": true }
+        "input": { "path": "Heat.en.sdh.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "en", "sdh": true }
       },
       {
         "name": "cc is SDH",
-        "input": { "path": "Movie.en.cc.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "en", "sdh": true }
+        "input": { "path": "Heat.en.cc.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "en", "sdh": true }
       },
       {
         "name": "hi after a language is SDH",
-        "input": { "path": "Movie.en.hi.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "en", "sdh": true }
+        "input": { "path": "Heat.en.hi.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "en", "sdh": true }
       },
       {
         "name": "hi on its own is Hindi",
-        "input": { "path": "Movie.hi.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "hi" }
+        "input": { "path": "Heat.hi.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "hi" }
       },
       {
         "name": "pt-BR is kept",
-        "input": { "path": "Movie.pt-BR.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "pt-BR" }
+        "input": { "path": "Heat.pt-BR.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "pt-BR" }
       },
       {
         "name": "fr-CA is kept",
-        "input": { "path": "Movie.fr-CA.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "fr-CA" }
+        "input": { "path": "Heat.fr-CA.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "fr-CA" }
       },
       {
         "name": "a region Jellyfin does not recognize is dropped",
-        "input": { "path": "Movie.de-AT.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "de" }
+        "input": { "path": "Heat.de-AT.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "de" }
       },
       {
         "name": "en-US is en",
-        "input": { "path": "Movie.en-US.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "en" }
+        "input": { "path": "Heat.en-US.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "en" }
       },
       {
         "name": "a subtitle with no language",
-        "input": { "path": "Movie.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie" }
+        "input": { "path": "Heat.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat" }
       },
       {
         "name": "a subtitle with forced and no language",
-        "input": { "path": "Movie.forced.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "forced": true }
+        "input": { "path": "Heat.forced.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "forced": true }
       },
       {
         "name": "a language after the year of a scene name",
-        "input": { "path": "Movie.2008.1080p.BluRay.es.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "year": 2008, "language": "es" }
+        "input": { "path": "Heat.2008.1080p.BluRay.es.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "year": 2008, "language": "es" }
       },
       {
         "name": "a subtitle of an episode",
@@ -530,8 +530,8 @@
       },
       {
         "name": "an Italian subtitle named in lowercase",
-        "input": { "path": "Movie.it.srt", "kind": "subtitle" },
-        "expected": { "type": "movie", "title": "Movie", "language": "it" }
+        "input": { "path": "Heat.it.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "it" }
       },
       {
         "name": "a title that is a code in capitals is a title, with no language",
