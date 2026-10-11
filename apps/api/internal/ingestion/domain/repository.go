@@ -25,6 +25,8 @@ type JobRepository interface {
 	ByStatus(ctx context.Context, status Status) ([]*UploadJob, error)
 	// Stale returns the jobs in status whose last change is before t, oldest first.
 	Stale(ctx context.Context, status Status, before time.Time) ([]*UploadJob, error)
+	// ByVolumeGroup returns the volumes of one claimed set, in volume order (RF-03).
+	ByVolumeGroup(ctx context.Context, group string) ([]*UploadJob, error)
 	// Exists reports whether a job has the id.
 	Exists(ctx context.Context, id JobID) (bool, error)
 }

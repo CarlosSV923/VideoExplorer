@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -38,14 +39,23 @@ type UploadMeta struct {
 	RelativePath string
 	// BatchID is the batch the file was dropped with (RF-03, RF-09a). Required.
 	BatchID string
+	// PartsTotal is how many volumes the set of a multi-volume archive has, as
+	// the browser counted them among the files dropped together (RF-03). Set
+	// for a volume, zero for any other file.
+	PartsTotal int
 }
+
+// MaxPartsTotal is the most volumes a multi-volume set may have.
+const MaxPartsTotal = 999
 
 // NewUploadMeta checks the declared values and returns them sanitized: names
 // are trimmed. Anything that could leave the upload's folder is rejected:
 // separators, '.' and '..', control characters, names longer than 255 bytes
 // and relative paths that are absolute or that do not end with the file name.
-// batchID is required: every upload belongs to a batch (RF-09a).
-func NewUploadMeta(fileName, relativePath, batchID string) (UploadMeta, error) {
+// batchID is required: every upload belongs to a batch (RF-09a). partsTotal is
+// the text of the partsTotal metadata: required for a volume of a multi-volume
+// archive (2 to 999), and refused for any other file (RF-03).
+func NewUploadMeta(fileName, relativePath, batchID, partsTotal string) (UploadMeta, error) {
 	name, err := cleanComponent(fileName)
 	if err != nil {
 		return UploadMeta{}, fmt.Errorf("%w: filename %w", ErrInvalidMetadata, err)
@@ -64,6 +74,20 @@ func NewUploadMeta(fileName, relativePath, batchID string) (UploadMeta, error) {
 		return UploadMeta{}, fmt.Errorf("%w: batchId is required and must be 1 to 64 letters, digits, '-' or '_'", ErrInvalidMetadata)
 	}
 	meta.BatchID = batchID
+
+	_, isVolume := ParseVolume(name)
+	switch {
+	case isVolume && partsTotal == "":
+		return UploadMeta{}, fmt.Errorf("%w: partsTotal is required for a volume of a multi-volume archive", ErrInvalidMetadata)
+	case !isVolume && partsTotal != "":
+		return UploadMeta{}, fmt.Errorf("%w: partsTotal is only for volumes of a multi-volume archive", ErrInvalidMetadata)
+	case isVolume:
+		n, err := strconv.Atoi(partsTotal)
+		if err != nil || n < 2 || n > MaxPartsTotal {
+			return UploadMeta{}, fmt.Errorf("%w: partsTotal must be an integer from 2 to %d", ErrInvalidMetadata, MaxPartsTotal)
+		}
+		meta.PartsTotal = n
+	}
 	return meta, nil
 }
 

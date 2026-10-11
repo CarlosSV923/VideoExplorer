@@ -106,16 +106,40 @@ func (e ImageKind) Valid() bool {
 
 // Defines values for JobFailure.
 const (
+	ArchiveCorrupt  JobFailure = "archive_corrupt"
+	ArchiveUnsafe   JobFailure = "archive_unsafe"
+	CrcMismatch     JobFailure = "crc_mismatch"
+	LegacyVolume    JobFailure = "legacy_volume"
+	NoSpace         JobFailure = "no_space"
+	PartsMismatch   JobFailure = "parts_mismatch"
+	PartsMissing    JobFailure = "parts_missing"
 	UploadAbandoned JobFailure = "upload_abandoned"
 	UploadMissing   JobFailure = "upload_missing"
+	WrongPassword   JobFailure = "wrong_password"
 )
 
 // Valid indicates whether the value is a known member of the JobFailure enum.
 func (e JobFailure) Valid() bool {
 	switch e {
+	case ArchiveCorrupt:
+		return true
+	case ArchiveUnsafe:
+		return true
+	case CrcMismatch:
+		return true
+	case LegacyVolume:
+		return true
+	case NoSpace:
+		return true
+	case PartsMismatch:
+		return true
+	case PartsMissing:
+		return true
 	case UploadAbandoned:
 		return true
 	case UploadMissing:
+		return true
+	case WrongPassword:
 		return true
 	default:
 		return false
@@ -258,22 +282,45 @@ type HealthStatus string
 // backdrop w1280, logo w500, still w300.
 type ImageKind string
 
-// JobFailure Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
-// keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+// JobFailure Stable reason of a job (RF-10b, RF-10c). The UI translates it with i18n
+// keys. A `failed` job gives its reason here:
+// `upload_abandoned`: the upload had no activity for 24 hours and its
 // partial file was deleted, so the file must be uploaded again.
 // `upload_missing`: the job was still uploading, but its file is no longer
 // in staging.
+// `no_space`: the library has no room to extract (1 GiB margin, RF-05).
+// `archive_corrupt`: the archive is damaged or 7-Zip failed on it.
+// `crc_mismatch`: an extracted file does not match the size or CRC32 of the
+// archive index (RF-05).
+// `archive_unsafe`: the archive has paths outside its folder or links.
+// `parts_mismatch`: the volumes do not form one multi-volume archive.
+// `parts_missing`: some volumes did not arrive within 24 hours.
+// `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
+// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
+// others cannot (`legacy_volume` among them). A job in `needs_password` gives `wrong_password` here when
+// the password it was sent did not open the archive.
 type JobFailure string
 
 // JobStatus State of an upload job (RF-10a). `uploading` while the bytes arrive and
-// `uploaded` once they all arrived. `waiting_parts`, `extracting`,
-// `needs_password`, `filtering` and `done` are reached by the processing of
-// the archives and the filtering (later phases). `failed` and `cancelled`
-// end the job; `failed` gives its reason in `error`.
+// `uploaded` once they all arrived. An archive then goes to `extracting`
+// (or `needs_password`, which waits for `POST /jobs/{id}/password`) and,
+// when it is extracted, to `filtering` (the filtering comes in a later
+// phase). A volume of a multi-volume archive waits in `waiting_parts` until its set is
+// complete, then the whole set is extracted together from its first volume;
+// `done` is reached by a later phase. `failed`
+// gives its reason in `error`; a failed job may move back to `extracting`
+// with `POST /jobs/{id}/retry`. `cancelled` ends the job.
 type JobStatus string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
+	Password string `json:"password"`
+}
+
+// PasswordRequest defines model for PasswordRequest.
+type PasswordRequest struct {
+	// Password Password of the archive. Sent once; never stored or logged. Without NUL
+	// characters (RF-04).
 	Password string `json:"password"`
 }
 
@@ -295,11 +342,23 @@ type UploadJob struct {
 	Batch     Batch     `json:"batch"`
 	CreatedAt time.Time `json:"createdAt"`
 
-	// Error Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
-	// keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+	// Error Stable reason of a job (RF-10b, RF-10c). The UI translates it with i18n
+	// keys. A `failed` job gives its reason here:
+	// `upload_abandoned`: the upload had no activity for 24 hours and its
 	// partial file was deleted, so the file must be uploaded again.
 	// `upload_missing`: the job was still uploading, but its file is no longer
 	// in staging.
+	// `no_space`: the library has no room to extract (1 GiB margin, RF-05).
+	// `archive_corrupt`: the archive is damaged or 7-Zip failed on it.
+	// `crc_mismatch`: an extracted file does not match the size or CRC32 of the
+	// archive index (RF-05).
+	// `archive_unsafe`: the archive has paths outside its folder or links.
+	// `parts_mismatch`: the volumes do not form one multi-volume archive.
+	// `parts_missing`: some volumes did not arrive within 24 hours.
+	// `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
+	// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
+	// others cannot (`legacy_volume` among them). A job in `needs_password` gives `wrong_password` here when
+	// the password it was sent did not open the archive.
 	Error *JobFailure `json:"error,omitempty"`
 
 	// FileName File name, without folders.
@@ -309,6 +368,9 @@ type UploadJob struct {
 	//
 	// Example: 3kQ7Zr1xVb8mNcT2pL0aWq
 	Id string `json:"id"`
+
+	// Progress Percentage extracted while the job is `extracting` (RF-10); 0 in other states, 100 once the archive is extracted.
+	Progress int `json:"progress"`
 
 	// Received Bytes that arrived so far. Equals `size` once the job is `uploaded`.
 	Received int64 `json:"received"`
@@ -320,19 +382,29 @@ type UploadJob struct {
 	Size int64 `json:"size"`
 
 	// Status State of an upload job (RF-10a). `uploading` while the bytes arrive and
-	// `uploaded` once they all arrived. `waiting_parts`, `extracting`,
-	// `needs_password`, `filtering` and `done` are reached by the processing of
-	// the archives and the filtering (later phases). `failed` and `cancelled`
-	// end the job; `failed` gives its reason in `error`.
+	// `uploaded` once they all arrived. An archive then goes to `extracting`
+	// (or `needs_password`, which waits for `POST /jobs/{id}/password`) and,
+	// when it is extracted, to `filtering` (the filtering comes in a later
+	// phase). A volume of a multi-volume archive waits in `waiting_parts` until its set is
+	// complete, then the whole set is extracted together from its first volume;
+	// `done` is reached by a later phase. `failed`
+	// gives its reason in `error`; a failed job may move back to `extracting`
+	// with `POST /jobs/{id}/retry`. `cancelled` ends the job.
 	Status    JobStatus `json:"status"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// JobId defines model for JobId.
+type JobId = string
 
 // BadGateway RFC 9457 problem details.
 type BadGateway = Problem
 
 // BadRequest RFC 9457 problem details.
 type BadRequest = Problem
+
+// Conflict RFC 9457 problem details.
+type Conflict = Problem
 
 // NotFound RFC 9457 problem details.
 type NotFound = Problem
@@ -348,6 +420,9 @@ type LoginJSONRequestBody = LoginRequest
 
 // CreateBatchJSONRequestBody defines body for CreateBatch for application/json ContentType.
 type CreateBatchJSONRequestBody = CreateBatchRequest
+
+// SubmitJobPasswordJSONRequestBody defines body for SubmitJobPassword for application/json ContentType.
+type SubmitJobPasswordJSONRequestBody = PasswordRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -375,6 +450,12 @@ type ServerInterface interface {
 	// StreamJobEvents Live upload job changes (server-sent events, RF-10b)
 	// (GET /jobs/events)
 	StreamJobEvents(w http.ResponseWriter, r *http.Request)
+	// SubmitJobPassword Send the password of an encrypted archive
+	// (POST /jobs/{id}/password)
+	SubmitJobPassword(w http.ResponseWriter, r *http.Request, id JobId)
+	// RetryJob Retry an extraction that failed for a retryable reason
+	// (POST /jobs/{id}/retry)
+	RetryJob(w http.ResponseWriter, r *http.Request, id JobId)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -519,6 +600,58 @@ func (siw *ServerInterfaceWrapper) StreamJobEvents(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// SubmitJobPassword operation middleware
+func (siw *ServerInterfaceWrapper) SubmitJobPassword(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id JobId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitJobPassword(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryJob operation middleware
+func (siw *ServerInterfaceWrapper) RetryJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id JobId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -646,6 +779,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/batches", wrapper.CreateBatch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs", wrapper.ListJobs)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs/events", wrapper.StreamJobEvents)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/password", wrapper.SubmitJobPassword)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/retry", wrapper.RetryJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/images/{kind}/{file}", wrapper.GetImage)
 
 	return m
@@ -654,6 +789,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 type BadGatewayApplicationProblemPlusJSONResponse Problem
 
 type BadRequestApplicationProblemPlusJSONResponse Problem
+
+type ConflictApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
@@ -1106,6 +1243,163 @@ func (response StreamJobEvents401ApplicationProblemPlusJSONResponse) VisitStream
 	return err
 }
 
+type SubmitJobPasswordRequestObject struct {
+	Id   JobId `json:"id"`
+	Body *SubmitJobPasswordJSONRequestBody
+}
+
+type SubmitJobPasswordResponseObject interface {
+	VisitSubmitJobPasswordResponse(w http.ResponseWriter) error
+}
+
+type SubmitJobPassword202JSONResponse UploadJob
+
+func (response SubmitJobPassword202JSONResponse) VisitSubmitJobPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitJobPassword400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitJobPassword400ApplicationProblemPlusJSONResponse) VisitSubmitJobPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitJobPassword401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitJobPassword401ApplicationProblemPlusJSONResponse) VisitSubmitJobPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitJobPassword404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitJobPassword404ApplicationProblemPlusJSONResponse) VisitSubmitJobPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitJobPassword409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitJobPassword409ApplicationProblemPlusJSONResponse) VisitSubmitJobPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryJobRequestObject struct {
+	Id JobId `json:"id"`
+}
+
+type RetryJobResponseObject interface {
+	VisitRetryJobResponse(w http.ResponseWriter) error
+}
+
+type RetryJob202JSONResponse UploadJob
+
+func (response RetryJob202JSONResponse) VisitRetryJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryJob401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RetryJob401ApplicationProblemPlusJSONResponse) VisitRetryJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryJob404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RetryJob404ApplicationProblemPlusJSONResponse) VisitRetryJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryJob409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RetryJob409ApplicationProblemPlusJSONResponse) VisitRetryJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Login Start a session with the shared password
@@ -1132,6 +1426,12 @@ type StrictServerInterface interface {
 	// StreamJobEvents Live upload job changes (server-sent events, RF-10b)
 	// (GET /jobs/events)
 	StreamJobEvents(ctx context.Context, request StreamJobEventsRequestObject) (StreamJobEventsResponseObject, error)
+	// SubmitJobPassword Send the password of an encrypted archive
+	// (POST /jobs/{id}/password)
+	SubmitJobPassword(ctx context.Context, request SubmitJobPasswordRequestObject) (SubmitJobPasswordResponseObject, error)
+	// RetryJob Retry an extraction that failed for a retryable reason
+	// (POST /jobs/{id}/retry)
+	RetryJob(ctx context.Context, request RetryJobRequestObject) (RetryJobResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1375,6 +1675,65 @@ func (sh *strictHandler) StreamJobEvents(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(StreamJobEventsResponseObject); ok {
 		if err := validResponse.VisitStreamJobEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitJobPassword operation middleware
+func (sh *strictHandler) SubmitJobPassword(w http.ResponseWriter, r *http.Request, id JobId) {
+	var request SubmitJobPasswordRequestObject
+
+	request.Id = id
+
+	var body SubmitJobPasswordJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitJobPassword(ctx, request.(SubmitJobPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitJobPassword")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SubmitJobPasswordResponseObject); ok {
+		if err := validResponse.VisitSubmitJobPasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryJob operation middleware
+func (sh *strictHandler) RetryJob(w http.ResponseWriter, r *http.Request, id JobId) {
+	var request RetryJobRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryJob(ctx, request.(RetryJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryJobResponseObject); ok {
+		if err := validResponse.VisitRetryJobResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

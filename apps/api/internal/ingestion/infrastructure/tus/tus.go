@@ -29,6 +29,8 @@ const (
 	MetaFileName     = "filename"
 	MetaRelativePath = "relativePath"
 	MetaBatchID      = "batchId"
+	// MetaPartsTotal is how many volumes the set of a volume has, as the browser counted them (RF-03).
+	MetaPartsTotal = "partsTotal"
 )
 
 // FreeSpaceFunc reports the free bytes of the file system that holds path.
@@ -183,7 +185,7 @@ func (a *Adapter) pendingBytes(ctx context.Context) (uint64, error) {
 
 // parseMeta reads the form data of an upload from its Upload-Metadata.
 func parseMeta(m map[string]string) (domain.UploadMeta, error) {
-	return domain.NewUploadMeta(m[MetaFileName], m[MetaRelativePath], m[MetaBatchID])
+	return domain.NewUploadMeta(m[MetaFileName], m[MetaRelativePath], m[MetaBatchID], m[MetaPartsTotal])
 }
 
 // Handler is the tus HTTP endpoint. Mount it at basePath with http.StripPrefix.
@@ -248,6 +250,7 @@ func (a *Adapter) Remove(_ context.Context, id domain.JobID) error {
 
 // IDs implements application.Staging. Every staged file is named after its
 // upload (`<id>`, `<id>.info`, `<id>.lock`), and tus ids never contain a dot.
+// Folders are not uploads: the extraction works in folders of this area (RF-04).
 func (a *Adapter) IDs(context.Context) ([]domain.JobID, error) {
 	entries, err := os.ReadDir(a.dir)
 	if err != nil {
@@ -256,6 +259,9 @@ func (a *Adapter) IDs(context.Context) ([]domain.JobID, error) {
 	seen := make(map[domain.JobID]bool, len(entries))
 	ids := make([]domain.JobID, 0, len(entries))
 	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
 		id := domain.JobID(strings.SplitN(entry.Name(), ".", 2)[0])
 		if id == "" || seen[id] {
 			continue

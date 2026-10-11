@@ -16,9 +16,9 @@ type JobID string
 // Status is a state of an upload job (spec RF-10a).
 type Status string
 
-// The states of RF-10a. Only the upload ones (uploading, uploaded, failed,
-// cancelled) are reached in phase 3; the rest are reached by the extraction
-// and filtering of phase 4.
+// The states of RF-10a. The upload ones (uploading, uploaded) are reached in
+// phase 3, the extraction ones (extracting, needs_password, filtering) in phase
+// 4; waiting_parts and done come with the multi-volume and filtering steps.
 const (
 	// StatusUploading: the bytes are arriving ("Subiendo").
 	StatusUploading Status = "uploading"
@@ -77,22 +77,52 @@ func (s Status) CanTransitionTo(next Status) bool {
 	return false
 }
 
-// FailureReason is the stable code of why a job failed (RF-10b). The UI
-// translates it with i18n keys, so the values never change once shipped.
+// FailureReason is the stable code of why a job failed or waits for a password
+// (RF-10b, RF-10c). The UI translates it with i18n keys, so the values never
+// change once shipped.
 type FailureReason string
 
-// The reasons a job can fail with in phase 3 (RF-10b).
+// The reasons of RF-10b and RF-10c.
 const (
 	// FailureUploadAbandoned: the upload had no activity for AbandonedAfter; its partial file was deleted.
 	FailureUploadAbandoned FailureReason = "upload_abandoned"
 	// FailureUploadMissing: the job was still uploading, but its file is no longer in staging.
 	FailureUploadMissing FailureReason = "upload_missing"
+	// FailureNoSpace: the library has no room to extract the archive plus the margin (RF-05).
+	FailureNoSpace FailureReason = "no_space"
+	// FailureArchiveCorrupt: the archive is damaged, or 7-Zip failed on it.
+	FailureArchiveCorrupt FailureReason = "archive_corrupt"
+	// FailureCRCMismatch: an extracted file differs in size or CRC32 from the archive index (RF-05).
+	FailureCRCMismatch FailureReason = "crc_mismatch"
+	// FailureArchiveUnsafe: an entry would leave its folder (zip-slip) or is a link.
+	FailureArchiveUnsafe FailureReason = "archive_unsafe"
+	// FailureWrongPassword: the password sent does not open the archive (the job stays in needs_password).
+	FailureWrongPassword FailureReason = "wrong_password"
+	// FailurePartsMismatch: the volumes of a multi-volume archive are not one set (RF-10c).
+	FailurePartsMismatch FailureReason = "parts_mismatch"
+	// FailurePartsMissing: some volumes did not arrive within AbandonedAfter (RF-10c).
+	FailurePartsMissing FailureReason = "parts_missing"
+	// FailureLegacyVolume: an old-style RAR volume (.r00, .r01…), which is not supported (RF-03).
+	FailureLegacyVolume FailureReason = "legacy_volume"
 )
 
 // Valid reports whether r is one of the reasons above.
 func (r FailureReason) Valid() bool {
 	switch r {
-	case FailureUploadAbandoned, FailureUploadMissing:
+	case FailureUploadAbandoned, FailureUploadMissing, FailureNoSpace, FailureArchiveCorrupt,
+		FailureCRCMismatch, FailureArchiveUnsafe, FailureWrongPassword, FailurePartsMismatch,
+		FailurePartsMissing, FailureLegacyVolume:
+		return true
+	default:
+		return false
+	}
+}
+
+// Retryable reports whether a failed extraction may be retried from its archive
+// (RF-10c): only the reasons that a change outside the archive can fix.
+func (r FailureReason) Retryable() bool {
+	switch r {
+	case FailureNoSpace, FailureArchiveCorrupt, FailureCRCMismatch:
 		return true
 	default:
 		return false
@@ -125,7 +155,21 @@ type UploadJob struct {
 	// goes back and never passes Size.
 	Received int64
 	Status   Status
-	// Error is the stable reason of a failed job (RF-10b); empty otherwise.
+	// Progress is the percentage extracted (0 to 100), while the archive is
+	// being extracted (RF-10); 0 before and 100 once it is done.
+	Progress int
+	// PartsTotal, VolumeSet and VolumeIndex describe a volume of a multi-volume
+	// archive (RF-03): how many volumes the set has, the set it belongs to (its
+	// name, with the naming style) and its position, 1 for the first. They are
+	// zero and empty for any other file.
+	PartsTotal  int
+	VolumeSet   string
+	VolumeIndex int
+	// VolumeGroup is the extraction of the set this volume is part of, once the
+	// set is complete: the id of its first volume. Empty while the volume waits.
+	VolumeGroup string
+	// Error is the stable reason of a failed job (RF-10b, RF-10c), or of a job
+	// in needs_password whose password was wrong; empty otherwise.
 	Error     FailureReason
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -150,16 +194,55 @@ func NewUploadJob(id JobID, meta UploadMeta, size int64, now time.Time) (*Upload
 	if size < 0 {
 		return nil, fmt.Errorf("negative size %d", size)
 	}
-	return &UploadJob{
+	job := &UploadJob{
 		ID:           id,
 		BatchID:      BatchID(meta.BatchID),
 		FileName:     meta.FileName,
 		RelativePath: meta.RelativePath,
 		Size:         size,
 		Status:       StatusUploading,
+		PartsTotal:   meta.PartsTotal,
 		CreatedAt:    now,
 		UpdatedAt:    now,
-	}, nil
+	}
+	if v, ok := ParseVolume(meta.FileName); ok {
+		job.VolumeSet, job.VolumeIndex = v.Set, v.Index
+	}
+	return job, nil
+}
+
+// IsVolume reports whether the job is a volume of a multi-volume archive (RF-03).
+func (j *UploadJob) IsVolume() bool { return j.VolumeSet != "" }
+
+// WaitForParts parks a volume until the other volumes of its set arrive
+// (uploaded → waiting_parts, RF-10a).
+func (j *UploadJob) WaitForParts(now time.Time) error {
+	return j.moveTo(StatusWaitingParts, now)
+}
+
+// ClaimSet takes a complete set for its extraction (waiting_parts → extracting).
+// group names the set's extraction: the id of its first volume, which is then
+// the job the extraction runs for (RF-03, RF-10a).
+func (j *UploadJob) ClaimSet(group string, now time.Time) error {
+	if !j.IsVolume() || group == "" {
+		return fmt.Errorf("%w: only a volume of a set can be claimed", ErrInvalidTransition)
+	}
+	if err := j.moveTo(StatusExtracting, now); err != nil {
+		return err
+	}
+	j.VolumeGroup, j.Error, j.Progress = group, "", 0
+	return nil
+}
+
+// ResumeVolumeAfterRestart puts a volume whose set extraction a restart
+// interrupted back to waiting_parts: the set is claimed again once it is
+// complete (RF-10a, RF-10b). It reports whether the job changed.
+func (j *UploadJob) ResumeVolumeAfterRestart(now time.Time) bool {
+	if j.Status != StatusExtracting || !j.IsVolume() {
+		return false
+	}
+	j.Status, j.Progress, j.VolumeGroup, j.UpdatedAt = StatusWaitingParts, 0, "", now
+	return true
 }
 
 // RecordProgress stores how many bytes arrived so far. Only an uploading job
@@ -205,6 +288,77 @@ func (j *UploadJob) Fail(reason FailureReason, now time.Time) error {
 	}
 	j.Error = reason
 	return nil
+}
+
+// StartExtraction begins extracting an uploaded archive, or extracts it again
+// with the password a job waiting in needs_password was sent (uploaded or
+// needs_password → extracting). It clears the reason and the progress.
+func (j *UploadJob) StartExtraction(now time.Time) error {
+	if err := j.moveTo(StatusExtracting, now); err != nil {
+		return err
+	}
+	j.Error, j.Progress = "", 0
+	return nil
+}
+
+// RecordExtractionProgress stores the percentage extracted. Only an extracting
+// job takes it, the percentage only goes forward and it is capped at 100. It
+// reports whether the job changed.
+func (j *UploadJob) RecordExtractionProgress(pct int, now time.Time) bool {
+	if j.Status != StatusExtracting || pct <= j.Progress {
+		return false
+	}
+	j.Progress = min(pct, 100)
+	j.UpdatedAt = now
+	return true
+}
+
+// AskPassword pauses an extraction because the archive is encrypted and no
+// password was given (extracting → needs_password, no reason).
+func (j *UploadJob) AskPassword(now time.Time) error {
+	return j.moveTo(StatusNeedsPassword, now)
+}
+
+// RejectPassword pauses an extraction because the password sent does not open
+// the archive (extracting → needs_password, with wrong_password, RF-10c).
+func (j *UploadJob) RejectPassword(now time.Time) error {
+	if err := j.moveTo(StatusNeedsPassword, now); err != nil {
+		return err
+	}
+	j.Error, j.Progress = FailureWrongPassword, 0
+	return nil
+}
+
+// FinishExtraction records that the archive is extracted and its content waits
+// for the filtering (extracting → filtering, RF-10a).
+func (j *UploadJob) FinishExtraction(now time.Time) error {
+	if err := j.moveTo(StatusFiltering, now); err != nil {
+		return err
+	}
+	j.Progress = 100
+	return nil
+}
+
+// RetryExtraction sends a failed extraction back to extracting (RF-10c). Only a
+// failure with a retryable reason may be retried. The failed state is terminal
+// in the transition table; this is the one way out, and it checks the reason.
+func (j *UploadJob) RetryExtraction(now time.Time) error {
+	if j.Status != StatusFailed || !j.Error.Retryable() {
+		return fmt.Errorf("%w: %s (%q) cannot be retried", ErrInvalidTransition, j.Status, j.Error)
+	}
+	j.Status, j.Error, j.Progress, j.UpdatedAt = StatusExtracting, "", 0, now
+	return nil
+}
+
+// ResumeAfterRestart puts an extraction that a restart interrupted back to
+// uploaded, so it is extracted again from the archive (RF-10a, RF-10b). It
+// reports whether the job changed.
+func (j *UploadJob) ResumeAfterRestart(now time.Time) bool {
+	if j.Status != StatusExtracting {
+		return false
+	}
+	j.Status, j.Progress, j.UpdatedAt = StatusUploaded, 0, now
+	return true
 }
 
 // Cancel stops the job at the user's or the browser's request (uploading or

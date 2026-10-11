@@ -166,6 +166,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the password of an encrypted archive
+         * @description Sends the password of an archive whose job waits in `needs_password`
+         *     (RF-04). The password is used to open the archive and is never stored
+         *     or logged. The job goes back to `extracting`; when the password does not
+         *     open the archive, the job stays in `needs_password` with
+         *     `error: wrong_password` (RF-10c). Answers 409 when the job is not waiting
+         *     for a password.
+         */
+        post: operations["submitJobPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry an extraction that failed for a retryable reason
+         * @description Retries the extraction of a job that failed with `no_space`,
+         *     `archive_corrupt` or `crc_mismatch` (RF-10c). The archive is still in
+         *     staging and the extracted files of the failed attempt are deleted first.
+         *     The job goes back to `extracting`. Answers 409 for any other job, or when
+         *     its archive is no longer there.
+         */
+        post: operations["retryJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/images/{kind}/{file}": {
         parameters: {
             query?: never;
@@ -288,22 +337,46 @@ export interface components {
         };
         /**
          * @description State of an upload job (RF-10a). `uploading` while the bytes arrive and
-         *     `uploaded` once they all arrived. `waiting_parts`, `extracting`,
-         *     `needs_password`, `filtering` and `done` are reached by the processing of
-         *     the archives and the filtering (later phases). `failed` and `cancelled`
-         *     end the job; `failed` gives its reason in `error`.
+         *     `uploaded` once they all arrived. An archive then goes to `extracting`
+         *     (or `needs_password`, which waits for `POST /jobs/{id}/password`) and,
+         *     when it is extracted, to `filtering` (the filtering comes in a later
+         *     phase). A volume of a multi-volume archive waits in `waiting_parts` until its set is
+         *     complete, then the whole set is extracted together from its first volume;
+         *     `done` is reached by a later phase. `failed`
+         *     gives its reason in `error`; a failed job may move back to `extracting`
+         *     with `POST /jobs/{id}/retry`. `cancelled` ends the job.
          * @enum {string}
          */
         JobStatus: "uploading" | "uploaded" | "waiting_parts" | "extracting" | "needs_password" | "filtering" | "done" | "failed" | "cancelled";
         /**
-         * @description Stable reason of a `failed` job (RF-10b). The UI translates it with i18n
-         *     keys. `upload_abandoned`: the upload had no activity for 24 hours and its
+         * @description Stable reason of a job (RF-10b, RF-10c). The UI translates it with i18n
+         *     keys. A `failed` job gives its reason here:
+         *     `upload_abandoned`: the upload had no activity for 24 hours and its
          *     partial file was deleted, so the file must be uploaded again.
          *     `upload_missing`: the job was still uploading, but its file is no longer
          *     in staging.
+         *     `no_space`: the library has no room to extract (1 GiB margin, RF-05).
+         *     `archive_corrupt`: the archive is damaged or 7-Zip failed on it.
+         *     `crc_mismatch`: an extracted file does not match the size or CRC32 of the
+         *     archive index (RF-05).
+         *     `archive_unsafe`: the archive has paths outside its folder or links.
+         *     `parts_mismatch`: the volumes do not form one multi-volume archive.
+         *     `parts_missing`: some volumes did not arrive within 24 hours.
+         *     `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
+         *     `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
+         *     others cannot (`legacy_volume` among them). A job in `needs_password` gives `wrong_password` here when
+         *     the password it was sent did not open the archive.
          * @enum {string}
          */
-        JobFailure: "upload_abandoned" | "upload_missing";
+        JobFailure: "upload_abandoned" | "upload_missing" | "no_space" | "archive_corrupt" | "crc_mismatch" | "archive_unsafe" | "parts_mismatch" | "parts_missing" | "legacy_volume" | "wrong_password";
+        PasswordRequest: {
+            /**
+             * Format: password
+             * @description Password of the archive. Sent once; never stored or logged. Without NUL
+             *     characters (RF-04).
+             */
+            password: string;
+        };
         /** @description One uploaded file and its state (RF-10a, RF-10b). */
         UploadJob: {
             /**
@@ -326,6 +399,8 @@ export interface components {
              * @description Bytes that arrived so far. Equals `size` once the job is `uploaded`.
              */
             received: number;
+            /** @description Percentage extracted while the job is `extracting` (RF-10); 0 in other states, 100 once the archive is extracted. */
+            progress: number;
             status: components["schemas"]["JobStatus"];
             error?: components["schemas"]["JobFailure"];
             /** Format: date-time */
@@ -379,6 +454,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The resource is in a state that does not allow the operation. */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description The image is not cached and TMDB could not provide it. */
         BadGateway: {
             headers: {
@@ -389,7 +473,10 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Job id, the id of its tus upload (`GET /jobs`). */
+        JobId: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -549,6 +636,63 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    submitJobPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job id, the id of its tus upload (`GET /jobs`). */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description The password was queued; the job is extracted or asks again. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    retryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job id, the id of its tus upload (`GET /jobs`). */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The retry was queued; the job is `extracting` again. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadJob"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getImage: {

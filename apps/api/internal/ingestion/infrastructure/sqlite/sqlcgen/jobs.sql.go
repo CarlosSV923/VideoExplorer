@@ -10,8 +10,8 @@ import (
 )
 
 const createUploadJob = `-- name: CreateUploadJob :exec
-INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateUploadJobParams struct {
@@ -22,6 +22,9 @@ type CreateUploadJobParams struct {
 	Size         int64
 	Status       string
 	Error        string
+	PartsTotal   int64
+	VolumeSet    string
+	VolumeIndex  int64
 	CreatedAt    string
 	UpdatedAt    string
 }
@@ -35,6 +38,9 @@ func (q *Queries) CreateUploadJob(ctx context.Context, arg CreateUploadJobParams
 		arg.Size,
 		arg.Status,
 		arg.Error,
+		arg.PartsTotal,
+		arg.VolumeSet,
+		arg.VolumeIndex,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -42,7 +48,7 @@ func (q *Queries) CreateUploadJob(ctx context.Context, arg CreateUploadJobParams
 }
 
 const getUploadJob = `-- name: GetUploadJob :one
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received FROM upload_jobs WHERE id = ?
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group FROM upload_jobs WHERE id = ?
 `
 
 func (q *Queries) GetUploadJob(ctx context.Context, id string) (UploadJob, error) {
@@ -59,13 +65,18 @@ func (q *Queries) GetUploadJob(ctx context.Context, id string) (UploadJob, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Received,
+		&i.Progress,
+		&i.PartsTotal,
+		&i.VolumeSet,
+		&i.VolumeIndex,
+		&i.VolumeGroup,
 	)
 	return i, err
 }
 
 const listRecentUploadJobs = `-- name: ListRecentUploadJobs :many
-SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.status, j.error,
-       j.created_at, j.updated_at,
+SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.progress, j.status, j.error,
+       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.created_at, j.updated_at,
        b.name AS batch_name, b.relation AS batch_relation, b.created_at AS batch_created_at
 FROM upload_jobs j
 JOIN upload_batches b ON b.id = j.batch_id
@@ -80,8 +91,13 @@ type ListRecentUploadJobsRow struct {
 	RelativePath   string
 	Size           int64
 	Received       int64
+	Progress       int64
 	Status         string
 	Error          string
+	PartsTotal     int64
+	VolumeSet      string
+	VolumeIndex    int64
+	VolumeGroup    string
 	CreatedAt      string
 	UpdatedAt      string
 	BatchName      string
@@ -105,8 +121,13 @@ func (q *Queries) ListRecentUploadJobs(ctx context.Context, limit int64) ([]List
 			&i.RelativePath,
 			&i.Size,
 			&i.Received,
+			&i.Progress,
 			&i.Status,
 			&i.Error,
+			&i.PartsTotal,
+			&i.VolumeSet,
+			&i.VolumeIndex,
+			&i.VolumeGroup,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BatchName,
@@ -127,7 +148,7 @@ func (q *Queries) ListRecentUploadJobs(ctx context.Context, limit int64) ([]List
 }
 
 const listStaleUploadJobs = `-- name: ListStaleUploadJobs :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received FROM upload_jobs WHERE status = ? AND updated_at < ? ORDER BY updated_at, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group FROM upload_jobs WHERE status = ? AND updated_at < ? ORDER BY updated_at, rowid
 `
 
 type ListStaleUploadJobsParams struct {
@@ -155,6 +176,11 @@ func (q *Queries) ListStaleUploadJobs(ctx context.Context, arg ListStaleUploadJo
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Received,
+			&i.Progress,
+			&i.PartsTotal,
+			&i.VolumeSet,
+			&i.VolumeIndex,
+			&i.VolumeGroup,
 		); err != nil {
 			return nil, err
 		}
@@ -170,7 +196,7 @@ func (q *Queries) ListStaleUploadJobs(ctx context.Context, arg ListStaleUploadJo
 }
 
 const listUploadJobsByStatus = `-- name: ListUploadJobsByStatus :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received FROM upload_jobs WHERE status = ? ORDER BY created_at, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group FROM upload_jobs WHERE status = ? ORDER BY created_at, rowid
 `
 
 func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]UploadJob, error) {
@@ -193,6 +219,54 @@ func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Received,
+			&i.Progress,
+			&i.PartsTotal,
+			&i.VolumeSet,
+			&i.VolumeIndex,
+			&i.VolumeGroup,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUploadJobsByVolumeGroup = `-- name: ListUploadJobsByVolumeGroup :many
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group FROM upload_jobs WHERE volume_group = ? ORDER BY volume_index, rowid
+`
+
+func (q *Queries) ListUploadJobsByVolumeGroup(ctx context.Context, volumeGroup string) ([]UploadJob, error) {
+	rows, err := q.db.QueryContext(ctx, listUploadJobsByVolumeGroup, volumeGroup)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UploadJob
+	for rows.Next() {
+		var i UploadJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.FileName,
+			&i.RelativePath,
+			&i.Size,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Received,
+			&i.Progress,
+			&i.PartsTotal,
+			&i.VolumeSet,
+			&i.VolumeIndex,
+			&i.VolumeGroup,
 		); err != nil {
 			return nil, err
 		}
@@ -208,15 +282,17 @@ func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]
 }
 
 const saveUploadJob = `-- name: SaveUploadJob :exec
-UPDATE upload_jobs SET status = ?, error = ?, received = ?, updated_at = ? WHERE id = ?
+UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume_group = ?, updated_at = ? WHERE id = ?
 `
 
 type SaveUploadJobParams struct {
-	Status    string
-	Error     string
-	Received  int64
-	UpdatedAt string
-	ID        string
+	Status      string
+	Error       string
+	Received    int64
+	Progress    int64
+	VolumeGroup string
+	UpdatedAt   string
+	ID          string
 }
 
 func (q *Queries) SaveUploadJob(ctx context.Context, arg SaveUploadJobParams) error {
@@ -224,6 +300,8 @@ func (q *Queries) SaveUploadJob(ctx context.Context, arg SaveUploadJobParams) er
 		arg.Status,
 		arg.Error,
 		arg.Received,
+		arg.Progress,
+		arg.VolumeGroup,
 		arg.UpdatedAt,
 		arg.ID,
 	)

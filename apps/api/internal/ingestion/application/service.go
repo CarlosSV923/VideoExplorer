@@ -35,6 +35,8 @@ type Service struct {
 	// mu serializes the changes of existing jobs (progress, completion,
 	// cancellation, purge), so that a read-modify-write never overwrites another.
 	mu sync.Mutex
+	// work is the extraction queue; nil until WithExtraction (RF-04).
+	work *extraction
 }
 
 var _ Uploads = (*Service)(nil)
@@ -122,22 +124,45 @@ func (s *Service) UploadProgress(ctx context.Context, id domain.JobID, received 
 // Completed implements Uploads. A job that the purge already recorded as
 // uploaded stays as it is: the tus endpoint may report the same upload a moment later.
 func (s *Service) Completed(ctx context.Context, id domain.JobID) error {
-	return s.mutate(ctx, id, func(j *domain.UploadJob) (bool, error) {
+	changed, err := s.mutateChanged(ctx, id, func(j *domain.UploadJob) (bool, error) {
 		if j.Status == domain.StatusUploaded {
 			return false, nil
 		}
 		return true, j.MarkUploaded(s.now())
 	})
+	if err != nil {
+		return err
+	}
+	if changed {
+		return s.afterUpload(ctx, id) // an archive is extracted from here on (RF-04); a volume waits for its set (RF-03)
+	}
+	return nil
 }
 
-// Terminated implements Uploads. A job that already ended keeps its state.
+// Terminated implements Uploads. A job that already ended keeps its state. The
+// browser deleting a finished upload cancels its work too (RF-09a): an extraction
+// in progress stops and what it extracted is removed.
 func (s *Service) Terminated(ctx context.Context, id domain.JobID) error {
-	return s.mutate(ctx, id, func(j *domain.UploadJob) (bool, error) {
+	group := ""
+	if job, err := s.jobs.Get(ctx, id); err == nil {
+		group = job.VolumeGroup
+	}
+	changed, err := s.mutateChanged(ctx, id, func(j *domain.UploadJob) (bool, error) {
 		if j.Status.Terminal() {
 			return false, nil
 		}
 		return true, j.Cancel(s.now())
 	})
+	if err != nil {
+		return err
+	}
+	if changed {
+		if group != "" {
+			s.cancelSet(ctx, group, id) // a claimed set is one work (RF-03)
+		}
+		s.abandonExtraction(id)
+	}
+	return nil
 }
 
 // Job returns one upload job.
@@ -160,6 +185,8 @@ type PurgeResult struct {
 	Abandoned int
 	// Orphans counts staged files that no job knows; they were deleted.
 	Orphans int
+	// PartsMissing counts volumes that waited for their set for AbandonedAfter; they failed with parts_missing (RF-10c).
+	PartsMissing int
 }
 
 // Recover reconciles the jobs a previous run left behind (RF-10b). It runs once
@@ -209,6 +236,12 @@ func (s *Service) Purge(ctx context.Context) (PurgeResult, error) {
 	// The staged ids are listed before the jobs are looked up. An upload admitted
 	// in between has its job in the database before its file is written, so it
 	// can never be taken for an orphan.
+	missing, err := s.partsMissing(ctx, cutoff)
+	if err != nil {
+		return res, err
+	}
+	res.PartsMissing = missing
+
 	ids, err := s.staging.IDs(ctx)
 	if err != nil {
 		return res, err
@@ -259,6 +292,9 @@ func (s *Service) reconcile(ctx context.Context, missingBefore time.Time, res *P
 			}
 			if changed {
 				res.Completed++
+				if err := s.afterUpload(ctx, job.ID); err != nil {
+					s.log.Warn("upload not carried on", "upload", job.ID, "error", err)
+				}
 			}
 		case staged.Exists:
 			// Still arriving: the staged file tells how far it got. The last progress

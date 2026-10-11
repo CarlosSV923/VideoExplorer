@@ -43,4 +43,9 @@ type UploadJob struct {
 	CreatedAt    string
 	UpdatedAt    string
 	Received     int64
+	Progress     int64
+	PartsTotal   int64
+	VolumeSet    string
+	VolumeIndex  int64
+	VolumeGroup  string
 }

@@ -12,12 +12,13 @@ func TestNewUploadMeta(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		fileName string
-		relPath  string
-		batchID  string
-		want     domain.UploadMeta
-		wantErr  bool
+		name       string
+		fileName   string
+		relPath    string
+		batchID    string
+		partsTotal string
+		want       domain.UploadMeta
+		wantErr    bool
 	}{
 		{
 			name:     "file in its batch",
@@ -46,6 +47,19 @@ func TestNewUploadMeta(t *testing.T) {
 			batchID:  "b1",
 			want:     domain.UploadMeta{FileName: "Mission: Impossible?.mkv", BatchID: "b1"},
 		},
+		{
+			name: "volume with its set size", fileName: "Movie.7z.001", batchID: "b1", partsTotal: "3",
+			want: domain.UploadMeta{FileName: "Movie.7z.001", BatchID: "b1", PartsTotal: 3},
+		},
+		{
+			name: "rar volume with the largest set", fileName: "Movie.part01.rar", batchID: "b1", partsTotal: "999",
+			want: domain.UploadMeta{FileName: "Movie.part01.rar", BatchID: "b1", PartsTotal: 999},
+		},
+		{name: "volume without partsTotal", fileName: "Movie.7z.001", batchID: "b1", wantErr: true},
+		{name: "volume with a set of one", fileName: "Movie.7z.001", batchID: "b1", partsTotal: "1", wantErr: true},
+		{name: "volume with a set over 999", fileName: "Movie.7z.001", batchID: "b1", partsTotal: "1000", wantErr: true},
+		{name: "volume with a partsTotal that is not a number", fileName: "Movie.7z.001", batchID: "b1", partsTotal: "three", wantErr: true},
+		{name: "file that is not a volume with partsTotal", fileName: "Movie.mkv", batchID: "b1", partsTotal: "2", wantErr: true},
 		{name: "empty file name", fileName: "   ", wantErr: true},
 		{name: "dot", fileName: ".", wantErr: true},
 		{name: "dot dot", fileName: "..", wantErr: true},
@@ -74,7 +88,7 @@ func TestNewUploadMeta(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := domain.NewUploadMeta(tt.fileName, tt.relPath, tt.batchID)
+			got, err := domain.NewUploadMeta(tt.fileName, tt.relPath, tt.batchID, tt.partsTotal)
 			if tt.wantErr {
 				if !errors.Is(err, domain.ErrInvalidMetadata) {
 					t.Fatalf("err = %v, want ErrInvalidMetadata", err)

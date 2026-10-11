@@ -187,6 +187,7 @@ func jobToAPI(v domain.JobView) httpapi.UploadJob {
 		RelativePath: j.RelativePath,
 		Size:         j.Size,
 		Received:     j.Received,
+		Progress:     j.Progress,
 		Status:       httpapi.JobStatus(j.Status),
 		CreatedAt:    j.CreatedAt,
 		UpdatedAt:    j.UpdatedAt,

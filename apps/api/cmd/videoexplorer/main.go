@@ -31,6 +31,8 @@ import (
 
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/application"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/sevenzip"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/workspace"
 	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
@@ -118,6 +120,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 	if uploads.adapter != nil {
 		// The staging area is known only now: the adapter needs the service first.
 		ingest.Service.WithStaging(uploads.adapter)
+		// Archives are extracted in the staging area and their originals go to the trash (RF-04, RF-06).
+		catalog := newCatalog(conn, cfg)
+		ingest.Service.WithExtraction(workspace.New(stagingDir(cfg.LibraryPath), nil), sevenzip.New(""), trashForIngestion{trash: catalog.Trash})
 		// Reconciled before the upload endpoint serves anything, so no upload is in flight (RF-10b).
 		if res, err := ingest.Service.Recover(ctx); err != nil {
 			log.Error("uploads not reconciled", "error", err)
@@ -125,6 +130,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 			log.Info("uploads reconciled", "completed", res.Completed, "missing", res.Missing)
 		}
 		go uploads.adapter.Run(ctx)
+		go ingest.Service.RunExtraction(ctx, cfg.ExtractConcurrency)
 		go ingest.Service.RunPurge(ctx, purgeInterval)
 	}
 
