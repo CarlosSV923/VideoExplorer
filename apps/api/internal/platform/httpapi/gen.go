@@ -111,6 +111,7 @@ const (
 	CrcMismatch     JobFailure = "crc_mismatch"
 	LegacyVolume    JobFailure = "legacy_volume"
 	NoSpace         JobFailure = "no_space"
+	NoVideo         JobFailure = "no_video"
 	PartsMismatch   JobFailure = "parts_mismatch"
 	PartsMissing    JobFailure = "parts_missing"
 	UploadAbandoned JobFailure = "upload_abandoned"
@@ -130,6 +131,8 @@ func (e JobFailure) Valid() bool {
 	case LegacyVolume:
 		return true
 	case NoSpace:
+		return true
+	case NoVideo:
 		return true
 	case PartsMismatch:
 		return true
@@ -296,8 +299,9 @@ type ImageKind string
 // `parts_mismatch`: the volumes do not form one multi-volume archive.
 // `parts_missing`: some volumes did not arrive within 24 hours.
 // `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
+// `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
 // `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
-// others cannot (`legacy_volume` among them). A job in `needs_password` gives `wrong_password` here when
+// others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
 // the password it was sent did not open the archive.
 type JobFailure string
 
@@ -356,8 +360,9 @@ type UploadJob struct {
 	// `parts_mismatch`: the volumes do not form one multi-volume archive.
 	// `parts_missing`: some volumes did not arrive within 24 hours.
 	// `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
+	// `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
 	// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
-	// others cannot (`legacy_volume` among them). A job in `needs_password` gives `wrong_password` here when
+	// others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
 	// the password it was sent did not open the archive.
 	Error *JobFailure `json:"error,omitempty"`
 
