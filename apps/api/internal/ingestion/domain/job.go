@@ -108,6 +108,10 @@ const (
 	FailureLegacyVolume FailureReason = "legacy_volume"
 	// FailureNoVideo: nothing is left to keep after filtering: no video and no subtitle (RF-07).
 	FailureNoVideo FailureReason = "no_video"
+	// FailureFilterFailed: reading or writing the staging area failed while filtering (RF-07, RF-08a).
+	FailureFilterFailed FailureReason = "filter_failed"
+	// FailureMoveFailed: reading or writing the library failed while moving the content to No asignados (RF-08a).
+	FailureMoveFailed FailureReason = "move_failed"
 )
 
 // Valid reports whether r is one of the reasons above.
@@ -115,16 +119,23 @@ func (r FailureReason) Valid() bool {
 	switch r {
 	case FailureUploadAbandoned, FailureUploadMissing, FailureNoSpace, FailureArchiveCorrupt,
 		FailureCRCMismatch, FailureArchiveUnsafe, FailureWrongPassword, FailurePartsMismatch,
-		FailurePartsMissing, FailureLegacyVolume, FailureNoVideo:
+		FailurePartsMissing, FailureLegacyVolume, FailureNoVideo, FailureFilterFailed, FailureMoveFailed:
 		return true
 	default:
 		return false
 	}
 }
 
-// Retryable reports whether a failed extraction may be retried from its archive
-// (RF-10c): only the reasons that a change outside the archive can fix.
+// Retryable reports whether a failed job may be retried (RF-10c, RF-08a): the reasons that
+// a change outside the job can fix. RetriesExtraction says which of them go back to the
+// extraction, and the others back to the filter.
 func (r FailureReason) Retryable() bool {
+	return r.RetriesExtraction() || r == FailureFilterFailed || r == FailureMoveFailed
+}
+
+// RetriesExtraction reports whether a failed extraction may be retried from its archive
+// (RF-10c): only the reasons that a change outside the archive can fix.
+func (r FailureReason) RetriesExtraction() bool {
 	switch r {
 	case FailureNoSpace, FailureArchiveCorrupt, FailureCRCMismatch:
 		return true
@@ -351,11 +362,28 @@ func (j *UploadJob) FinishExtraction(now time.Time) error {
 // failure with a retryable reason may be retried. The failed state is terminal
 // in the transition table; this is the one way out, and it checks the reason.
 func (j *UploadJob) RetryExtraction(now time.Time) error {
-	if j.Status != StatusFailed || !j.Error.Retryable() {
+	if j.Status != StatusFailed || !j.Error.RetriesExtraction() {
 		return fmt.Errorf("%w: %s (%q) cannot be retried", ErrInvalidTransition, j.Status, j.Error)
 	}
 	j.Status, j.Error, j.Progress, j.UpdatedAt = StatusExtracting, "", 0, now
 	return nil
+}
+
+// RetryFiltering sends a job that failed while filtering or while moving its content back to
+// filtering (filter_failed or move_failed, RF-07, RF-08a). The filter goes on from what it
+// recorded; a job whose content was already filtered goes on to the move.
+func (j *UploadJob) RetryFiltering(now time.Time) error {
+	if j.Status != StatusFailed || (j.Error != FailureFilterFailed && j.Error != FailureMoveFailed) {
+		return fmt.Errorf("%w: %s (%q) cannot be retried by filtering", ErrInvalidTransition, j.Status, j.Error)
+	}
+	j.Status, j.Error, j.UpdatedAt = StatusFiltering, "", now
+	return nil
+}
+
+// Done records that the content of a filtered job is in No asignados (filtering → done,
+// RF-08a). The job's files are then at their place in the library.
+func (j *UploadJob) Done(now time.Time) error {
+	return j.moveTo(StatusDone, now)
 }
 
 // ResumeAfterRestart puts an extraction that a restart interrupted back to
