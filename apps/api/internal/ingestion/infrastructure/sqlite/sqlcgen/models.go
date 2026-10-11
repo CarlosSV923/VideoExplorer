@@ -12,6 +12,14 @@ type FilterFile struct {
 	Trashed int64
 }
 
+type MediaProbe struct {
+	Device  int64
+	Inode   int64
+	Size    int64
+	MtimeNs int64
+	Info    string
+}
+
 type MetadataCache struct {
 	Key       string
 	Payload   []byte
