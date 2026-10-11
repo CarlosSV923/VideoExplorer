@@ -52,11 +52,11 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 - [x] Analizador de nombres de archivo (película/serie, título, año, `SxxEyy`, `1x02`, varios capítulos, partes, idioma de subtítulos) + vectores `filename-cases.json`
 - [x] ~~Detección de idioma de subtítulos *offline*~~ descartada (decisión 2026-10-10, RF-23): el idioma sale solo del nombre o lo elige el usuario
 - [x] Hash parcial para «Copia exacta»
-- [ ] Resultado a `_unassigned/<lote>/` (RF-08); decidir qué pasa con un error de E/S durante el filtrado (hoy el trabajo queda en `filtering` hasta el siguiente arranque); encolar el sondeo ffprobe de los videos tras moverlos (la caché por inodo sobrevive al `rename`)
+- [~] Resultado a `_unassigned/<lote>/` (RF-08, RF-08a): una entrada por lote o por trabajo según la relación, nombre saneado (añade la sección de saneamiento a `contracts/naming-cases.json`), metadatos en SQLite, `done`, reencolar sondeo y hash, `filter_failed`/`move_failed` con Reintentar
 
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
-- [ ] Nombres y saneamiento (§5, incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos): añade carpetas, archivos y saneamiento al mismo `contracts/naming-cases.json` (consumidor `catalog/domain`); el capítulo necesita sus títulos en el idioma original y en inglés (hoy `Episode` solo trae el localizado)
+- [ ] Nombres (§5; el saneamiento ya está en `naming-cases.json` desde la Fase 4), incluida la etiqueta de ID por defecto y la normalización de regiones de subtítulos): añade carpetas, archivos y saneamiento al mismo `contracts/naming-cases.json` (consumidor `catalog/domain`); el capítulo necesita sus títulos en el idioma original y en inglés (hoy `Episode` solo trae el localizado)
 - [ ] Motor de operaciones con journal (de GameExplorer); la papelera mínima ya existe desde la Fase 4
 - [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»; etiqueta automática con resolución, códec e idioma del audio (RF-24) + vectores `contracts/version-labels.json`; el hash bajo demanda de archivos de la biblioteca rechaza enlaces simbólicos (RNF-02)
 - [ ] `plan` (vista previa) y `commit` de una entrada de No asignados
