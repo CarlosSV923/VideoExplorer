@@ -49,6 +49,17 @@ func EntryName(raw string) string {
 	return FallbackName
 }
 
+// EntryNameFor returns the name an unassigned entry is given from the name it came with
+// (spec RF-08): a folder takes it as EntryName does; a loose file keeps its extension and
+// sanitizes the rest of its name.
+func EntryNameFor(raw string, loose bool) string {
+	if !loose {
+		return EntryName(raw)
+	}
+	stem, ext := splitName(raw, true)
+	return EntryName(stem) + ext
+}
+
 // collapseSpaces replaces every block of white space (the Unicode White_Space
 // property, the same set as the TypeScript implementation) with one space.
 func collapseSpaces(s string) string {

@@ -51,6 +51,25 @@ type TrashFile struct {
 	Size    int64
 }
 
+type UnassignedEntry struct {
+	ID        int64
+	Source    string
+	Name      string
+	Loose     int64
+	BatchID   string
+	Relation  string
+	Origin    string
+	CreatedAt string
+}
+
+type UnassignedFile struct {
+	EntryID int64
+	Source  string
+	Rel     string
+	Size    int64
+	Moved   int64
+}
+
 type UploadBatch struct {
 	ID        string
 	Name      string

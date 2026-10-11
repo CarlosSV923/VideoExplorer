@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
 )
 
 // partialSuffix marks a cross-device copy in progress.
@@ -36,6 +37,46 @@ func New(root, trash string) *FS {
 // TrashPath implements application.Files.
 func (f *FS) TrashPath(elem ...string) string {
 	return filepath.Join(append([]string{f.trash}, elem...)...)
+}
+
+// UnassignedPath implements application.Files.
+func (f *FS) UnassignedPath(elem ...string) string {
+	return filepath.Join(append([]string{f.root, domain.UnassignedDir}, elem...)...)
+}
+
+// Names implements application.Files.
+func (f *FS) Names(dir string) ([]string, error) {
+	if err := f.inside(dir); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names, nil
+}
+
+// Exists implements application.Files.
+func (f *FS) Exists(p string) (bool, error) {
+	if err := f.inside(p); err != nil {
+		return false, err
+	}
+	_, err := os.Lstat(p)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, fs.ErrNotExist):
+		return false, nil
+	default:
+		return false, err
+	}
 }
 
 // RemoveAll implements application.Files.

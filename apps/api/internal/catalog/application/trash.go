@@ -24,6 +24,12 @@ type Files interface {
 	Move(from, to string) error
 	// RemoveAll deletes a path inside the library, if it exists.
 	RemoveAll(path string) error
+	// UnassignedPath is the path of an element of the unassigned section (_unassigned/).
+	UnassignedPath(elem ...string) string
+	// Names lists the names in a folder inside the library; none when the folder is missing.
+	Names(dir string) ([]string, error)
+	// Exists reports whether anything (a file or a folder) is at path inside the library.
+	Exists(path string) (bool, error)
 }
 
 // TrashRepository persists the metadata of the trash.
