@@ -29,3 +29,12 @@ sql:
         out: internal/ingestion/infrastructure/sqlite/sqlcgen
         emit_interface: false
         emit_json_tags: false
+  - engine: sqlite
+    schema: db/migrations
+    queries: internal/catalog/infrastructure/sqlite/queries
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/catalog/infrastructure/sqlite/sqlcgen
+        emit_interface: false
+        emit_json_tags: false

@@ -10,6 +10,21 @@ type MetadataCache struct {
 	ExpiresAt int64
 }
 
+type TrashEntry struct {
+	ID        int64
+	Origin    string
+	Reason    string
+	Dir       string
+	TrashedAt string
+}
+
+type TrashFile struct {
+	ID      int64
+	EntryID int64
+	Name    string
+	Size    int64
+}
+
 type UploadBatch struct {
 	ID        string
 	Name      string
