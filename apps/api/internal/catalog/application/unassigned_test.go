@@ -450,3 +450,24 @@ func TestPutRefusesWhatCannotBeMoved(t *testing.T) {
 		})
 	}
 }
+
+func TestInnerNamesAreSanitizedAndACollisionAfterSanitizingTakesTwo(t *testing.T) {
+	t.Parallel()
+
+	s := newSection(t)
+	first := s.stage(t, "j1/a.mkv", "one")
+	second := s.stage(t, "j2/a.mkv", "two")
+	places, err := s.put.Put(t.Context(), folderRequest("Series",
+		application.AsideFile{Source: first, Rel: "Season?/a:b.mkv"},
+		application.AsideFile{Source: second, Rel: "Season/a-b.mkv"},
+	))
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	if got, want := places[first], s.unassigned("Series", "Season", "a-b.mkv"); got != want {
+		t.Errorf("sanitized place = %q, want %q", got, want)
+	}
+	if got, want := places[second], s.unassigned("Series", "Season", "a-b (2).mkv"); got != want {
+		t.Errorf("collision after sanitizing = %q, want %q", got, want)
+	}
+}

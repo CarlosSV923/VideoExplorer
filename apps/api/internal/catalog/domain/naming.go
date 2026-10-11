@@ -61,6 +61,26 @@ func EntryNameFor(raw string, loose bool) string {
 	return EntryName(stem) + ext
 }
 
+// SanitizePath returns the place of a file inside an unassigned entry (spec RF-08a, §5): every
+// folder of the path is named as EntryName names an entry, and the file as EntryNameFor names a
+// loose file, its extension kept. Each component is shortened to MaxNameBytes. Choices of a
+// name taken in its folder are made afterwards, with FreeRel. An empty path stays empty.
+func SanitizePath(rel string) string {
+	if rel == "" {
+		return ""
+	}
+	parts := strings.Split(rel, "/")
+	last := len(parts) - 1
+	for i, p := range parts {
+		if i == last {
+			parts[i] = FitName(EntryNameFor(p, true), true)
+		} else {
+			parts[i] = FitName(EntryName(p), false)
+		}
+	}
+	return strings.Join(parts, "/")
+}
+
 // collapseSpaces replaces every block of white space (the Unicode White_Space
 // property, the same set as the TypeScript implementation) with one space.
 func collapseSpaces(s string) string {

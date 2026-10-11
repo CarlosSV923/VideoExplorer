@@ -137,7 +137,7 @@ func (u *Unassigned) record(ctx context.Context, r AsideRequest) (domain.Unassig
 		}
 		rel := ""
 		if !r.Loose {
-			rel = domain.FreeRel(f.Rel, taken)
+			rel = domain.FreeRel(domain.SanitizePath(f.Rel), taken)
 			taken.Add(rel)
 		}
 		file, err := domain.NewUnassignedFile(f.Source, rel, f.Size, r.Loose)
@@ -166,7 +166,7 @@ func (u *Unassigned) addMissing(ctx context.Context, entry *domain.UnassignedEnt
 		if entry.Loose {
 			return fmt.Errorf("catalog: entry %q is a loose file and takes no other file", entry.Name)
 		}
-		rel := domain.FreeRel(f.Rel, taken)
+		rel := domain.FreeRel(domain.SanitizePath(f.Rel), taken)
 		taken.Add(rel)
 		file, err := domain.NewUnassignedFile(f.Source, rel, f.Size, false)
 		if err != nil {

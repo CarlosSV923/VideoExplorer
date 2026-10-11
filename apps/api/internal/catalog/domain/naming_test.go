@@ -72,3 +72,30 @@ func TestEntryNameUsesTheFallbackWhenNothingIsLeft(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitizePathSanitizesEveryFolderAndTheFileName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		rel  string
+		want string
+	}{
+		{name: "a clean path is kept", rel: "Season 01/Pilot.mkv", want: "Season 01/Pilot.mkv"},
+		{name: "a folder with a sign is sanitized", rel: "Season?/a.mkv", want: "Season/a.mkv"},
+		{name: "a colon in a file name becomes a dash, the extension kept", rel: "Season 01/a:b.mkv", want: "Season 01/a-b.mkv"},
+		{name: "the extension of a subtitle is kept, the stem sanitized", rel: "Sub/Movie.es.srt", want: "Sub/Movie.es.srt"},
+		{name: "a folder starting with a dot is named without it", rel: ".hidden/a.mkv", want: "hidden/a.mkv"},
+		{name: "a folder of dots takes the fallback name", rel: "x/.../a.mkv", want: "x/" + domain.FallbackName + "/a.mkv"},
+		{name: "a file without extension is sanitized whole", rel: "Clip?", want: "Clip"},
+		{name: "an empty path stays empty", rel: "", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := domain.SanitizePath(tt.rel); got != tt.want {
+				t.Errorf("SanitizePath(%q) = %q, want %q", tt.rel, got, tt.want)
+			}
+		})
+	}
+}
