@@ -27,6 +27,8 @@ type JobRepository interface {
 	Stale(ctx context.Context, status Status, before time.Time) ([]*UploadJob, error)
 	// ByVolumeGroup returns the volumes of one claimed set, in volume order (RF-03).
 	ByVolumeGroup(ctx context.Context, group string) ([]*UploadJob, error)
+	// ByBatch returns every job of a batch, in the order they were admitted (RF-03).
+	ByBatch(ctx context.Context, batch BatchID) ([]*UploadJob, error)
 	// Exists reports whether a job has the id.
 	Exists(ctx context.Context, id JobID) (bool, error)
 }

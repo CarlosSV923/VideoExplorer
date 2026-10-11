@@ -28,3 +28,6 @@ SELECT * FROM upload_jobs WHERE volume_group = ? ORDER BY volume_index, rowid;
 
 -- name: UploadJobExists :one
 SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE id = ?);
+
+-- name: ListUploadJobsByBatch :many
+SELECT * FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid;

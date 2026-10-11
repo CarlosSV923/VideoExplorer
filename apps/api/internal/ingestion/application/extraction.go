@@ -219,7 +219,17 @@ func (s *Service) extract(ctx context.Context, r extractionRequest) error {
 		return nil // a set is extracted from its first volume only (RF-03)
 	}
 	if !job.IsVolume() && domain.IsLegacyVolume(job.FileName) {
+		if err := s.failRARSiblings(ctx, job); err != nil {
+			return err
+		}
 		return s.fail(ctx, unit, domain.FailureLegacyVolume, fmt.Errorf("%w: %s", errLegacy, job.FileName))
+	}
+	refused, err := s.refusedAsLegacySet(ctx, job)
+	if err != nil {
+		return err
+	}
+	if refused {
+		return s.fail(ctx, unit, domain.FailureLegacyVolume, fmt.Errorf("%w: %s has old volumes in its batch", errLegacy, job.FileName))
 	}
 
 	archive := s.archivePath(job)

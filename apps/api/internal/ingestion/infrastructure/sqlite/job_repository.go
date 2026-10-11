@@ -143,6 +143,15 @@ func (r *JobRepository) ByVolumeGroup(ctx context.Context, group string) ([]*dom
 	return toDomainAll(rows)
 }
 
+// ByBatch implements domain.JobRepository.
+func (r *JobRepository) ByBatch(ctx context.Context, batch domain.BatchID) ([]*domain.UploadJob, error) {
+	rows, err := r.q.ListUploadJobsByBatch(ctx, string(batch))
+	if err != nil {
+		return nil, fmt.Errorf("ingestion: list jobs of a batch: %w", err)
+	}
+	return toDomainAll(rows)
+}
+
 // Exists implements domain.JobRepository.
 func (r *JobRepository) Exists(ctx context.Context, id domain.JobID) (bool, error) {
 	ok, err := r.q.UploadJobExists(ctx, string(id))

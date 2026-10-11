@@ -166,3 +166,35 @@ func mustMeta(t *testing.T, name, parts string) domain.UploadMeta {
 	}
 	return meta
 }
+
+func TestOldSetBasesMatchTheRARNamesOfOneSet(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		file     string
+		wantBase string
+		wantOK   bool
+		plain    bool
+	}{
+		{file: "Movie.r00", wantBase: "movie", wantOK: true},
+		{file: "movie.R01", wantBase: "movie", wantOK: true},
+		{file: "Movie.rar", wantBase: "movie", wantOK: true, plain: true},
+		{file: "MOVIE.RAR", wantBase: "movie", wantOK: true, plain: true},
+		{file: "Movie.part1.rar", wantBase: "movie.part1", wantOK: true, plain: true},
+		{file: "Movie.zip", wantOK: false},
+		{file: "Movie.r0", wantOK: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			t.Parallel()
+
+			base, ok := domain.LegacyVolumeBase(tt.file)
+			if tt.plain {
+				base, ok = domain.PlainRARBase(tt.file)
+			}
+			if base != tt.wantBase || ok != tt.wantOK {
+				t.Errorf("base of %q = (%q, %v), want (%q, %v)", tt.file, base, ok, tt.wantBase, tt.wantOK)
+			}
+		})
+	}
+}

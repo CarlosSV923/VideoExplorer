@@ -34,6 +34,33 @@ func IsLegacyVolume(fileName string) bool {
 	return legacyVolume.MatchString(fileName)
 }
 
+// plainRAR matches a plain RAR name (movie.rar): the first volume of an
+// old-style set when a movie.r00 of the same batch exists (RF-03).
+var plainRAR = regexp.MustCompile(`(?i)^(.+)\.rar$`)
+
+// legacyVolumeBase matches an old-style RAR volume and captures its base name.
+var legacyVolumeBase = regexp.MustCompile(`(?i)^(.+)\.r\d{2}$`)
+
+// LegacyVolumeBase returns the lower-case base name of an old-style RAR volume
+// (movie.r00 gives movie), and whether the name is one.
+func LegacyVolumeBase(fileName string) (string, bool) {
+	m := legacyVolumeBase.FindStringSubmatch(fileName)
+	if m == nil {
+		return "", false
+	}
+	return strings.ToLower(m[1]), true
+}
+
+// PlainRARBase returns the lower-case base name of a plain .rar (movie.rar gives
+// movie), and whether the name is one.
+func PlainRARBase(fileName string) (string, bool) {
+	m := plainRAR.FindStringSubmatch(fileName)
+	if m == nil {
+		return "", false
+	}
+	return strings.ToLower(m[1]), true
+}
+
 // ParseVolume recognizes multi-volume archive parts by name.
 func ParseVolume(fileName string) (Volume, bool) {
 	if m := partStyle.FindStringSubmatch(fileName); m != nil {

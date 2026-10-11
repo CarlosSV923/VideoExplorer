@@ -195,6 +195,49 @@ func (q *Queries) ListStaleUploadJobs(ctx context.Context, arg ListStaleUploadJo
 	return items, nil
 }
 
+const listUploadJobsByBatch = `-- name: ListUploadJobsByBatch :many
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid
+`
+
+func (q *Queries) ListUploadJobsByBatch(ctx context.Context, batchID string) ([]UploadJob, error) {
+	rows, err := q.db.QueryContext(ctx, listUploadJobsByBatch, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UploadJob
+	for rows.Next() {
+		var i UploadJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.BatchID,
+			&i.FileName,
+			&i.RelativePath,
+			&i.Size,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Received,
+			&i.Progress,
+			&i.PartsTotal,
+			&i.VolumeSet,
+			&i.VolumeIndex,
+			&i.VolumeGroup,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUploadJobsByStatus = `-- name: ListUploadJobsByStatus :many
 SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group FROM upload_jobs WHERE status = ? ORDER BY created_at, rowid
 `
