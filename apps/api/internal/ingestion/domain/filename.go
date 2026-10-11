@@ -185,7 +185,7 @@ var isoCodes = map[string]string{
 
 // languageNames maps the names of the common languages, in lowercase, to ISO 639-1.
 var languageNames = map[string]string{
-	"spanish": "es", "español": "es", "espanol": "es", "castellano": "es",
+	"spanish": "es", "español": "es", "espanol": "es", "castellano": "es", "latino": "es-419",
 	"english": "en", "inglés": "en", "ingles": "en",
 	"french": "fr", "français": "fr", "francais": "fr",
 	"german": "de", "deutsch": "de", "alemán": "de", "aleman": "de",
@@ -234,12 +234,12 @@ func trimExtension(file string, kind FileKind) string {
 
 // cutSubtitleTags takes the tags off the end of a subtitle name without its extension
 // (RF-23): <name>.<language>[.forced|.sdh|.cc|.hi]. The language sits right before the
-// flags; a final "hi" with no language before it is Hindi. The name keeps its first part.
+// flags. The name keeps its first part.
 func cutSubtitleTags(name string) (string, subtitleTags) {
 	parts := strings.Split(name, ".")
 	var tags subtitleTags
 	j := len(parts) - 1
-	for j >= 1 && isSubtitleFlag(parts[j]) {
+	for j >= 1 && isSubtitleFlag(parts, j) {
 		j--
 	}
 	flags := parts[j+1:]
@@ -248,10 +248,6 @@ func cutSubtitleTags(name string) (string, subtitleTags) {
 			tags.language = code
 			j--
 		}
-	}
-	if tags.language == "" && len(flags) > 0 && strings.EqualFold(flags[len(flags)-1], "hi") {
-		tags.language = "hi"
-		flags = flags[:len(flags)-1]
 	}
 	for _, f := range flags {
 		switch strings.ToLower(f) {
@@ -264,10 +260,19 @@ func cutSubtitleTags(name string) (string, subtitleTags) {
 	return strings.Join(parts[:j+1], "."), tags
 }
 
-func isSubtitleFlag(seg string) bool {
-	switch strings.ToLower(seg) {
-	case "forced", "sdh", "cc", "hi":
+// isSubtitleFlag reports whether parts[j] is a flag: forced and sdh always; cc and hi
+// only right after a language (RF-23), so a lone hi is Hindi and a lone cc stays in the
+// name.
+func isSubtitleFlag(parts []string, j int) bool {
+	switch strings.ToLower(parts[j]) {
+	case "forced", "sdh":
 		return true
+	case "cc", "hi":
+		if j < 2 {
+			return false
+		}
+		_, ok := languageOf(parts[j-1], true)
+		return ok
 	}
 	return false
 }
@@ -459,14 +464,29 @@ func folderTitles(dirs []string, seasonAt int, hasSeason bool) (string, int) {
 
 // pickTitle takes the title and year of the file when it has a title, else those of
 // its folders. A generic name with no year (movie.mkv) is no title of its own, so the
-// folders decide, and with no folder title there is none. A year comes only with the
-// title it belongs to.
+// folders decide, and with no folder title there is none. The file's year wins; without
+// one, the folder's year comes only when the file's title is the folder's title (RF-20).
 func pickTitle(name nameParts, folderTitle string, folderYear int) (string, int) {
 	generic := name.year == 0 && isGenericName(name.title)
-	if name.title != "" && !generic {
-		return name.title, name.year
+	if name.title == "" || generic {
+		return folderTitle, folderYear
 	}
-	return folderTitle, folderYear
+	year := name.year
+	if year == 0 && folderTitle != "" && sameTitle(name.title, folderTitle) {
+		year = folderYear
+	}
+	return name.title, year
+}
+
+// sameTitle compares two titles ignoring case, dots, underscores and spaces (RF-20).
+func sameTitle(a, b string) bool {
+	return normalizeTitle(a) == normalizeTitle(b)
+}
+
+var titleSeparators = strings.NewReplacer(".", " ", "_", " ")
+
+func normalizeTitle(title string) string {
+	return strings.Join(strings.Fields(titleSeparators.Replace(strings.ToLower(title))), " ")
 }
 
 func atoi(digits string) int {

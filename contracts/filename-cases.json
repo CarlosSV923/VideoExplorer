@@ -1,5 +1,5 @@
 {
-  "description": "Filename analysis of spec RF-20, RF-22 and RF-23, with the naming of spec §5, as data for both implementations. Input: the path of a file relative to its entry (its folders included, separators '/' or '\\') and its kind, 'video' or 'subtitle'. Output: type ('movie', 'episode' or 'unknown'); title (dots and underscores become spaces; the year, quality, source, codec, audio, group and language tags are left out); year; season (0 for specials); chapter and lastChapter (SxxEyy, SxxEyyEzz, SxxEy-Ezz, SxxEy-zz, NxNN, NxNN-zz); part (movies only: cdN, discN, partN, ptN). For subtitles: language (ISO 639-1, with a region only where Jellyfin recognizes it), forced and sdh. A key that is absent means no information; forced and sdh appear only when true. Matching is exact. The expected object lists everything the analysis must read, so a missing key must be missing in the output too. Conservative choices, where spec §5 and RF-20 do not decide: (1) the file's own name wins over its folders; a missing title or year is taken from the nearest folder (the folder above the season folder for episodes), and the year comes only together with the title it belongs to; (2) a season folder (Season N, Temporada N, SN, Specials, Especiales; Specials is season 0) makes the file an episode, and then the file name is a chapter title unless it is only a number; (3) a file named only with a number (01, 01 - Pilot) is an episode chapter only inside a season folder, otherwise unknown; (4) 'Title - NNN' with 1 to 3 digits and no season is absolute numbering (anime, spec §8): unknown, with no chapter; (5) the names movie, film, video, main, feature and index (without a year) are not titles: the folder gives the title, and with no folder there is none; (6) the year is the last 4-digit token (1900 to 2099) after a title and before the first tag, so 'Blade.Runner.2049.1080p' reads 2049 as the year (a known limit: the user corrects it in Assign); (7) the first tag (resolution, source, codec, audio, HDR, streaming service, bit depth) ends the title, and a group after a tag goes with it; a group with no tag before it stays in the title ('Heat-RARBG'); (8) 'Part 2' with a space is title, only the joined form (part2, cd1) is a part; (9) a language name or code at the end of a video title is removed, codes must be lowercase there ('spa', 'es'); uppercase codes count only in subtitles; (10) subtitle flags: 'forced'; 'sdh', 'cc' and 'hi' mean SDH, except that a 'hi' that is the only tag is Hindi; (11) regions: 'es-MX' and the other Latin American Spanish regions become 'es-419', 'es-ES' becomes 'es', 'en-US' and 'en-GB' become 'en', 'pt-BR', 'pt-PT', 'fr-CA' and 'zh-TW' are kept, and any other region is dropped; (12) languages accept ISO 639-1 and 639-2 codes (2 and 3 letters) and English and Spanish names of common languages. Sections: videos (no folders), folders (the folders decide or complete), subtitles, unknown.",
+  "description": "Filename analysis of spec RF-20, RF-22 and RF-23, with the naming of spec §5, as data for both implementations. Input: the path of a file relative to its entry (its folders included, separators '/' or '\\') and its kind, 'video' or 'subtitle'. Output: type ('movie', 'episode' or 'unknown'); title (dots and underscores become spaces; the year, quality, source, codec, audio, group and language tags are left out); year; season (0 for specials); chapter and lastChapter (SxxEyy, SxxEyyEzz, SxxEy-Ezz, SxxEy-zz, NxNN, NxNN-zz); part (movies only: cdN, discN, partN, ptN). For subtitles: language (ISO 639-1, with a region only where Jellyfin recognizes it), forced and sdh. A key that is absent means no information; forced and sdh appear only when true. Matching is exact. The expected object lists everything the analysis must read, so a missing key must be missing in the output too. Conservative choices, where spec §5 and RF-20 do not decide: (1) the file's own name wins over its folders; a missing title is taken from the nearest folder (the folder above the season folder for episodes); a missing year is taken from that folder only when the file's title is the folder's title, the words compared ignoring case, dots, underscores and spaces; (2) a season folder (Season N, Temporada N, SN, Specials, Especiales; Specials is season 0) makes the file an episode, and then the file name is a chapter title unless it is only a number; (3) a file named only with a number (01, 01 - Pilot) is an episode chapter only inside a season folder, otherwise unknown; (4) 'Title - NNN' with 1 to 3 digits and no season is absolute numbering (anime, spec §8): unknown, with no chapter; (5) the names movie, film, video, main, feature and index (without a year) are not titles: the folder gives the title, and with no folder there is none; (6) the year is the last 4-digit token (1900 to 2099) after a title and before the first tag, so 'Blade.Runner.2049.1080p' reads 2049 as the year (a known limit: the user corrects it in Assign); (7) the first tag (resolution, source, codec, audio, HDR, streaming service, bit depth) ends the title, and a group after a tag goes with it; a group with no tag before it stays in the title ('Heat-RARBG'); (8) 'Part 2' with a space is title, only the joined form (part2, cd1) is a part; (9) a language name or code at the end of a video title is removed, codes must be lowercase there ('spa', 'es'); uppercase codes count only in subtitles; (10) subtitle flags: 'forced' and 'sdh' always; 'cc' and 'hi' mean SDH only right after a language, a 'hi' with no language before it is Hindi, and a 'cc' with no language stays in the name; (11) regions: 'es-MX' and the other Latin American Spanish regions become 'es-419', 'es-ES' becomes 'es', 'en-US' and 'en-GB' become 'en', 'pt-BR', 'pt-PT', 'fr-CA' and 'zh-TW' are kept, and any other region is dropped; (12) languages accept ISO 639-1 and 639-2 codes (2 and 3 letters) and English and Spanish names of common languages, plus 'Latino' (es-419) and 'Castellano' (es), in any case. Sections: videos (no folders), folders (the folders decide or complete), subtitles, unknown.",
   "videos": {
     "description": "Video file names with no folder: episode markers, years, parts, tags and title cleaning. Parts are read only for movies.",
     "cases": [
@@ -263,6 +263,16 @@
         "name": "a lowercase three-letter code before a tag is removed",
         "input": { "path": "Heat.spa.1080p.mkv", "kind": "video" },
         "expected": { "type": "movie", "title": "Heat" }
+      },
+      {
+        "name": "Latino at the end of a video title is removed, in any case",
+        "input": { "path": "Heat.LATINO.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat" }
+      },
+      {
+        "name": "Castellano before a tag is removed",
+        "input": { "path": "Heat.Castellano.1080p.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Heat" }
       }
     ]
   },
@@ -361,14 +371,43 @@
         "expected": { "type": "movie", "title": "Iron Man" }
       },
       {
-        "name": "a file title is used with no year when the file has none (the folder's year is not taken)",
+        "name": "a file title equal to its folder's title takes the folder's year",
         "input": { "path": "Iron Man (2008)/Iron.Man.1080p.mkv", "kind": "video" },
-        "expected": { "type": "movie", "title": "Iron Man" }
+        "expected": { "type": "movie", "title": "Iron Man", "year": 2008 }
+      },
+      {
+        "name": "the titles are compared ignoring case, dots, underscores and spaces",
+        "input": { "path": "Iron Man (2008)/IRON_MAN.1080p.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "IRON MAN", "year": 2008 }
+      },
+      {
+        "name": "a file title that differs from its folder's takes no year from the folder",
+        "input": { "path": "Iron Man (2008)/Iron.Man.3.1080p.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Iron Man 3" }
       },
       {
         "name": "a file with its own year wins over the folder",
         "input": { "path": "Iron Man (2008)/Iron.Man.2008.1080p.mkv", "kind": "video" },
         "expected": { "type": "movie", "title": "Iron Man", "year": 2008 }
+      },
+      {
+        "name": "a file's own year wins over a matching folder year when they differ",
+        "input": { "path": "Iron Man (2008)/Iron.Man.2010.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Iron Man", "year": 2010 }
+      },
+      {
+        "name": "an episode whose series title equals its folder's takes the folder's year",
+        "input": {
+          "path": "Breaking Bad (2008)/Season 1/Breaking.Bad.S01E02.mkv",
+          "kind": "video"
+        },
+        "expected": {
+          "type": "episode",
+          "title": "Breaking Bad",
+          "year": 2008,
+          "season": 1,
+          "chapter": 2
+        }
       },
       {
         "name": "a movie part with no title in its name takes the title of its folder",
@@ -414,6 +453,21 @@
         "name": "a language name in Spanish is the language",
         "input": { "path": "Heat.Español.srt", "kind": "subtitle" },
         "expected": { "type": "movie", "title": "Heat", "language": "es" }
+      },
+      {
+        "name": "Latino is Latin American Spanish, which Jellyfin calls es-419",
+        "input": { "path": "Heat.Latino.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es-419" }
+      },
+      {
+        "name": "Castellano is es, in any case",
+        "input": { "path": "Heat.CASTELLANO.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat", "language": "es" }
+      },
+      {
+        "name": "cc with no language is not SDH and stays in the name",
+        "input": { "path": "Heat.cc.srt", "kind": "subtitle" },
+        "expected": { "type": "movie", "title": "Heat cc" }
       },
       {
         "name": "an uppercase two-letter code counts in subtitles",

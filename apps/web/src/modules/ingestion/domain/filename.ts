@@ -200,6 +200,7 @@ const LANGUAGE_NAMES = new Map<string, string>([
   ['español', 'es'],
   ['espanol', 'es'],
   ['castellano', 'es'],
+  ['latino', 'es-419'],
   ['english', 'en'],
   ['inglés', 'en'],
   ['ingles', 'en'],
@@ -290,14 +291,14 @@ function trimExtension(file: string, kind: MediaKind): string {
 
 /**
  * Takes the tags off the end of a subtitle name without its extension (RF-23):
- * <name>.<language>[.forced|.sdh|.cc|.hi]. The language sits right before the flags;
- * a final "hi" with no language before it is Hindi. The name keeps its first part.
+ * <name>.<language>[.forced|.sdh|.cc|.hi]. The language sits right before the flags.
+ * The name keeps its first part.
  */
 function cutSubtitleTags(name: string): { name: string; tags: SubtitleTags } {
   const parts = name.split('.')
   let j = parts.length - 1
-  while (j >= 1 && isSubtitleFlag(parts[j] ?? '')) j--
-  let flags = parts.slice(j + 1)
+  while (j >= 1 && isSubtitleFlag(parts, j)) j--
+  const flags = parts.slice(j + 1)
   let language = ''
   if (j >= 1) {
     const code = languageOf(parts[j] ?? '', true)
@@ -305,14 +306,6 @@ function cutSubtitleTags(name: string): { name: string; tags: SubtitleTags } {
       language = code
       j--
     }
-  }
-  if (
-    language === '' &&
-    flags.length > 0 &&
-    (flags[flags.length - 1] ?? '').toLowerCase() === 'hi'
-  ) {
-    language = 'hi'
-    flags = flags.slice(0, -1)
   }
   let forced = false
   let sdh = false
@@ -331,8 +324,15 @@ function cutSubtitleTags(name: string): { name: string; tags: SubtitleTags } {
   return { name: parts.slice(0, j + 1).join('.'), tags: { language, forced, sdh } }
 }
 
-function isSubtitleFlag(seg: string): boolean {
-  return ['forced', 'sdh', 'cc', 'hi'].includes(seg.toLowerCase())
+/**
+ * Whether parts[j] is a flag: forced and sdh always; cc and hi only right after a
+ * language (RF-23), so a lone hi is Hindi and a lone cc stays in the name.
+ */
+function isSubtitleFlag(parts: readonly string[], j: number): boolean {
+  const seg = (parts[j] ?? '').toLowerCase()
+  if (seg === 'forced' || seg === 'sdh') return true
+  if (seg !== 'cc' && seg !== 'hi') return false
+  return j >= 2 && languageOf(parts[j - 1] ?? '', true) !== null
 }
 
 /**
@@ -515,12 +515,29 @@ function titledOf(folderName: string): Titled {
 /**
  * The title and year of the file when it has its own title, else those of its folders.
  * A generic name with no year (movie.mkv) is no title of its own, so the folders decide,
- * and with no folder title there is none. A year comes only with the title it belongs to.
+ * and with no folder title there is none. The file's year wins; without one, the folder's
+ * year comes only when the file's title is the folder's title (RF-20).
  */
 function pickTitle(name: NameParts, folder: Titled): Titled {
   const generic = name.year === 0 && isGenericName(name.title)
-  if (name.title !== '' && !generic) return { title: name.title, year: name.year }
-  return folder
+  if (name.title === '' || generic) return folder
+  const takesFolderYear =
+    name.year === 0 && folder.title !== '' && sameTitle(name.title, folder.title)
+  return { title: name.title, year: takesFolderYear ? folder.year : name.year }
+}
+
+/** Compares two titles ignoring case, dots, underscores and spaces (RF-20). */
+function sameTitle(a: string, b: string): boolean {
+  return normalizeTitle(a) === normalizeTitle(b)
+}
+
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[._]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w !== '')
+    .join(' ')
 }
 
 function atoi(digits: string): number {
