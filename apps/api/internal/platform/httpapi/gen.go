@@ -109,7 +109,9 @@ const (
 	ArchiveCorrupt  JobFailure = "archive_corrupt"
 	ArchiveUnsafe   JobFailure = "archive_unsafe"
 	CrcMismatch     JobFailure = "crc_mismatch"
+	FilterFailed    JobFailure = "filter_failed"
 	LegacyVolume    JobFailure = "legacy_volume"
+	MoveFailed      JobFailure = "move_failed"
 	NoSpace         JobFailure = "no_space"
 	NoVideo         JobFailure = "no_video"
 	PartsMismatch   JobFailure = "parts_mismatch"
@@ -128,7 +130,11 @@ func (e JobFailure) Valid() bool {
 		return true
 	case CrcMismatch:
 		return true
+	case FilterFailed:
+		return true
 	case LegacyVolume:
+		return true
+	case MoveFailed:
 		return true
 	case NoSpace:
 		return true
@@ -303,7 +309,9 @@ type ImageKind string
 // `parts_missing`: some volumes did not arrive within 24 hours.
 // `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
 // `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
-// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
+// `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
+// `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
+// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
 // others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
 // the password it was sent did not open the archive.
 type JobFailure string
@@ -366,7 +374,9 @@ type UploadJob struct {
 	// `parts_missing`: some volumes did not arrive within 24 hours.
 	// `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
 	// `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
-	// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
+	// `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
+	// `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
+	// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
 	// others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
 	// the password it was sent did not open the archive.
 	Error *JobFailure `json:"error,omitempty"`
@@ -465,7 +475,7 @@ type ServerInterface interface {
 	// SubmitJobPassword Send the password of an encrypted archive
 	// (POST /jobs/{id}/password)
 	SubmitJobPassword(w http.ResponseWriter, r *http.Request, id JobId)
-	// RetryJob Retry an extraction that failed for a retryable reason
+	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(w http.ResponseWriter, r *http.Request, id JobId)
 }
@@ -1441,7 +1451,7 @@ type StrictServerInterface interface {
 	// SubmitJobPassword Send the password of an encrypted archive
 	// (POST /jobs/{id}/password)
 	SubmitJobPassword(ctx context.Context, request SubmitJobPasswordRequestObject) (SubmitJobPasswordResponseObject, error)
-	// RetryJob Retry an extraction that failed for a retryable reason
+	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(ctx context.Context, request RetryJobRequestObject) (RetryJobResponseObject, error)
 }

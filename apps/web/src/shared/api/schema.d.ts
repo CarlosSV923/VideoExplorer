@@ -201,12 +201,16 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Retry an extraction that failed for a retryable reason
-         * @description Retries the extraction of a job that failed with `no_space`,
-         *     `archive_corrupt` or `crc_mismatch` (RF-10c). The archive is still in
-         *     staging and the extracted files of the failed attempt are deleted first.
-         *     The job goes back to `extracting`. Answers 409 for any other job, or when
-         *     its archive is no longer there.
+         * Retry a job that failed for a retryable reason
+         * @description Retries a job that failed with `no_space`, `archive_corrupt` or
+         *     `crc_mismatch` (RF-10c): the archive is still in staging and the extracted
+         *     files of the failed attempt are deleted first, and the job goes back to
+         *     `extracting`. A job that failed with `filter_failed` goes back to
+         *     `filtering` and is filtered again from what was recorded (RF-07). A job
+         *     that failed with `move_failed` goes back to `filtering` and its batch
+         *     moves to No asignados again from where it stopped; the jobs of the same
+         *     batch that failed the same way retry with it (RF-08a). Answers 409 for
+         *     any other job, or when the archive or the files it needs are no longer there.
          */
         post: operations["retryJob"];
         delete?: never;
@@ -366,12 +370,14 @@ export interface components {
          *     `parts_missing`: some volumes did not arrive within 24 hours.
          *     `legacy_volume`: an old-style RAR volume (`.r00`, `.r01`…), which is not supported.
          *     `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
-         *     `no_space`, `archive_corrupt` and `crc_mismatch` can be retried; the
+         *     `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
+         *     `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
+         *     `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
          *     others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
          *     the password it was sent did not open the archive.
          * @enum {string}
          */
-        JobFailure: "upload_abandoned" | "upload_missing" | "no_space" | "archive_corrupt" | "crc_mismatch" | "archive_unsafe" | "parts_mismatch" | "parts_missing" | "legacy_volume" | "no_video" | "wrong_password";
+        JobFailure: "upload_abandoned" | "upload_missing" | "no_space" | "archive_corrupt" | "crc_mismatch" | "archive_unsafe" | "parts_mismatch" | "parts_missing" | "legacy_volume" | "no_video" | "filter_failed" | "move_failed" | "wrong_password";
         PasswordRequest: {
             /**
              * Format: password
