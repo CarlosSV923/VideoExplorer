@@ -50,7 +50,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 - [x] Filtrado por extensión y detección de *samples*; descartes a la papelera (parte de `filtering`, contenido en `staging/extract/<id>/`; previo: el `.rar` de un conjunto `.r00` en el mismo lote también da `legacy_volume`)
 - [x] Puerto `Prober` + adaptador ffprobe (resolución, códecs, pistas, duración) con caché
 - [x] Analizador de nombres de archivo (película/serie, título, año, `SxxEyy`, `1x02`, varios capítulos, partes, idioma de subtítulos) + vectores `filename-cases.json`
-- [ ] Detección de idioma de subtítulos *offline*
+- [x] ~~Detección de idioma de subtítulos *offline*~~ descartada (decisión 2026-10-10, RF-23): el idioma sale solo del nombre o lo elige el usuario
 - [ ] Hash parcial para «Copia exacta»
 - [ ] Resultado a `_unassigned/<lote>/` (RF-08); decidir qué pasa con un error de E/S durante el filtrado (hoy el trabajo queda en `filtering` hasta el siguiente arranque); encolar el sondeo ffprobe de los videos tras moverlos (la caché por inodo sobrevive al `rename`)
 
