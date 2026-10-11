@@ -452,5 +452,110 @@
         "expected": ""
       }
     ]
+  },
+  "subtitleLanguage": {
+    "description": "Language <idioma> of a subtitle file's name (spec §5): ISO 639-1 with an optional region, and only the regions Jellyfin 12.2 recognizes (spike, docs/spike-results.md). The regions Jellyfin recognizes stay (pt-BR, pt-PT, fr-CA, zh-TW, es-419). Latin American Spanish regions (es-MX and the other Spanish-speaking countries of Latin America) become es-419. Any other region is dropped, so the name keeps the language only (es-ES becomes es, en-US and en-GB become en, fr-FR becomes fr): a region Jellyfin does not know shows as an undefined language. Conservative choice (not decided by spec §5). The tag is read without regard to case and written as language in lower case and region in upper case. A tag that is not two letters with an optional region or three digits is rejected; expected.error names the field.",
+    "cases": [
+      {
+        "name": "a language without region is kept",
+        "input": { "language": "es" },
+        "expected": "es"
+      },
+      {
+        "name": "a Japanese language without region is kept",
+        "input": { "language": "ja" },
+        "expected": "ja"
+      },
+      {
+        "name": "es-419 is kept",
+        "input": { "language": "es-419" },
+        "expected": "es-419"
+      },
+      {
+        "name": "pt-BR is kept",
+        "input": { "language": "pt-BR" },
+        "expected": "pt-BR"
+      },
+      {
+        "name": "pt-PT is kept",
+        "input": { "language": "pt-PT" },
+        "expected": "pt-PT"
+      },
+      {
+        "name": "fr-CA is kept",
+        "input": { "language": "fr-CA" },
+        "expected": "fr-CA"
+      },
+      {
+        "name": "zh-TW is kept",
+        "input": { "language": "zh-TW" },
+        "expected": "zh-TW"
+      },
+      {
+        "name": "es-MX becomes es-419",
+        "input": { "language": "es-MX" },
+        "expected": "es-419"
+      },
+      {
+        "name": "another Latin American Spanish region becomes es-419",
+        "input": { "language": "es-AR" },
+        "expected": "es-419"
+      },
+      {
+        "name": "es-CO becomes es-419",
+        "input": { "language": "es-CO" },
+        "expected": "es-419"
+      },
+      {
+        "name": "es-ES becomes es",
+        "input": { "language": "es-ES" },
+        "expected": "es"
+      },
+      {
+        "name": "en-US becomes en",
+        "input": { "language": "en-US" },
+        "expected": "en"
+      },
+      {
+        "name": "en-GB becomes en",
+        "input": { "language": "en-GB" },
+        "expected": "en"
+      },
+      {
+        "name": "a region Jellyfin does not know is dropped",
+        "input": { "language": "fr-FR" },
+        "expected": "fr"
+      },
+      {
+        "name": "the language is written in lower case",
+        "input": { "language": "EN" },
+        "expected": "en"
+      },
+      {
+        "name": "the region is written in upper case",
+        "input": { "language": "pt-br" },
+        "expected": "pt-BR"
+      },
+      {
+        "name": "a Spanish name is rejected",
+        "input": { "language": "español" },
+        "expected": { "error": "language" }
+      },
+      {
+        "name": "a three-letter code is rejected: the names use ISO 639-1",
+        "input": { "language": "spa" },
+        "expected": { "error": "language" }
+      },
+      {
+        "name": "an empty tag is rejected",
+        "input": { "language": "" },
+        "expected": { "error": "language" }
+      },
+      {
+        "name": "an underscore instead of a dash is rejected",
+        "input": { "language": "es_MX" },
+        "expected": { "error": "language" }
+      }
+    ]
   }
 }
