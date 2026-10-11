@@ -21,12 +21,15 @@ info:
     is declared up front. Upload-Metadata keys: `filename` (required, the file
     name without folders), `relativePath` (optional, the file's path inside a
     folder dropped in the browser, ending with `filename`, RF-01a) and `batchId`
-    (optional, a client-made id of 1 to 64 letters, digits, `-` or `_`, shared
-    by the files dropped together, RF-03). Names are trimmed; separators, `.`,
-    `..` and control characters are refused. Refusals: 400 for bad metadata
-    (`ERR_INVALID_METADATA`), 507 when the library has no room for the file plus
-    1 GiB (`ERR_INSUFFICIENT_STORAGE`, RF-05); 503 when the library is not
-    writable (RFC 9457 problem).
+    (optional, the id that `POST /batches` returned for the files dropped
+    together, RF-03). Names are trimmed; separators, `.`, `..` and control
+    characters are refused. Refusals: 400 for bad metadata or an unknown
+    `batchId` (`ERR_INVALID_METADATA`), 400 for a 0-byte file
+    (`ERR_EMPTY_FILE`, RF-09a), 507 when the library has no room for the file
+    plus 1 GiB, counting the bytes still to arrive from uploads in progress
+    (`ERR_INSUFFICIENT_STORAGE`, RF-05, RF-09a); 503 when the library is not
+    writable (RFC 9457 problem). The upload id given in `Location` is the id of
+    its job (`/api/jobs` in a later phase, RF-10a).
   license:
     name: MIT
     url: https://opensource.org/license/mit
@@ -39,6 +42,8 @@ tags:
     description: Sign-in with the shared password and the session cookie.
   - name: images
     description: Title images (posters, backdrops, logos, stills) from the local cache.
+  - name: ingestion
+    description: Upload batches, the files dropped together in the browser (RF-03).
 security:
   - sessionCookie: []
 paths:
@@ -122,6 +127,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /batches:
+    post:
+      tags: [ingestion]
+      operationId: createBatch
+      summary: Start a batch of files dropped together
+      description: |
+        Creates the batch that the files dropped together share and returns its
+        id (RF-03). The browser calls it before the first upload of the batch and
+        sends the id as `batchId` in the Upload-Metadata of each upload (see the
+        description of the API for the uploads). A single file is sent with
+        `relation: none` without asking the user (RF-03).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBatchRequest'
+      responses:
+        '201':
+          description: The batch was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -297,6 +331,43 @@ components:
           type: integer
         detail:
           type: string
+    BatchRelation:
+      type: string
+      description: |
+        How the files of a batch relate (RF-03): `parts` for parts of one film or
+        series, `episodes` for chapters of one series, `none` for no relation.
+      enum: [parts, episodes, none]
+    CreateBatchRequest:
+      type: object
+      required: [relation]
+      additionalProperties: false
+      properties:
+        relation:
+          $ref: '#/components/schemas/BatchRelation'
+        name:
+          type: string
+          description: |
+            Provisional name, such as the name of the folder dropped (RF-01a). It
+            may be empty. Trimmed; no `/`, `\` or control characters; at most 255
+            bytes. The final name is set when the files are processed (RF-08).
+    Batch:
+      type: object
+      required: [id, name, relation, createdAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Batch id made by the server; send it as `batchId` in the uploads.
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          example: 3kQ7Zr1xVb8mNcT2pL0aWq
+        name:
+          type: string
+          description: Provisional name; empty when none was given.
+        relation:
+          $ref: '#/components/schemas/BatchRelation'
+        createdAt:
+          type: string
+          format: date-time
     LoginRequest:
       type: object
       required: [password]

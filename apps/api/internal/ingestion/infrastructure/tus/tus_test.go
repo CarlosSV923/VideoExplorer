@@ -3,6 +3,7 @@ package tus_test
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,35 +27,56 @@ const (
 	guard = 10 * time.Second
 )
 
-// fixture is a tus endpoint mounted as the production routes mount it.
-type fixture struct {
-	dir  string
-	srv  *httptest.Server
-	done chan application.CompletedUpload
+// fakeUploads records what the adapter asks of the ingestion context and hands
+// out job ids. err, when set, is what Admit answers.
+type fakeUploads struct {
+	mu         sync.Mutex
+	admissions []application.Admission
+	err        error
+	completed  chan domain.JobID
+	terminated chan domain.JobID
 }
 
-// completedRecorder records every finished upload.
-type completedRecorder struct {
-	done chan application.CompletedUpload
+func (f *fakeUploads) Admit(_ context.Context, a application.Admission) (domain.JobID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.err != nil {
+		return "", f.err
+	}
+	f.admissions = append(f.admissions, a)
+	return domain.JobID(fmt.Sprintf("job-%d", len(f.admissions))), nil
 }
 
-func (r completedRecorder) HandleUploadCompleted(_ context.Context, u application.CompletedUpload) error {
-	r.done <- u
+func (f *fakeUploads) admitted() []application.Admission {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]application.Admission(nil), f.admissions...)
+}
+
+func (f *fakeUploads) Completed(_ context.Context, id domain.JobID) error {
+	f.completed <- id
 	return nil
 }
 
-// newFixture starts the endpoint with free bytes on its file system. next may
-// be nil; then the recorder is not connected.
-func newFixture(t *testing.T, free uint64, connect bool) fixture {
+func (f *fakeUploads) Terminated(_ context.Context, id domain.JobID) error {
+	f.terminated <- id
+	return nil
+}
+
+// fixture is a tus endpoint mounted as the production routes mount it.
+type fixture struct {
+	dir     string
+	srv     *httptest.Server
+	uploads *fakeUploads
+}
+
+// newFixture starts the endpoint with free bytes on its file system.
+func newFixture(t *testing.T, free uint64) fixture {
 	t.Helper()
 
 	dir := filepath.Join(t.TempDir(), "staging")
-	done := make(chan application.CompletedUpload, 16)
-	var next application.UploadCompletedHandler
-	if connect {
-		next = completedRecorder{done: done}
-	}
-	a, err := tus.New(dir, uploadsPath, nil, func(string) (uint64, error) { return free, nil }, next)
+	uploads := &fakeUploads{completed: make(chan domain.JobID, 16), terminated: make(chan domain.JobID, 16)}
+	a, err := tus.New(dir, uploadsPath, nil, func(string) (uint64, error) { return free, nil }, uploads)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +86,7 @@ func newFixture(t *testing.T, free uint64, connect bool) fixture {
 	mux.Handle(uploadsPath, http.StripPrefix(uploadsPath, a.Handler()))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return fixture{dir: dir, srv: srv, done: done}
+	return fixture{dir: dir, srv: srv, uploads: uploads}
 }
 
 // do sends a request and closes the body when the test ends.
@@ -132,16 +155,38 @@ func (f fixture) head(t *testing.T, location string) *http.Response {
 	return do(t, req)
 }
 
-// awaitCompleted waits for the next finished upload.
-func (f fixture) awaitCompleted(t *testing.T) application.CompletedUpload {
+// remove deletes the upload (tus termination).
+func (f fixture) remove(t *testing.T, location string) *http.Response {
+	t.Helper()
+
+	req := request(t, http.MethodDelete, location, nil)
+	req.Header.Set("Tus-Resumable", "1.0.0")
+	return do(t, req)
+}
+
+// awaitCompleted waits for the next finished upload and returns its job id.
+func (f fixture) awaitCompleted(t *testing.T) domain.JobID {
 	t.Helper()
 
 	select {
-	case u := <-f.done:
-		return u
+	case id := <-f.uploads.completed:
+		return id
 	case <-time.After(guard):
-		t.Fatal("the finished upload was not handed over")
-		return application.CompletedUpload{}
+		t.Fatal("the finished upload was not reported")
+		return ""
+	}
+}
+
+// awaitTerminated waits for the next deleted upload and returns its job id.
+func (f fixture) awaitTerminated(t *testing.T) domain.JobID {
+	t.Helper()
+
+	select {
+	case id := <-f.uploads.terminated:
+		return id
+	case <-time.After(guard):
+		t.Fatal("the deleted upload was not reported")
+		return ""
 	}
 }
 
@@ -150,10 +195,10 @@ func idOf(location string) string {
 	return location[strings.LastIndex(location, "/")+1:]
 }
 
-func TestUploadIsStoredAndHandedOver(t *testing.T) {
+func TestUploadIsStoredUnderItsJobAndReported(t *testing.T) {
 	t.Parallel()
 
-	f := newFixture(t, 50<<30, true)
+	f := newFixture(t, 50<<30)
 	res := f.create(t, 10, metadata(
 		"filename", "  Iron Man (2008).mkv ",
 		"relativePath", "Iron Man/Iron Man (2008).mkv",
@@ -167,25 +212,29 @@ func TestUploadIsStoredAndHandedOver(t *testing.T) {
 		t.Fatalf("Location = %q, want a URL under /api/uploads/", location)
 	}
 
+	// The upload id is the id of its job: the browser and the server name it alike.
+	admitted := f.uploads.admitted()
+	if len(admitted) != 1 {
+		t.Fatalf("%d admissions, want 1", len(admitted))
+	}
+	want := application.Admission{
+		Meta: domain.UploadMeta{FileName: "Iron Man (2008).mkv", RelativePath: "Iron Man/Iron Man (2008).mkv", BatchID: "lote-1"},
+		Size: 10,
+	}
+	if admitted[0] != want {
+		t.Errorf("admission = %+v, want %+v", admitted[0], want)
+	}
+
 	res = f.patch(t, location, 0, "0123456789")
 	if res.StatusCode != http.StatusNoContent || res.Header.Get("Upload-Offset") != "10" {
 		t.Fatalf("patch = %d offset %q, want 204 at 10", res.StatusCode, res.Header.Get("Upload-Offset"))
 	}
 
-	u := f.awaitCompleted(t)
-	id := idOf(location)
-	if u.ID != id || u.Size != 10 {
-		t.Errorf("completed id/size = %q/%d, want %q/10", u.ID, u.Size, id)
+	if id := f.awaitCompleted(t); string(id) != idOf(location) || idOf(location) != "job-1" {
+		t.Errorf("completed job = %q, want the id in Location %q", id, idOf(location))
 	}
-	want := domain.UploadMeta{FileName: "Iron Man (2008).mkv", RelativePath: "Iron Man/Iron Man (2008).mkv", BatchID: "lote-1"}
-	if u.Meta != want {
-		t.Errorf("meta = %+v, want %+v", u.Meta, want)
-	}
-	if u.StoredAt != filepath.Join(f.dir, id) {
-		t.Errorf("stored at %q, want the staging folder", u.StoredAt)
-	}
-	data, err := readFile(u.StoredAt)
-	if err != nil || data != "0123456789" {
+	data, err := os.ReadFile(filepath.Join(f.dir, idOf(location)))
+	if err != nil || string(data) != "0123456789" {
 		t.Fatalf("stored bytes = %q, %v", data, err)
 	}
 }
@@ -193,7 +242,7 @@ func TestUploadIsStoredAndHandedOver(t *testing.T) {
 func TestInterruptedUploadResumesFromItsOffset(t *testing.T) {
 	t.Parallel()
 
-	f := newFixture(t, 50<<30, true)
+	f := newFixture(t, 50<<30)
 	res := f.create(t, 10, metadata("filename", "a.mkv"))
 	location := res.Header.Get("Location")
 
@@ -216,23 +265,23 @@ func TestInterruptedUploadResumesFromItsOffset(t *testing.T) {
 		t.Fatalf("resumed patch = %d offset %q, want 204 at 10", res.StatusCode, res.Header.Get("Upload-Offset"))
 	}
 
-	u := f.awaitCompleted(t)
-	if u.Size != 10 {
-		t.Errorf("completed size = %d, want 10", u.Size)
-	}
-	if data, err := readFile(u.StoredAt); err != nil || data != "0123456789" {
+	f.awaitCompleted(t)
+	if data, err := os.ReadFile(filepath.Join(f.dir, idOf(location))); err != nil || string(data) != "0123456789" {
 		t.Fatalf("stored bytes = %q, %v", data, err)
 	}
 }
 
-func TestFinishedUploadWithoutHandlerDoesNotBlock(t *testing.T) {
+func TestDeletedUploadIsReportedWithItsJob(t *testing.T) {
 	t.Parallel()
 
-	f := newFixture(t, 50<<30, false)
-	location := f.create(t, 4, metadata("filename", "a.mkv")).Header.Get("Location")
+	f := newFixture(t, 50<<30)
+	location := f.create(t, 10, metadata("filename", "a.mkv")).Header.Get("Location")
 
-	if res := f.patch(t, location, 0, "abcd"); res.StatusCode != http.StatusNoContent {
-		t.Fatalf("patch without a handler = %d, want 204", res.StatusCode)
+	if res := f.remove(t, location); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete = %d, want 204", res.StatusCode)
+	}
+	if id := f.awaitTerminated(t); string(id) != idOf(location) {
+		t.Errorf("terminated job = %q, want %q", id, idOf(location))
 	}
 }
 
@@ -254,7 +303,7 @@ func TestCreateChecksFreeSpaceWithTheMargin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f := newFixture(t, tt.free, false)
+			f := newFixture(t, tt.free)
 			res := f.create(t, size, metadata("filename", "a.mkv"))
 			if res.StatusCode != tt.wantStatus {
 				t.Fatalf("create status = %d, want %d", res.StatusCode, tt.wantStatus)
@@ -263,8 +312,74 @@ func TestCreateChecksFreeSpaceWithTheMargin(t *testing.T) {
 				if n := stagedUploads(t, f.dir); n != 0 {
 					t.Errorf("%d upload(s) were staged despite the refusal", n)
 				}
+				if n := len(f.uploads.admitted()); n != 0 {
+					t.Errorf("%d job(s) were admitted despite the refusal", n)
+				}
 			}
 		})
+	}
+}
+
+func TestCreateReservesTheBytesOfUploadsInProgress(t *testing.T) {
+	t.Parallel()
+
+	// Room for two uploads of 1000 bytes only when the first one has received
+	// half of its bytes: the bytes still to come are not free (RF-09a).
+	const size = 1000
+	f := newFixture(t, domain.FreeSpaceMargin+1500)
+
+	first := f.create(t, size, metadata("filename", "first.mkv"))
+	if first.StatusCode != http.StatusCreated {
+		t.Fatalf("first create = %d, want 201", first.StatusCode)
+	}
+	firstLocation := first.Header.Get("Location")
+
+	second := f.create(t, size, metadata("filename", "second.mkv"))
+	if second.StatusCode != http.StatusInsufficientStorage {
+		t.Fatalf("second create with the first one still empty = %d, want 507", second.StatusCode)
+	}
+	if n := stagedUploads(t, f.dir); n != 1 {
+		t.Errorf("%d staged upload(s) after the refusal, want 1", n)
+	}
+
+	if res := f.patch(t, firstLocation, 0, strings.Repeat("x", size/2)); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("half of the first upload = %d, want 204", res.StatusCode)
+	}
+	second = f.create(t, size, metadata("filename", "second.mkv"))
+	if second.StatusCode != http.StatusCreated {
+		t.Fatalf("second create after half of the first arrived = %d, want 201", second.StatusCode)
+	}
+	if n := len(f.uploads.admitted()); n != 2 {
+		t.Errorf("%d jobs admitted, want 2", n)
+	}
+}
+
+func TestCreateRefusesAnEmptyFile(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t, 50<<30)
+	if res := f.create(t, 0, metadata("filename", "a.mkv")); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("0-byte create status = %d, want 400", res.StatusCode)
+	}
+	if n := stagedUploads(t, f.dir); n != 0 {
+		t.Errorf("%d upload(s) were staged for an empty file", n)
+	}
+	if n := len(f.uploads.admitted()); n != 0 {
+		t.Errorf("%d job(s) were admitted for an empty file", n)
+	}
+}
+
+func TestCreateRefusesABatchThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t, 50<<30)
+	f.uploads.err = domain.ErrBatchNotFound
+	res := f.create(t, 10, metadata("filename", "a.mkv", "batchId", "nope"))
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unknown batch status = %d, want 400", res.StatusCode)
+	}
+	if n := stagedUploads(t, f.dir); n != 0 {
+		t.Errorf("%d upload(s) were staged for an unknown batch", n)
 	}
 }
 
@@ -287,12 +402,15 @@ func TestCreateRefusesInvalidMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f := newFixture(t, 50<<30, false)
+			f := newFixture(t, 50<<30)
 			if res := f.create(t, 10, tt.metadata); res.StatusCode != http.StatusBadRequest {
 				t.Fatalf("create status = %d, want 400", res.StatusCode)
 			}
 			if n := stagedUploads(t, f.dir); n != 0 {
 				t.Errorf("%d upload(s) were staged despite the refusal", n)
+			}
+			if n := len(f.uploads.admitted()); n != 0 {
+				t.Errorf("%d job(s) were admitted despite the refusal", n)
 			}
 		})
 	}
@@ -301,7 +419,7 @@ func TestCreateRefusesInvalidMetadata(t *testing.T) {
 func TestCreateRequiresTheSizeUpFront(t *testing.T) {
 	t.Parallel()
 
-	f := newFixture(t, 50<<30, false)
+	f := newFixture(t, 50<<30)
 	req := request(t, http.MethodPost, f.srv.URL+uploadsPath, nil)
 	req.Header.Set("Tus-Resumable", "1.0.0")
 	req.Header.Set("Upload-Defer-Length", "1")
@@ -309,12 +427,6 @@ func TestCreateRequiresTheSizeUpFront(t *testing.T) {
 	if res := do(t, req); res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("deferred length status = %d, want 400", res.StatusCode)
 	}
-}
-
-// readFile returns the content of a file as a string.
-func readFile(path string) (string, error) {
-	b, err := os.ReadFile(path)
-	return string(b), err
 }
 
 // stagedUploads counts the upload records in the staging folder.

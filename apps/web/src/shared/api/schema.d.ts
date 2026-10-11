@@ -84,6 +84,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a batch of files dropped together
+         * @description Creates the batch that the files dropped together share and returns its
+         *     id (RF-03). The browser calls it before the first upload of the batch and
+         *     sends the id as `batchId` in the Upload-Metadata of each upload (see the
+         *     description of the API for the uploads). A single file is sent with
+         *     `relation: none` without asking the user (RF-03).
+         */
+        post: operations["createBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/images/{kind}/{file}": {
         parameters: {
             query?: never;
@@ -176,6 +200,33 @@ export interface components {
             title: string;
             status: number;
             detail?: string;
+        };
+        /**
+         * @description How the files of a batch relate (RF-03): `parts` for parts of one film or
+         *     series, `episodes` for chapters of one series, `none` for no relation.
+         * @enum {string}
+         */
+        BatchRelation: "parts" | "episodes" | "none";
+        CreateBatchRequest: {
+            relation: components["schemas"]["BatchRelation"];
+            /**
+             * @description Provisional name, such as the name of the folder dropped (RF-01a). It
+             *     may be empty. Trimmed; no `/`, `\` or control characters; at most 255
+             *     bytes. The final name is set when the files are processed (RF-08).
+             */
+            name?: string;
+        };
+        Batch: {
+            /**
+             * @description Batch id made by the server; send it as `batchId` in the uploads.
+             * @example 3kQ7Zr1xVb8mNcT2pL0aWq
+             */
+            id: string;
+            /** @description Provisional name; empty when none was given. */
+            name: string;
+            relation: components["schemas"]["BatchRelation"];
+            /** Format: date-time */
+            createdAt: string;
         };
         LoginRequest: {
             /** Format: password */
@@ -324,6 +375,32 @@ export interface operations {
                     "application/json": components["schemas"]["Session"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description The batch was created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Batch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

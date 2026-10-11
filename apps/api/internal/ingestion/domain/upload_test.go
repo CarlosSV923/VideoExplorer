@@ -93,10 +93,10 @@ func TestCheckFreeSpace(t *testing.T) {
 
 	const gib = uint64(1) << 30
 	tests := []struct {
-		name    string
-		size    int64
-		free    uint64
-		wantErr error
+		name          string
+		size          int64
+		free, pending uint64
+		wantErr       error
 	}{
 		{name: "plenty of room", size: 10, free: 50 * gib},
 		{name: "exactly size plus the 1 GiB margin", size: 10, free: 10 + gib},
@@ -104,12 +104,15 @@ func TestCheckFreeSpace(t *testing.T) {
 		{name: "empty file still keeps the margin", size: 0, free: gib - 1, wantErr: domain.ErrInsufficientSpace},
 		{name: "huge file that does not fit", size: 49<<30 + 512<<20, free: 50 << 30, wantErr: domain.ErrInsufficientSpace},
 		{name: "negative size", size: -1, free: 50 * gib, wantErr: domain.ErrInvalidMetadata},
+		{name: "bytes of uploads in progress are reserved", size: 10, free: 10 + gib + 500, pending: 501, wantErr: domain.ErrInsufficientSpace},
+		{name: "reserved bytes exactly leave room", size: 10, free: 10 + gib + 500, pending: 500},
+		{name: "reservation larger than the free space", size: 10, free: gib, pending: 50 * gib, wantErr: domain.ErrInsufficientSpace},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := domain.CheckFreeSpace(tt.size, tt.free)
+			err := domain.CheckFreeSpace(tt.size, tt.free, tt.pending)
 			if tt.wantErr == nil {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
@@ -118,6 +121,30 @@ func TestCheckFreeSpace(t *testing.T) {
 			}
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPendingBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		size, offset int64
+		want         int64
+	}{
+		{name: "nothing received", size: 10, offset: 0, want: 10},
+		{name: "half received", size: 10, offset: 5, want: 5},
+		{name: "finished", size: 10, offset: 10, want: 0},
+		{name: "offset past the size is not negative", size: 10, offset: 12, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := domain.PendingBytes(tt.size, tt.offset); got != tt.want {
+				t.Errorf("PendingBytes(%d, %d) = %d, want %d", tt.size, tt.offset, got, tt.want)
 			}
 		})
 	}

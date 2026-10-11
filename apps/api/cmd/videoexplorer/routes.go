@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
+	ingestionhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/interfaces/http"
 	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpx"
@@ -14,9 +15,10 @@ import (
 
 // Aliases give each embedded handler its own field name (they are all "Handler").
 type (
-	systemAPI   = system.Handler
-	identityAPI = identityhttp.Handler
-	metadataAPI = metadatahttp.Handler
+	systemAPI    = system.Handler
+	identityAPI  = identityhttp.Handler
+	metadataAPI  = metadatahttp.Handler
+	ingestionAPI = ingestionhttp.Handler
 )
 
 // api assembles the bounded contexts' handlers into the generated interface.
@@ -25,6 +27,7 @@ type api struct {
 	*systemAPI
 	*identityAPI
 	*metadataAPI
+	*ingestionAPI
 }
 
 var _ httpapi.StrictServerInterface = api{}
@@ -37,11 +40,12 @@ var _ httpapi.StrictServerInterface = api{}
 // request logging and panic recovery wrap everything (RNF-02). WithRequest puts
 // the request in the context: the image operation needs it for
 // http.ServeContent (Range and conditional requests).
-func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, uploads http.Handler) http.Handler {
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler) http.Handler {
 	server := api{
-		systemAPI:   health,
-		identityAPI: identity,
-		metadataAPI: metadata,
+		systemAPI:    health,
+		identityAPI:  identity,
+		metadataAPI:  metadata,
+		ingestionAPI: ingestion,
 	}
 
 	mux := http.NewServeMux()

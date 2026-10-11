@@ -89,11 +89,12 @@ func TestUploadsWithoutAWritableLibraryAnswer503AfterTheSessionCheck(t *testing.
 	if err := os.WriteFile(library, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	uploads := newUploads(config.Config{LibraryPath: library}, slog.New(slog.DiscardHandler))
+	ingest, _ := newTestIngestion(t)
+	uploads := newUploads(config.Config{LibraryPath: library}, slog.New(slog.DiscardHandler), ingest.Service)
 	if uploads.adapter != nil {
 		t.Fatal("uploads enabled without a writable library")
 	}
-	h := newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), uploads.handler)
+	h := newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler)
 
 	if rec := tusCreate(t, h, "a.mkv"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("without a session: status = %d, want 401", rec.Code)

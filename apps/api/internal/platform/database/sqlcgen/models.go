@@ -4,8 +4,31 @@
 
 package sqlcgen
 
+import (
+	"database/sql"
+)
+
 type MetadataCache struct {
 	Key       string
 	Payload   []byte
 	ExpiresAt int64
+}
+
+type UploadBatch struct {
+	ID        string
+	Name      string
+	Relation  string
+	CreatedAt string
+}
+
+type UploadJob struct {
+	ID           string
+	BatchID      sql.NullString
+	FileName     string
+	RelativePath string
+	Size         int64
+	Status       string
+	Error        string
+	CreatedAt    string
+	UpdatedAt    string
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -21,7 +20,7 @@ const uploadsPath = "/api/uploads/"
 type uploadsWiring struct {
 	// handler serves uploadsPath without its prefix; routes puts the session check in front.
 	handler http.Handler
-	// adapter runs the event loop of the finished uploads. Nil when the library cannot take uploads.
+	// adapter runs the event loop of the finished and deleted uploads. Nil when the library cannot take uploads.
 	adapter *tus.Adapter
 }
 
@@ -31,11 +30,12 @@ func stagingDir(libraryPath string) string {
 	return filepath.Join(libraryPath, ".videoexplorer", "staging")
 }
 
-// newUploads wires the resumable uploads (RF-02). When the staging folder
+// newUploads wires the resumable uploads (RF-02). Each upload is admitted and
+// tracked by uploads, the ingestion service (RF-10a). When the staging folder
 // cannot be created, the endpoint answers 503 and the rest of the app keeps
 // working: the library can still be browsed (RF-63).
-func newUploads(cfg config.Config, log *slog.Logger) uploadsWiring {
-	adapter, err := tus.New(stagingDir(cfg.LibraryPath), uploadsPath, log, diskspace.Free, logCompleted{log})
+func newUploads(cfg config.Config, log *slog.Logger, uploads application.Uploads) uploadsWiring {
+	adapter, err := tus.New(stagingDir(cfg.LibraryPath), uploadsPath, log, diskspace.Free, uploads)
 	if err != nil {
 		log.Error("uploads disabled: library not writable", "error", err)
 		return uploadsWiring{handler: uploadsUnavailable()}
@@ -52,13 +52,4 @@ func uploadsUnavailable() http.Handler {
 		httpx.WriteProblem(w, http.StatusServiceUnavailable, "Service Unavailable",
 			"Uploads are disabled because the library is not writable. See /api/health.")
 	})
-}
-
-// logCompleted receives the finished uploads until the batch model is
-// connected (phase 3, task 2). For now it only logs them.
-type logCompleted struct{ log *slog.Logger }
-
-func (l logCompleted) HandleUploadCompleted(ctx context.Context, u application.CompletedUpload) error {
-	l.log.InfoContext(ctx, "upload completed", "upload", u.ID, "size", u.Size, "file", u.Meta.FileName, "batch", u.Meta.BatchID)
-	return nil
 }

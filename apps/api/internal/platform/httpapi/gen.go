@@ -17,6 +17,27 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for BatchRelation.
+const (
+	Episodes BatchRelation = "episodes"
+	None     BatchRelation = "none"
+	Parts    BatchRelation = "parts"
+)
+
+// Valid indicates whether the value is a known member of the BatchRelation enum.
+func (e BatchRelation) Valid() bool {
+	switch e {
+	case Episodes:
+		return true
+	case None:
+		return true
+	case Parts:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CheckCode.
 const (
 	DataNotWritable    CheckCode = "data_not_writable"
@@ -83,6 +104,27 @@ func (e ImageKind) Valid() bool {
 	}
 }
 
+// Batch defines model for Batch.
+type Batch struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Id Batch id made by the server; send it as `batchId` in the uploads.
+	//
+	// Example: 3kQ7Zr1xVb8mNcT2pL0aWq
+	Id string `json:"id"`
+
+	// Name Provisional name; empty when none was given.
+	Name string `json:"name"`
+
+	// Relation How the files of a batch relate (RF-03): `parts` for parts of one film or
+	// series, `episodes` for chapters of one series, `none` for no relation.
+	Relation BatchRelation `json:"relation"`
+}
+
+// BatchRelation How the files of a batch relate (RF-03): `parts` for parts of one film or
+// series, `episodes` for chapters of one series, `none` for no relation.
+type BatchRelation string
+
 // Check One named diagnostic. When it passes, only `name` and `ok` appear. When
 // it fails, `ok` is false and `code` and `message` appear, plus the data
 // that applies to that check (`path`, `uid`, `gid`).
@@ -128,6 +170,18 @@ type Check struct {
 //
 // Example: library_not_writable
 type CheckCode string
+
+// CreateBatchRequest defines model for CreateBatchRequest.
+type CreateBatchRequest struct {
+	// Name Provisional name, such as the name of the folder dropped (RF-01a). It
+	// may be empty. Trimmed; no `/`, `\` or control characters; at most 255
+	// bytes. The final name is set when the files are processed (RF-08).
+	Name *string `json:"name,omitempty"`
+
+	// Relation How the files of a batch relate (RF-03): `parts` for parts of one film or
+	// series, `episodes` for chapters of one series, `none` for no relation.
+	Relation BatchRelation `json:"relation"`
+}
 
 // Health Status of the process and of its startup diagnostics.
 type Health struct {
@@ -183,6 +237,9 @@ type Unauthorized = Problem
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// CreateBatchJSONRequestBody defines body for CreateBatch for application/json ContentType.
+type CreateBatchJSONRequestBody = CreateBatchRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login Start a session with the shared password
@@ -194,6 +251,9 @@ type ServerInterface interface {
 	// GetSession Current session
 	// (GET /auth/session)
 	GetSession(w http.ResponseWriter, r *http.Request)
+	// CreateBatch Start a batch of files dropped together
+	// (POST /batches)
+	CreateBatch(w http.ResponseWriter, r *http.Request)
 	// GetHealth Liveness probe and startup diagnostics
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -244,6 +304,20 @@ func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBatch operation middleware
+func (siw *ServerInterfaceWrapper) CreateBatch(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBatch(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -426,6 +500,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/session", wrapper.GetSession)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/batches", wrapper.CreateBatch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/images/{kind}/{file}", wrapper.GetImage)
 
 	return m
@@ -562,6 +637,60 @@ type GetSession401ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetSession401ApplicationProblemPlusJSONResponse) VisitGetSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBatchRequestObject struct {
+	Body *CreateBatchJSONRequestBody
+}
+
+type CreateBatchResponseObject interface {
+	VisitCreateBatchResponse(w http.ResponseWriter) error
+}
+
+type CreateBatch201JSONResponse Batch
+
+func (response CreateBatch201JSONResponse) VisitCreateBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBatch400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CreateBatch400ApplicationProblemPlusJSONResponse) VisitCreateBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBatch401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CreateBatch401ApplicationProblemPlusJSONResponse) VisitCreateBatchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -740,6 +869,9 @@ type StrictServerInterface interface {
 	// GetSession Current session
 	// (GET /auth/session)
 	GetSession(ctx context.Context, request GetSessionRequestObject) (GetSessionResponseObject, error)
+	// CreateBatch Start a batch of files dropped together
+	// (POST /batches)
+	CreateBatch(ctx context.Context, request CreateBatchRequestObject) (CreateBatchResponseObject, error)
 	// GetHealth Liveness probe and startup diagnostics
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -859,6 +991,37 @@ func (sh *strictHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetSessionResponseObject); ok {
 		if err := validResponse.VisitGetSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBatch operation middleware
+func (sh *strictHandler) CreateBatch(w http.ResponseWriter, r *http.Request) {
+	var request CreateBatchRequestObject
+
+	var body CreateBatchJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBatch(ctx, request.(CreateBatchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBatch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateBatchResponseObject); ok {
+		if err := validResponse.VisitCreateBatchResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

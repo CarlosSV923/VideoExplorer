@@ -3,9 +3,9 @@
 // This is the composition root: configuration, adapters and bounded contexts
 // are wired here and nowhere else. It opens the database and serves the API
 // contract (routes.go) and the embedded SPA. Sign-in (identity.go), the
-// startup diagnostics (health.go), TMDB with its caches (metadata.go) and the
-// resumable uploads (uploads.go) are wired here; the other bounded contexts
-// arrive in later phases.
+// startup diagnostics (health.go), TMDB with its caches (metadata.go), the
+// upload batches and jobs (ingestion.go) and the resumable uploads (uploads.go)
+// are wired here; the other bounded contexts arrive in later phases.
 //
 // Usage:
 //
@@ -112,13 +112,14 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 	log.Info("metadata ready", "tmdb", meta.Service.Configured(), "language", cfg.TMDBLanguage)
 
-	uploads := newUploads(cfg, log)
+	ingest := newIngestion(conn, log)
+	uploads := newUploads(cfg, log, ingest.Service)
 	if uploads.adapter != nil {
 		go uploads.adapter.Run(ctx)
 	}
 
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), uploads.handler))
+		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)

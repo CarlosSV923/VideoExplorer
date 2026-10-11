@@ -25,8 +25,8 @@ var (
 	ErrInsufficientSpace = errors.New("the library has not enough free space")
 )
 
-// batchIDPattern is the shape of a batch id made by the browser: short and
-// URL-safe, so it can be a single path component or a query value.
+// batchIDPattern is the shape of a batch id: short and URL-safe, so it can be
+// a single path component or a query value. The server makes the ids (RF-03).
 var batchIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // UploadMeta is the form data an upload declares when it starts (RF-01, RF-01a, RF-03).
@@ -111,15 +111,30 @@ func cleanRelativePath(p, fileName string) (string, error) {
 }
 
 // CheckFreeSpace reports whether the library can take an upload of size bytes
-// with FreeSpaceMargin left over (RF-05). free is the space available to the
-// process on the library's file system.
-func CheckFreeSpace(size int64, free uint64) error {
+// with FreeSpaceMargin left over (RF-05, RF-09a). free is the space available
+// to the process on the library's file system; pending is what the uploads in
+// progress still have to receive, which is not free yet and is reserved for them.
+func CheckFreeSpace(size int64, free, pending uint64) error {
 	if size < 0 {
 		return fmt.Errorf("%w: negative size", ErrInvalidMetadata)
 	}
+	var available uint64
+	if free > pending {
+		available = free - pending
+	}
 	need := uint64(size) + FreeSpaceMargin //nolint:gosec // size is non-negative, checked above
-	if need > free {
-		return fmt.Errorf("%w: need %d bytes including the %d GiB margin, %d available", ErrInsufficientSpace, need, FreeSpaceMargin>>30, free)
+	if need > available {
+		return fmt.Errorf("%w: need %d bytes including the %d GiB margin, %d available after reserving %d bytes of uploads in progress",
+			ErrInsufficientSpace, need, FreeSpaceMargin>>30, available, pending)
 	}
 	return nil
+}
+
+// PendingBytes is how many bytes an upload of size bytes still has to receive
+// when offset of them arrived. It is never negative.
+func PendingBytes(size, offset int64) int64 {
+	if offset >= size {
+		return 0
+	}
+	return size - offset
 }
