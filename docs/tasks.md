@@ -52,7 +52,7 @@ Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
 - [ ] Analizador de nombres de archivo (película/serie, título, año, `SxxEyy`, `1x02`, varios capítulos, partes, idioma de subtítulos) + vectores `filename-cases.json`
 - [ ] Detección de idioma de subtítulos *offline*
 - [ ] Hash parcial para «Copia exacta»
-- [ ] Resultado a `_unassigned/<lote>/` (RF-08)
+- [ ] Resultado a `_unassigned/<lote>/` (RF-08); decidir qué pasa con un error de E/S durante el filtrado (hoy el trabajo queda en `filtering` hasta el siguiente arranque)
 
 ## Fase 5 — Contexto `catalog`: asignar
 Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
