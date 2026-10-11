@@ -16,13 +16,30 @@ const whiteSpace =
  * nothing is left of the name.
  */
 export function sanitizeName(raw: string): string {
+  return finishName(cleanChars(raw))
+}
+
+/**
+ * Steps 1 to 5 of spec §5 for one piece of a name (a disc title, a chapter title, a version).
+ * The pieces of a component are joined and then finished with finishName (step 6 of the whole).
+ */
+export function cleanChars(raw: string): string {
   let name = raw.normalize('NFC') // 1
   name = name.replace(/: /g, ' - ').replace(/:/g, '-') // 2
   name = name.replace(/[/\\]/g, '-') // 3
   name = name.replace(/"/g, "'") // 4
-  name = name.replace(/[?*<>|\p{Cc}]/gu, '') // 5
-  name = name.replace(whiteSpace, ' ') // 6
-  return name.replace(/^[ .]+/, '').replace(/[ .]+$/, '')
+  return name.replace(/[?*<>|\p{Cc}]/gu, '') // 5
+}
+
+/**
+ * Step 6 of spec §5 for a whole path component: each block of white space becomes one space,
+ * and the leading and trailing spaces and dots are removed.
+ */
+export function finishName(name: string): string {
+  return name
+    .replace(whiteSpace, ' ')
+    .replace(/^[ .]+/, '')
+    .replace(/[ .]+$/, '')
 }
 
 /** The name of an unassigned entry: sanitized, or FALLBACK_NAME when nothing is left of it. */

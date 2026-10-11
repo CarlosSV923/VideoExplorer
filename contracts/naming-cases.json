@@ -1,5 +1,5 @@
 {
-  "description": "Naming rules of spec §5, as data for both implementations. Phase 2 pins the title choice: discTitle is the <T> of a movie or series, chapterTitle is the <título cap.> of the file's chapters. original is the TMDB title in the original language (for a chapter, in the series' original language); english is the en-US title. An absent English title is a missing key or an empty string. The sanitizing of spec §5 (steps 1 to 6) is pinned in phase 4 (section `sanitize`). Folders and file names are added in phase 5. Conservative choices: a title with no letters (digits and signs only) counts as Latin; combining marks are not letters, so a decomposed accent does not make a title non-Latin; a generic title is one of Episode, Episodio, Capítulo, Capitulo or Chapter followed by a number, in any case, whatever the number; the suffix that can be collapsed is ' (N)', ', Part N' or ', Parte N' or a final ' N' (so 'Odisea 2001' and 'Odisea 2002' would share the base 'Odisea'), and the base must not be empty.",
+  "description": "Naming rules of spec §5, as data for both implementations. Phase 2 pins the title choice: discTitle is the <T> of a movie or series, chapterTitle is the <título cap.> of the file's chapters. original is the TMDB title in the original language (for a chapter, in the series' original language); english is the en-US title. An absent English title is a missing key or an empty string. The sanitizing of spec §5 (steps 1 to 6) is pinned in phase 4 (section `sanitize`). Phase 5 adds the subtitle language (`subtitleLanguage`) and the library paths (`paths`: folders, movie and chapter files, subtitles; a rejected input has `expected.error` with the field). Conservative choices: a title with no letters (digits and signs only) counts as Latin; combining marks are not letters, so a decomposed accent does not make a title non-Latin; a generic title is one of Episode, Episodio, Capítulo, Capitulo or Chapter followed by a number, in any case, whatever the number; the suffix that can be collapsed is ' (N)', ', Part N' or ', Parte N' or a final ' N' (so 'Odisea 2001' and 'Odisea 2002' would share the base 'Odisea'), and the base must not be empty.",
   "discTitle": {
     "description": "Disc title <T>: the original title when all its letters are Latin, else the English title, else the original title. Empty only when both are empty.",
     "cases": [
@@ -555,6 +555,798 @@
         "name": "an underscore instead of a dash is rejected",
         "input": { "language": "es_MX" },
         "expected": { "error": "language" }
+      }
+    ]
+  },
+  "paths": {
+    "description": "Library paths of spec §5, as the full path of each case relative to LIBRARY_PATH, with \"/\" separators. input is what a caller has: original and english are the TMDB titles (the disc title <T> is chosen by metadata DiscTitle, and the chapter title by metadata ChapterTitle from the chapters original and english titles); a free title has only its name in original. roots (optional) are MOVIES_DIR and SERIES_DIR, Movies and TV Shows by default. idTag (optional) is the tag [tmdbid-ID] of a linked title and is on by default (RF-45); a free title (tmdbId 0) has no tag. year 0 means unknown and the \" (<A>)\" part is left out (conservative choice, not decided by spec §5). A version is written as \" - <versión>\" and a part as \" - part<N>\" (RF-22: exclusive). Season 0 is Season 00. A name longer than 255 bytes is cut at a character: the chapter title first, then the disc title; the year, the tag, the codes and the version stay (conservative choice: spec §5 says \"recorta su base\", which this reads as the disc title, the only part that can be cut without losing a Jellyfin identifier). A subtitle carries its video as its own input and is named after the video. A rejected input has expected {\"error\": field}, the field of the library name input: title, year, tmdbId, part, version, extension, season, episode, episodeEnd, root, video or language.",
+    "cases": [
+      {
+        "name": "a movie is in its own folder, and its file has the tag too",
+        "input": {
+          "kind": "movie",
+          "original": "Iron Man",
+          "year": 2008,
+          "tmdbId": 1726,
+          "idTag": true,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv"
+      },
+      {
+        "name": "the tag is on by default for a linked title",
+        "input": {
+          "kind": "movie",
+          "original": "Iron Man",
+          "year": 2008,
+          "tmdbId": 1726,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv"
+      },
+      {
+        "name": "a linked title with the tag removed has no tag in its folder or file",
+        "input": {
+          "kind": "movie",
+          "original": "Iron Man",
+          "year": 2008,
+          "tmdbId": 1726,
+          "idTag": false,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Iron Man (2008)/Iron Man (2008).mkv"
+      },
+      {
+        "name": "a free title has no tag",
+        "input": { "kind": "movie", "original": "Mi película", "year": 2019, "extension": ".mp4" },
+        "expected": "Movies/Mi película (2019)/Mi película (2019).mp4"
+      },
+      {
+        "name": "a free title never has the tag, even when the tag is on",
+        "input": {
+          "kind": "movie",
+          "original": "Mi película",
+          "year": 2019,
+          "idTag": true,
+          "extension": ".mp4"
+        },
+        "expected": "Movies/Mi película (2019)/Mi película (2019).mp4"
+      },
+      {
+        "name": "a non-Latin title takes its English title",
+        "input": {
+          "kind": "movie",
+          "original": "千と千尋の神隠し",
+          "english": "Spirited Away",
+          "year": 2001,
+          "tmdbId": 129,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Spirited Away (2001) [tmdbid-129]/Spirited Away (2001) [tmdbid-129].mkv"
+      },
+      {
+        "name": "a non-Latin title without English keeps its original title",
+        "input": {
+          "kind": "movie",
+          "original": "千と千尋の神隠し",
+          "year": 2001,
+          "tmdbId": 129,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/千と千尋の神隠し (2001) [tmdbid-129]/千と千尋の神隠し (2001) [tmdbid-129].mkv"
+      },
+      {
+        "name": "a Latin title keeps its accents and its apostrophe",
+        "input": {
+          "kind": "movie",
+          "original": "Le Fabuleux Destin d'Amélie Poulain",
+          "english": "Amélie",
+          "year": 2001,
+          "tmdbId": 194,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Le Fabuleux Destin d'Amélie Poulain (2001) [tmdbid-194]/Le Fabuleux Destin d'Amélie Poulain (2001) [tmdbid-194].mkv"
+      },
+      {
+        "name": "a colon in the title becomes a dash",
+        "input": {
+          "kind": "movie",
+          "original": "Mission: Impossible",
+          "year": 1996,
+          "tmdbId": 954,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Mission - Impossible (1996) [tmdbid-954]/Mission - Impossible (1996) [tmdbid-954].mkv"
+      },
+      {
+        "name": "quotes and slashes in a free title are sanitized",
+        "input": {
+          "kind": "movie",
+          "original": "The \"Best\"/Worst",
+          "year": 2000,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/The 'Best'-Worst (2000)/The 'Best'-Worst (2000).mkv"
+      },
+      {
+        "name": "a title that sanitizes to nothing takes the fallback name",
+        "input": { "kind": "movie", "original": "?*", "year": 2008, "extension": ".mkv" },
+        "expected": "Movies/Sin nombre (2008)/Sin nombre (2008).mkv"
+      },
+      {
+        "name": "a version goes after the title, the tag stays in the file",
+        "input": {
+          "kind": "movie",
+          "original": "Dune",
+          "year": 2021,
+          "tmdbId": 438631,
+          "idTag": true,
+          "version": "2160p",
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Dune (2021) [tmdbid-438631]/Dune (2021) [tmdbid-438631] - 2160p.mkv"
+      },
+      {
+        "name": "a version of a linked title with the tag removed has no tag",
+        "input": {
+          "kind": "movie",
+          "original": "Blade Runner 2049",
+          "year": 2017,
+          "tmdbId": 335984,
+          "idTag": false,
+          "version": "1080p",
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Blade Runner 2049 (2017)/Blade Runner 2049 (2017) - 1080p.mkv"
+      },
+      {
+        "name": "a version label with a space is kept",
+        "input": {
+          "kind": "movie",
+          "original": "Dune",
+          "year": 2021,
+          "version": "1080p HEVC",
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Dune (2021)/Dune (2021) - 1080p HEVC.mkv"
+      },
+      {
+        "name": "a version of a linked movie keeps the tag in its file",
+        "input": {
+          "kind": "movie",
+          "original": "Blade Runner 2049",
+          "year": 2017,
+          "tmdbId": 335984,
+          "idTag": true,
+          "version": "2160p",
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Blade Runner 2049 (2017) [tmdbid-335984]/Blade Runner 2049 (2017) [tmdbid-335984] - 2160p.mkv"
+      },
+      {
+        "name": "a part takes its number after the title",
+        "input": {
+          "kind": "movie",
+          "original": "Gone with the Wind",
+          "year": 1939,
+          "tmdbId": 770,
+          "idTag": true,
+          "part": 1,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/Gone with the Wind (1939) [tmdbid-770]/Gone with the Wind (1939) [tmdbid-770] - part1.mkv"
+      },
+      {
+        "name": "a part of a free title",
+        "input": {
+          "kind": "movie",
+          "original": "Gone with the Wind",
+          "year": 1939,
+          "part": 2,
+          "extension": ".mp4"
+        },
+        "expected": "Movies/Gone with the Wind (1939)/Gone with the Wind (1939) - part2.mp4"
+      },
+      {
+        "name": "a movie of unknown year leaves the year out",
+        "input": { "kind": "movie", "original": "Mi película", "year": 0, "extension": ".mp4" },
+        "expected": "Movies/Mi película/Mi película.mp4"
+      },
+      {
+        "name": "the extension is written in lower case",
+        "input": { "kind": "movie", "original": "Clip", "year": 2020, "extension": ".MKV" },
+        "expected": "Movies/Clip (2020)/Clip (2020).mkv"
+      },
+      {
+        "name": "a custom MOVIES_DIR root replaces Movies",
+        "input": {
+          "kind": "movie",
+          "original": "Iron Man",
+          "year": 2008,
+          "tmdbId": 1726,
+          "extension": ".mkv",
+          "roots": { "movies": "Films" }
+        },
+        "expected": "Films/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv"
+      },
+      {
+        "name": "a title over 255 bytes is cut at a character and the year and the tag stay",
+        "input": {
+          "kind": "movie",
+          "original": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "year": 2008,
+          "tmdbId": 1,
+          "extension": ".mkv"
+        },
+        "expected": "Movies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (2008) [tmdbid-1]/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (2008) [tmdbid-1].mkv"
+      },
+      {
+        "name": "a version that is empty after sanitizing is rejected",
+        "input": {
+          "kind": "movie",
+          "original": "Dune",
+          "year": 2021,
+          "version": "?",
+          "extension": ".mkv"
+        },
+        "expected": { "error": "version" }
+      },
+      {
+        "name": "a part of a movie with a version is rejected: they are exclusive",
+        "input": {
+          "kind": "movie",
+          "original": "Dune",
+          "year": 2021,
+          "part": 1,
+          "version": "2160p",
+          "extension": ".mkv"
+        },
+        "expected": { "error": "part" }
+      },
+      {
+        "name": "a negative part is rejected",
+        "input": {
+          "kind": "movie",
+          "original": "Dune",
+          "year": 2021,
+          "part": -1,
+          "extension": ".mkv"
+        },
+        "expected": { "error": "part" }
+      },
+      {
+        "name": "a movie without title is rejected",
+        "input": { "kind": "movie", "year": 2008, "tmdbId": 1726, "extension": ".mkv" },
+        "expected": { "error": "title" }
+      },
+      {
+        "name": "a negative year is rejected",
+        "input": { "kind": "movie", "original": "Dune", "year": -1, "extension": ".mkv" },
+        "expected": { "error": "year" }
+      },
+      {
+        "name": "a negative TMDB id is rejected",
+        "input": { "kind": "movie", "original": "Dune", "tmdbId": -5, "extension": ".mkv" },
+        "expected": { "error": "tmdbId" }
+      },
+      {
+        "name": "an extension without a dot is rejected",
+        "input": { "kind": "movie", "original": "Dune", "year": 2021, "extension": "mkv" },
+        "expected": { "error": "extension" }
+      },
+      {
+        "name": "a chapter is in the season folder of its series",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01 - Pilot.mkv"
+      },
+      {
+        "name": "the extension of a chapter is written in lower case",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+          "extension": ".MP4"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01 - Pilot.mp4"
+      },
+      {
+        "name": "a special goes to Season 00",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 0,
+          "episode": 1,
+          "chapters": [{ "english": "Good Cop Bad Cop" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 00/Breaking Bad (2008) - S00E01 - Good Cop Bad Cop.mkv"
+      },
+      {
+        "name": "several chapters join their codes and their titles",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "episodeEnd": 2,
+          "chapters": [
+            { "original": "Pilot", "english": "Pilot" },
+            { "original": "Cat's in the Bag...", "english": "Cat's in the Bag..." }
+          ],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01-E02 - Pilot + Cat's in the Bag.mkv"
+      },
+      {
+        "name": "chapters that differ only in a suffix collapse into their base",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "episodeEnd": 2,
+          "chapters": [{ "english": "The Finale (1)" }, { "english": "The Finale (2)" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01-E02 - The Finale.mkv"
+      },
+      {
+        "name": "a chapter without title leaves its segment out",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 3,
+          "chapters": [{ "original": "Episodio 3" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E03.mkv"
+      },
+      {
+        "name": "a chapter of 100 or more has three digits",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 105,
+          "chapters": [{ "english": "Pilot" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E105 - Pilot.mkv"
+      },
+      {
+        "name": "a chapter version keeps the dots of its title",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 2,
+          "chapters": [{ "original": "Cat's in the Bag...", "english": "Cat's in the Bag..." }],
+          "version": "2160p",
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E02 - Cat's in the Bag... - 2160p.mkv"
+      },
+      {
+        "name": "a chapter version of a chapter without title",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 2,
+          "chapters": [],
+          "version": "1080p",
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E02 - 1080p.mkv"
+      },
+      {
+        "name": "a title that needs sanitizing keeps its dots",
+        "input": {
+          "kind": "episode",
+          "original": "What If...?",
+          "year": 2021,
+          "tmdbId": 91363,
+          "season": 1,
+          "episode": 1,
+          "chapters": [
+            {
+              "original": "What If... Captain Carter Were the First Avenger?",
+              "english": "What If... Captain Carter Were the First Avenger?"
+            }
+          ],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/What If... (2021) [tmdbid-91363]/Season 01/What If... (2021) - S01E01 - What If... Captain Carter Were the First Avenger.mkv"
+      },
+      {
+        "name": "a colon, a slash and quotes in a chapter title are sanitized",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "chapters": [{ "english": "Who?: The \"Best\"/Worst" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01 - Who - The 'Best'-Worst.mkv"
+      },
+      {
+        "name": "a chapter title over 255 bytes is cut and the rest of the name stays",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "chapters": [
+            {
+              "english": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          ],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01 - bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mkv"
+      },
+      {
+        "name": "a non-Latin chapter takes its English title",
+        "input": {
+          "kind": "episode",
+          "original": "오징어 게임",
+          "english": "Squid Game",
+          "year": 2021,
+          "tmdbId": 93405,
+          "season": 1,
+          "episode": 1,
+          "chapters": [
+            { "original": "무궁화 꽃이 피었습니다", "english": "Red Light, Green Light" }
+          ],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Squid Game (2021) [tmdbid-93405]/Season 01/Squid Game (2021) - S01E01 - Red Light, Green Light.mkv"
+      },
+      {
+        "name": "a free series has no tag in its folder",
+        "input": {
+          "kind": "episode",
+          "original": "Mi serie",
+          "year": 2020,
+          "season": 1,
+          "episode": 1,
+          "chapters": [{ "original": "Piloto" }],
+          "extension": ".mkv"
+        },
+        "expected": "TV Shows/Mi serie (2020)/Season 01/Mi serie (2020) - S01E01 - Piloto.mkv"
+      },
+      {
+        "name": "a custom SERIES_DIR root replaces TV Shows",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "chapters": [{ "original": "Pilot" }],
+          "extension": ".mkv",
+          "roots": { "series": "Series" }
+        },
+        "expected": "Series/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01 - Pilot.mkv"
+      },
+      {
+        "name": "a chapter of number zero is rejected",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 0,
+          "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+          "extension": ".mkv"
+        },
+        "expected": { "error": "episode" }
+      },
+      {
+        "name": "an episode end before the first chapter is rejected",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 2,
+          "episodeEnd": 1,
+          "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+          "extension": ".mkv"
+        },
+        "expected": { "error": "episodeEnd" }
+      },
+      {
+        "name": "a negative season is rejected",
+        "input": {
+          "kind": "episode",
+          "original": "Breaking Bad",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": -1,
+          "episode": 1,
+          "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+          "extension": ".mkv"
+        },
+        "expected": { "error": "season" }
+      },
+      {
+        "name": "a series without title is rejected",
+        "input": {
+          "kind": "episode",
+          "year": 2008,
+          "tmdbId": 1396,
+          "season": 1,
+          "episode": 1,
+          "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+          "extension": ".mkv"
+        },
+        "expected": { "error": "title" }
+      },
+      {
+        "name": "a subtitle goes next to its movie, and es-MX is written as es-419",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "es-MX",
+          "extension": ".srt"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].es-419.srt"
+      },
+      {
+        "name": "es-ES is written as es",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "es-ES",
+          "extension": ".srt"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].es.srt"
+      },
+      {
+        "name": "a forced subtitle has the .forced flag",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "en",
+          "forced": true,
+          "extension": ".srt"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].en.forced.srt"
+      },
+      {
+        "name": "an SDH subtitle has the .sdh flag",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "en",
+          "sdh": true,
+          "extension": ".srt"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].en.sdh.srt"
+      },
+      {
+        "name": "a forced SDH subtitle has both flags, forced first",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "en-GB",
+          "forced": true,
+          "sdh": true,
+          "extension": ".srt"
+        },
+        "expected": "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].en.forced.sdh.srt"
+      },
+      {
+        "name": "a subtitle of a chapter has the name of the chapter",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "episode",
+            "original": "Breaking Bad",
+            "year": 2008,
+            "tmdbId": 1396,
+            "season": 1,
+            "episode": 1,
+            "chapters": [{ "original": "Pilot", "english": "Pilot" }],
+            "extension": ".mkv"
+          },
+          "language": "es-MX",
+          "forced": true,
+          "extension": ".srt"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01 - Pilot.es-419.forced.srt"
+      },
+      {
+        "name": "a subtitle of a version has the version in its name",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Blade Runner 2049",
+            "year": 2017,
+            "tmdbId": 335984,
+            "idTag": true,
+            "version": "2160p",
+            "extension": ".mkv"
+          },
+          "language": "pt-BR",
+          "extension": ".srt"
+        },
+        "expected": "Movies/Blade Runner 2049 (2017) [tmdbid-335984]/Blade Runner 2049 (2017) [tmdbid-335984] - 2160p.pt-BR.srt"
+      },
+      {
+        "name": "a subtitle of a part goes with the part",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Gone with the Wind",
+            "year": 1939,
+            "tmdbId": 770,
+            "idTag": true,
+            "part": 1,
+            "extension": ".mkv"
+          },
+          "language": "es-MX",
+          "extension": ".srt"
+        },
+        "expected": "Movies/Gone with the Wind (1939) [tmdbid-770]/Gone with the Wind (1939) [tmdbid-770] - part1.es-419.srt"
+      },
+      {
+        "name": "a subtitle of several chapters has the name of the file",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "episode",
+            "original": "Breaking Bad",
+            "year": 2008,
+            "tmdbId": 1396,
+            "season": 1,
+            "episode": 1,
+            "episodeEnd": 2,
+            "chapters": [
+              { "original": "Pilot", "english": "Pilot" },
+              { "original": "Cat's in the Bag...", "english": "Cat's in the Bag..." }
+            ],
+            "extension": ".mkv"
+          },
+          "language": "es",
+          "extension": ".srt"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 01/Breaking Bad (2008) - S01E01-E02 - Pilot + Cat's in the Bag.es.srt"
+      },
+      {
+        "name": "a subtitle of a special goes to Season 00",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "episode",
+            "original": "Breaking Bad",
+            "year": 2008,
+            "tmdbId": 1396,
+            "season": 0,
+            "episode": 1,
+            "chapters": [{ "english": "Good Cop Bad Cop" }],
+            "extension": ".mkv"
+          },
+          "language": "es",
+          "extension": ".ass"
+        },
+        "expected": "TV Shows/Breaking Bad (2008) [tmdbid-1396]/Season 00/Breaking Bad (2008) - S00E01 - Good Cop Bad Cop.es.ass"
+      },
+      {
+        "name": "a subtitle of a free movie has an upper-case extension written in lower case",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Mi película",
+            "year": 2019,
+            "extension": ".mp4"
+          },
+          "language": "es-AR",
+          "extension": ".SRT"
+        },
+        "expected": "Movies/Mi película (2019)/Mi película (2019).es-419.srt"
+      },
+      {
+        "name": "a subtitle in a three-letter language code is rejected",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "spa",
+          "extension": ".srt"
+        },
+        "expected": { "error": "language" }
+      },
+      {
+        "name": "a subtitle without extension is rejected",
+        "input": {
+          "kind": "subtitle",
+          "video": {
+            "kind": "movie",
+            "original": "Iron Man",
+            "year": 2008,
+            "tmdbId": 1726,
+            "extension": ".mkv"
+          },
+          "language": "es",
+          "extension": ""
+        },
+        "expected": { "error": "extension" }
       }
     ]
   }

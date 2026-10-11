@@ -27,16 +27,28 @@ var dashes = strings.NewReplacer("/", "-", `\`, "-", `"`, "'")
 //     trailing spaces and dots, of the whole component are removed, not those of each title
 //     in it: a name never starts with a dot (RF-28 hides dot names).
 func SanitizeName(s string) string {
+	return finishName(cleanChars(s))
+}
+
+// cleanChars applies the steps 1 to 5 of spec §5 to one piece of a name (a disc title, a
+// chapter title or a version). The pieces of a component are joined and then finished
+// with finishName, which applies step 6 to the whole component.
+func cleanChars(s string) string {
 	s = norm.NFC.String(s)
 	s = strings.ReplaceAll(s, ": ", " - ")
 	s = strings.ReplaceAll(s, ":", "-")
 	s = dashes.Replace(s)
-	s = strings.Map(func(r rune) rune {
+	return strings.Map(func(r rune) rune {
 		if strings.ContainsRune("?*<>|", r) || unicode.IsControl(r) {
 			return -1
 		}
 		return r
 	}, s)
+}
+
+// finishName applies the step 6 of spec §5 to a whole path component: each block of white
+// space becomes one space, and the leading and trailing spaces and dots are removed.
+func finishName(s string) string {
 	s = collapseSpaces(s)
 	return strings.TrimRight(strings.TrimLeft(s, " ."), " .")
 }
