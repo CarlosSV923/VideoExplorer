@@ -42,7 +42,7 @@ Depende de: 1 · Cubre: RF-21, RF-61, §6, §9.5
 Depende de: 1 · Cubre: RF-01 a RF-03, RF-09, RF-10, §9.6
 - [x] tusd en `/api/uploads/` (staging en `.videoexplorer/staging`), espacio libre, sesión
 - [x] Agregado `Batch`/`UploadJob` con relación (RF-03) y máquina de estados persistida; sustituye el consumidor provisional `logCompleted`; reserva de espacio de las subidas en curso y rechazo de 0 bytes (RF-09a)
-- [ ] `/api/jobs` y SSE de progreso; purga de 24 h (subidas abandonadas y staging huérfano liberan su trabajo y su reserva de espacio; trabajos `uploading` sin archivo y subidas completas cuyo trabajo quedó en `uploading` se reconcilian al arrancar y al purgar)
+- [~] `/api/jobs` y SSE de progreso; purga de 24 h (subidas abandonadas y staging huérfano liberan su trabajo y su reserva de espacio; trabajos `uploading` sin archivo y subidas completas cuyo trabajo quedó en `uploading` se reconcilian al arrancar y al purgar)
 
 ## Fase 4 — Contexto `ingestion` II: extracción, filtrado y análisis
 Depende de: 3 · Cubre: RF-04 a RF-08, RF-20, RF-23
