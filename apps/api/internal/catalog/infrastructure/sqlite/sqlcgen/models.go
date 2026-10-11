@@ -26,6 +26,14 @@ type MetadataCache struct {
 	ExpiresAt int64
 }
 
+type PartialHash struct {
+	Device  int64
+	Inode   int64
+	Size    int64
+	MtimeNs int64
+	Hash    string
+}
+
 type TrashEntry struct {
 	ID           int64
 	Origin       string
