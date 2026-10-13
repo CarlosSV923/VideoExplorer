@@ -65,7 +65,7 @@ Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 
 ## Fase 6 — No asignados, escaneo e importación
 Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
-- [ ] Lectura en vivo de `_unassigned/` al abrir la sección, estado «Copiando…»; archivos basura del sistema (`Thumbs.db`, `desktop.ini`, `.DS_Store`) no impiden vaciar una entrada al asignar
+- [~] Lectura en vivo de `_unassigned/` al abrir la sección (`GET` de la sección con entradas de subida y de Samba, «Copiando…», mandar a la papelera y borrar definitivamente por entrada y por archivo), estado «Copiando…»; archivos basura del sistema (`Thumbs.db`, `desktop.ini`, `.DS_Store`) no impiden vaciar una entrada al asignar
 - [ ] Comprimidos en `_unassigned/` procesados como subidas (RF-27a)
 - [ ] Escaneo periódico (dos intervalos) y «Escanear ahora»
 - [ ] Importación de `Movies/` y `TV Shows/` existentes; lo que no sigue el formato va a No asignados (el análisis de nombres debe extraer `[tmdbid-N]` de la carpeta, RF-29)
