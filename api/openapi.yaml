@@ -293,6 +293,33 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /jobs/{id}/dismiss:
+    post:
+      tags: [ingestion]
+      operationId: dismissJob
+      summary: Take a failed Samba copy off No asignados ("Quitar")
+      description: |
+        Takes a copy of Samba that failed without Reintentar off the section (RF-27a). Its job, and the
+        jobs of its volumes, stop being listed in `GET /unassigned`, and stay in `GET /jobs` with the same
+        `id`. Nothing is deleted: the copy went to the trash when it failed (RF-30). Answers 409 for any
+        other job: an upload, a job that is not failed, or one that failed with a reason Reintentar can
+        fix.
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The job, which the section no longer lists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadJob'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /images/{kind}/{file}:
     get:
       tags: [images]
@@ -1063,7 +1090,8 @@ components:
             The jobs of the compressed files that Samba copied into `_unassigned/` (RF-27a), one per unit: the
             job of the first volume of a set. A job is listed while its content has not reached No asignados,
             the trash or a cancellation; a failed one stays listed, with its reason, so that its password or
-            its retry can be sent. Each item is the object `GET /jobs` lists, with the same `id`.
+            its retry can be sent, until it is taken off with `POST /jobs/{id}/dismiss`. Each item is the object
+            `GET /jobs` lists, with the same `id`.
           items:
             $ref: '#/components/schemas/UploadJob'
     UnassignedEntry:

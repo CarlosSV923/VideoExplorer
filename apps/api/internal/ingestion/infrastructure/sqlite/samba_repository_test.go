@@ -123,3 +123,25 @@ func TestDeletingAJobAndItsBatchForgetsBoth(t *testing.T) {
 		t.Fatalf("Get deleted batch: %v, want ErrBatchNotFound", err)
 	}
 }
+
+func TestADismissedCopyIsKeptButNotOpen(t *testing.T) {
+	t.Parallel()
+
+	conn := open(t, t.TempDir())
+	r := &repos{batches: sqlite.NewBatchRepository(conn), jobs: sqlite.NewJobRepository(conn)}
+	_, job := sambaJob(t, r, "b-dismissed", "j-dismissed", domain.StatusFailed)
+	job.Error = domain.FailureLegacyVolume
+	job.Dismissed = true
+	if err := r.jobs.Save(t.Context(), job); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	open, err := r.jobs.OpenSamba(t.Context())
+	if err != nil || len(open) != 0 {
+		t.Fatalf("OpenSamba = %d jobs, %v; a dismissed copy is not listed", len(open), err)
+	}
+	got, err := r.jobs.Get(t.Context(), job.ID)
+	if err != nil || !got.Dismissed {
+		t.Fatalf("Get = %+v, %v; the dismissed flag must be kept", got, err)
+	}
+}

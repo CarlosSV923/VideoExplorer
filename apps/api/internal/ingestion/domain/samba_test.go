@@ -185,3 +185,40 @@ func TestSambaBatchAndJobKeepTheirOrigin(t *testing.T) {
 		})
 	}
 }
+
+func TestOnlyAFailedSambaCopyThatARetryCannotFixIsDismissable(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 13, 9, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		origin domain.BatchOrigin
+		status domain.Status
+		reason domain.FailureReason
+		want   bool
+	}{
+		{name: "a failed copy that a retry cannot fix", origin: domain.OriginSamba, status: domain.StatusFailed, reason: domain.FailureLegacyVolume, want: true},
+		{name: "a failed copy with a missing part", origin: domain.OriginSamba, status: domain.StatusFailed, reason: domain.FailurePartsMissing, want: true},
+		{name: "a failed copy that a retry can fix", origin: domain.OriginSamba, status: domain.StatusFailed, reason: domain.FailureArchiveCorrupt},
+		{name: "a copy that is still uploading", origin: domain.OriginSamba, status: domain.StatusUploading},
+		{name: "a copy that needs its password", origin: domain.OriginSamba, status: domain.StatusNeedsPassword},
+		{name: "a failed upload", origin: domain.OriginUpload, status: domain.StatusFailed, reason: domain.FailureLegacyVolume},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			j := &domain.UploadJob{ID: "j", FileName: "movie.zip", Origin: tt.origin, Status: tt.status, Error: tt.reason}
+			if got := j.Dismissable(); got != tt.want {
+				t.Fatalf("Dismissable = %v, want %v", got, tt.want)
+			}
+			err := j.Dismiss(now)
+			if (err == nil) != tt.want {
+				t.Fatalf("Dismiss error = %v, want refused=%v", err, !tt.want)
+			}
+			if err == nil && !j.Dismissed {
+				t.Fatal("Dismiss did not mark the job")
+			}
+		})
+	}
+}

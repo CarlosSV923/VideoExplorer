@@ -227,3 +227,36 @@ func (s *Service) SambaJobs(ctx context.Context) ([]domain.JobView, error) {
 	}
 	return out, nil
 }
+
+// DismissSamba takes a failed copy of Samba off No asignados ("Quitar", RF-27a). The unit is the job and
+// the jobs of its volumes: each is marked, once all of them can be (domain.ErrNotDismissable otherwise, and
+// nothing changes). The job stays in the jobs history; the section stops listing it.
+func (s *Service) DismissSamba(ctx context.Context, id domain.JobID) (domain.JobView, error) {
+	job, err := s.Job(ctx, id)
+	if err != nil {
+		return domain.JobView{}, err
+	}
+	if !job.IsSamba() {
+		return domain.JobView{}, fmt.Errorf("%w: not a copy of Samba", domain.ErrNotDismissable)
+	}
+	unit, err := s.jobs.ByBatch(ctx, job.BatchID)
+	if err != nil {
+		return domain.JobView{}, err
+	}
+	for _, j := range unit {
+		if !j.Dismissable() {
+			return domain.JobView{}, fmt.Errorf("%w: %s (%q)", domain.ErrNotDismissable, j.Status, j.Error)
+		}
+	}
+	for _, j := range unit {
+		if _, err := s.mutateChanged(ctx, j.ID, func(x *domain.UploadJob) (bool, error) {
+			if x.Dismissed {
+				return false, nil
+			}
+			return true, x.Dismiss(s.now())
+		}); err != nil {
+			return domain.JobView{}, err
+		}
+	}
+	return s.reloaded(ctx, id)
+}

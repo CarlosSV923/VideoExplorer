@@ -225,6 +225,91 @@ func TestASetWithAHoleFailsAsMissingParts(t *testing.T) {
 	if views[0].Job.Status != domain.StatusFailed || views[0].Job.Error != domain.FailurePartsMissing {
 		t.Fatalf("set is %s (%q), want failed parts_missing", views[0].Job.Status, views[0].Job.Error)
 	}
+
+	// Nothing is deleted: the three copies went to the trash, each with origin samba (RF-27a).
+	puts := r.trash.puts()
+	if len(puts) != 3 {
+		t.Fatalf("trash holds %d copies, want the 3 volumes", len(puts))
+	}
+	for _, p := range puts {
+		if p.Origin != application.TrashOriginSamba || p.Reason != application.TrashReasonRemoved {
+			t.Fatalf("copy %s trashed as origin %q reason %q, want samba and removed", p.Name, p.Origin, p.Reason)
+		}
+	}
+}
+
+func TestALegacyVolumeOfSambaGoesToTheTrash(t *testing.T) {
+	t.Parallel()
+
+	// The workers run here, so that the extraction ends the copy's job by itself.
+	clk := &virtualClock{t: time.Date(2026, time.October, 13, 9, 0, 0, 0, time.UTC)}
+	r := newRig(t, sevenzip.New(""), 1<<40, true, clk)
+	f := &fakeSamba{}
+	r.svc.WithSamba(f)
+	lib := t.TempDir()
+	f.copy(t, lib, "movie.r00", "", []byte("an old volume"), false)
+
+	if n, err := r.svc.AdoptSamba(t.Context()); err != nil || n != 1 {
+		t.Fatalf("AdoptSamba = %d, %v; want the old volume taken as a unit", n, err)
+	}
+	views, err := r.svc.SambaJobs(t.Context())
+	if err != nil || len(views) != 1 {
+		t.Fatalf("SambaJobs = %v, %v; want the copy's job", views, err)
+	}
+	id := views[0].Job.ID
+	// The copy goes to the trash before its job is marked failed, and the job is then failed (RF-27a).
+	r.waitFor(t, id, "the copy failed", func(j domain.UploadJob) bool { return j.Status == domain.StatusFailed })
+	r.waitTrashed(t, 1)
+	put := r.trash.puts()[0]
+	if put.Origin != application.TrashOriginSamba || put.Reason != application.TrashReasonRemoved || put.Name != "movie.r00" {
+		t.Fatalf("trashed %+v, want the copy with origin samba and reason removed", put)
+	}
+	if j, err := r.svc.Job(t.Context(), id); err != nil || j.Error != domain.FailureLegacyVolume {
+		t.Fatalf("job = %+v, %v; want failed legacy_volume", j, err)
+	}
+}
+
+func TestOnlyAFailedSambaCopyThatARetryCannotFixIsDismissed(t *testing.T) {
+	t.Parallel()
+
+	r, f, lib := sambaRig(t)
+	for _, i := range []int{1, 2, 4} {
+		name := "movie.7z.00" + string(rune('0'+i))
+		f.copy(t, lib, "Pack/"+name, "Pack/"+name, sevenZipVolume(i), false)
+	}
+	f.copy(t, lib, "single.zip", "", videoZip(t), false)
+	if _, err := r.svc.AdoptSamba(t.Context()); err != nil {
+		t.Fatalf("AdoptSamba: %v", err)
+	}
+	views, err := r.svc.SambaJobs(t.Context())
+	if err != nil || len(views) != 2 {
+		t.Fatalf("SambaJobs = %d, %v; want the failed set and the uploaded archive", len(views), err)
+	}
+	var failedSet, uploaded domain.JobID
+	for _, v := range views {
+		if v.Job.Status == domain.StatusFailed {
+			failedSet = v.Job.ID
+		} else {
+			uploaded = v.Job.ID
+		}
+	}
+
+	if _, err := r.svc.DismissSamba(t.Context(), uploaded); !errors.Is(err, domain.ErrNotDismissable) {
+		t.Fatalf("dismissing a copy that is still uploaded = %v, want ErrNotDismissable", err)
+	}
+	if _, err := r.svc.DismissSamba(t.Context(), "no-such-job"); !errors.Is(err, domain.ErrJobNotFound) {
+		t.Fatalf("dismissing an unknown job = %v, want ErrJobNotFound", err)
+	}
+	if _, err := r.svc.DismissSamba(t.Context(), failedSet); err != nil {
+		t.Fatalf("DismissSamba of the failed set: %v", err)
+	}
+	if views, _ := r.svc.SambaJobs(t.Context()); len(views) != 1 || views[0].Job.ID != uploaded {
+		t.Fatalf("the section lists %d jobs after the dismissal, want only the uploaded copy", len(views))
+	}
+	history, err := r.svc.List(t.Context())
+	if err != nil || len(history) != 4 {
+		t.Fatalf("GET /jobs lists %d jobs, %v; a dismissed job stays in the history (want 4)", len(history), err)
+	}
 }
 
 func TestATakeThatIsRefusedLeavesNoJobBehind(t *testing.T) {

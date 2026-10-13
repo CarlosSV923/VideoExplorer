@@ -931,7 +931,8 @@ type UnassignedSection struct {
 	// Jobs The jobs of the compressed files that Samba copied into `_unassigned/` (RF-27a), one per unit: the
 	// job of the first volume of a set. A job is listed while its content has not reached No asignados,
 	// the trash or a cancellation; a failed one stays listed, with its reason, so that its password or
-	// its retry can be sent. Each item is the object `GET /jobs` lists, with the same `id`.
+	// its retry can be sent, until it is taken off with `POST /jobs/{id}/dismiss`. Each item is the object
+	// `GET /jobs` lists, with the same `id`.
 	Jobs []UploadJob `json:"jobs"`
 }
 
@@ -1142,6 +1143,9 @@ type ServerInterface interface {
 	// StreamJobEvents Live upload job changes (server-sent events, RF-10b)
 	// (GET /jobs/events)
 	StreamJobEvents(w http.ResponseWriter, r *http.Request)
+	// DismissJob Take a failed Samba copy off No asignados ("Quitar")
+	// (POST /jobs/{id}/dismiss)
+	DismissJob(w http.ResponseWriter, r *http.Request, id JobId)
 	// SubmitJobPassword Send the password of an encrypted archive
 	// (POST /jobs/{id}/password)
 	SubmitJobPassword(w http.ResponseWriter, r *http.Request, id JobId)
@@ -1316,6 +1320,32 @@ func (siw *ServerInterfaceWrapper) StreamJobEvents(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.StreamJobEvents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissJob operation middleware
+func (siw *ServerInterfaceWrapper) DismissJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id JobId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissJob(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1920,6 +1950,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/jobs/events", wrapper.StreamJobEvents)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/password", wrapper.SubmitJobPassword)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/retry", wrapper.RetryJob)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/dismiss", wrapper.DismissJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/images/{kind}/{file}", wrapper.GetImage)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/unassigned/{id}/lock", wrapper.ReleaseAssignLock)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/lock", wrapper.TakeAssignLock)
@@ -2395,6 +2426,76 @@ func (response StreamJobEvents401ApplicationProblemPlusJSONResponse) VisitStream
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissJobRequestObject struct {
+	Id JobId `json:"id"`
+}
+
+type DismissJobResponseObject interface {
+	VisitDismissJobResponse(w http.ResponseWriter) error
+}
+
+type DismissJob200JSONResponse UploadJob
+
+func (response DismissJob200JSONResponse) VisitDismissJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissJob401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DismissJob401ApplicationProblemPlusJSONResponse) VisitDismissJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissJob404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DismissJob404ApplicationProblemPlusJSONResponse) VisitDismissJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissJob409ApplicationProblemPlusJSONResponse struct {
+	ConflictApplicationProblemPlusJSONResponse
+}
+
+func (response DismissJob409ApplicationProblemPlusJSONResponse) VisitDismissJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3344,6 +3445,9 @@ type StrictServerInterface interface {
 	// StreamJobEvents Live upload job changes (server-sent events, RF-10b)
 	// (GET /jobs/events)
 	StreamJobEvents(ctx context.Context, request StreamJobEventsRequestObject) (StreamJobEventsResponseObject, error)
+	// DismissJob Take a failed Samba copy off No asignados ("Quitar")
+	// (POST /jobs/{id}/dismiss)
+	DismissJob(ctx context.Context, request DismissJobRequestObject) (DismissJobResponseObject, error)
 	// SubmitJobPassword Send the password of an encrypted archive
 	// (POST /jobs/{id}/password)
 	SubmitJobPassword(ctx context.Context, request SubmitJobPasswordRequestObject) (SubmitJobPasswordResponseObject, error)
@@ -3626,6 +3730,32 @@ func (sh *strictHandler) StreamJobEvents(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(StreamJobEventsResponseObject); ok {
 		if err := validResponse.VisitStreamJobEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissJob operation middleware
+func (sh *strictHandler) DismissJob(w http.ResponseWriter, r *http.Request, id JobId) {
+	var request DismissJobRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissJob(ctx, request.(DismissJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissJobResponseObject); ok {
+		if err := validResponse.VisitDismissJobResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -200,7 +200,15 @@ func groupByUnit(jobs []*domain.UploadJob) [][]*domain.UploadJob {
 // original of an archive is removed only once its move to the trash is done: if that move
 // fails now, the unit fails with trash_failed and keeps everything (RF-08a).
 func (s *Service) endEmpty(ctx context.Context, unit []*domain.UploadJob, keeps bool) {
-	if s.extracted(unit[0]) {
+	samba := unit[0].IsSamba()
+	switch {
+	case samba && !keeps:
+		// A Samba copy that ends without anything to keep goes to the trash, never deleted (RF-27a). When that
+		// move fails the copy stays in staging, and the job ends anyway: nothing is lost.
+		if err := s.discardCopies(ctx, unit); err != nil && ctx.Err() == nil {
+			s.log.Error("samba copy not sent to the trash; it stays in staging", "job", unit[0].ID, "error", err)
+		}
+	case s.extracted(unit[0]):
 		if err := s.trashOriginals(ctx, unit); err != nil {
 			if ctx.Err() == nil {
 				if ferr := s.failTrash(ctx, unit, err); ferr != nil && ctx.Err() == nil {
@@ -211,7 +219,9 @@ func (s *Service) endEmpty(ctx context.Context, unit []*domain.UploadJob, keeps 
 		}
 	}
 	s.removeExtraction(leaderOf(unit[0]))
-	s.removeArchives(ctx, unit)
+	if !samba {
+		s.removeArchives(ctx, unit) // a Samba copy is never deleted: it went to the trash above, or it stays (RF-27a)
+	}
 	var err error
 	state := domain.StatusDiscarded
 	if keeps {

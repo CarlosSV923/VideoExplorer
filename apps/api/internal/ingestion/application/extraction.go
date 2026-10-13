@@ -471,12 +471,13 @@ func (s *Service) stop(ctx context.Context, unit []*domain.UploadJob, cause erro
 
 // fail ends the job, or every volume of its set, with the reason, and deletes
 // what was extracted. The archive is kept when the reason admits a retry
-// (RF-10c); otherwise it is deleted too.
+// (RF-10c); otherwise an upload's archive is deleted, and a Samba copy goes to
+// the trash (RF-27a).
 func (s *Service) fail(ctx context.Context, unit []*domain.UploadJob, reason domain.FailureReason, cause error) error {
 	s.removeExtraction(leaderOf(unit[0]))
 	s.log.Info("extraction failed", "job", unit[0].ID, "reason", reason, "detail", cause.Error())
 	if !reason.RetriesExtraction() {
-		s.removeArchives(ctx, unit)
+		s.discardFailed(ctx, unit) // the copy of a Samba file goes to the trash, never deleted (RF-27a)
 	}
 	err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.Fail(reason, now)

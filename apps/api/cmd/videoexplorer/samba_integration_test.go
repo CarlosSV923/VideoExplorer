@@ -335,6 +335,30 @@ func TestAMultipartSetOfSambaIsOneEntryAndAnIncompleteOneFails(t *testing.T) {
 		if got.Jobs[0].Error == nil || string(*got.Jobs[0].Error) != "parts_missing" {
 			t.Fatalf("incomplete set fails with %v, want parts_missing", got.Jobs[0].Error)
 		}
+		// The copies of the failed set are in the trash, not deleted (RF-27a).
+		for _, name := range []string{"movie.7z.001", "movie.7z.003"} {
+			if !e.inTrash(name) {
+				t.Fatalf("%s is not in the trash after the set failed", name)
+			}
+		}
+		// "Quitar" takes the set off the section; the job stays in the history of the jobs (RF-27a).
+		if _, err := e.ingest.DismissSamba(e.t.Context(), ingestiondomain.JobID(got.Jobs[0].Id)); err != nil {
+			t.Fatalf("DismissSamba: %v", err)
+		}
+		if s := e.read(); len(s.Jobs) != 0 {
+			t.Fatalf("the section still lists the dismissed set: %s", describe(s))
+		}
+		history, err := e.ingest.List(e.t.Context())
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		found := false
+		for _, v := range history {
+			found = found || string(v.Job.ID) == got.Jobs[0].Id
+		}
+		if !found {
+			t.Fatal("the dismissed set left the jobs history")
+		}
 	})
 }
 

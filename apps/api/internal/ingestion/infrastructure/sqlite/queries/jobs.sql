@@ -6,7 +6,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 SELECT * FROM upload_jobs WHERE id = ?;
 
 -- name: SaveUploadJob :exec
-UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume_group = ?, filter_done = ?, updated_at = ? WHERE id = ?;
+UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume_group = ?, filter_done = ?, dismissed = ?, updated_at = ? WHERE id = ?;
 
 -- name: ListRecentUploadJobs :many
 SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.progress, j.status, j.error,
@@ -33,7 +33,7 @@ SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE id = ?);
 SELECT * FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid;
 
 -- name: ListOpenSambaUploadJobs :many
-SELECT * FROM upload_jobs WHERE origin = 'samba' AND status NOT IN ('done', 'discarded', 'cancelled') ORDER BY created_at, rowid;
+SELECT * FROM upload_jobs WHERE origin = 'samba' AND status NOT IN ('done', 'discarded', 'cancelled') AND dismissed = 0 ORDER BY created_at, rowid;
 
 -- name: DeleteUploadJob :exec
 DELETE FROM upload_jobs WHERE id = ?;

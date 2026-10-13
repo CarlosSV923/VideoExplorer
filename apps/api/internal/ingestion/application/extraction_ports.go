@@ -131,9 +131,13 @@ type Trash interface {
 
 // Origin and reason values that ingestion sends to the trash.
 const (
-	TrashOriginUpload    = "upload"
+	TrashOriginUpload = "upload"
+	// TrashOriginSamba is the origin of the copy of a failed Samba file (RF-27a).
+	TrashOriginSamba     = "samba"
 	TrashReasonExtracted = "extracted"
 	TrashReasonFiltered  = "filtered"
+	// TrashReasonRemoved is the reason of a copy of Samba that failed without Reintentar (RF-27a).
+	TrashReasonRemoved = "removed"
 )
 
 // TrashPut is one file that goes to the trash.

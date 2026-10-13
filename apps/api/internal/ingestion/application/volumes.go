@@ -127,6 +127,14 @@ func (s *Service) refuseSet(ctx context.Context, waiting []*domain.UploadJob) er
 
 // refuseSetAs ends the waiting volumes of a set with the reason, and deletes their files.
 func (s *Service) refuseSetAs(ctx context.Context, waiting []*domain.UploadJob, reason domain.FailureReason) error {
+	samba := len(waiting) > 0 && waiting[0].IsSamba()
+	if samba {
+		// The volumes of a Samba set go to the trash before the set is marked failed, so that a restart
+		// between the two never leaves a failed set with its copies still in staging (RF-27a).
+		if err := s.discardCopies(ctx, waiting); err != nil && ctx.Err() == nil {
+			s.log.Error("samba volumes not sent to the trash; they stay in staging", "set", waiting[0].VolumeSet, "error", err)
+		}
+	}
 	for _, v := range waiting {
 		if err := v.Fail(reason, s.now()); err != nil {
 			return err
@@ -134,8 +142,10 @@ func (s *Service) refuseSetAs(ctx context.Context, waiting []*domain.UploadJob, 
 		if err := s.saveAnnounce(ctx, v); err != nil {
 			return err
 		}
-		if err := s.staging.Remove(ctx, v.ID); err != nil {
-			s.log.Warn("volume not removed", "job", v.ID, "error", err)
+		if !samba {
+			if err := s.staging.Remove(ctx, v.ID); err != nil {
+				s.log.Warn("volume not removed", "job", v.ID, "error", err)
+			}
 		}
 	}
 	return nil
@@ -240,7 +250,12 @@ func (s *Service) partsMissing(ctx context.Context, cutoff time.Time) (int, erro
 			if j.Status != domain.StatusWaitingParts || !j.UpdatedAt.Before(cutoff) {
 				return false, nil
 			}
-			if err := s.staging.Remove(ctx, j.ID); err != nil {
+			if j.IsSamba() {
+				// The copy of a Samba volume goes to the trash, never deleted (RF-27a).
+				if err := s.discardCopies(ctx, []*domain.UploadJob{j}); err != nil && ctx.Err() == nil {
+					s.log.Error("samba volume not sent to the trash; it stays in staging", "job", j.ID, "error", err)
+				}
+			} else if err := s.staging.Remove(ctx, j.ID); err != nil {
 				return false, fmt.Errorf("remove volume %s: %w", j.ID, err)
 			}
 			return true, j.Fail(domain.FailurePartsMissing, s.now())

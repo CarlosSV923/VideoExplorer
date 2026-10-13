@@ -58,7 +58,7 @@ func (r *JobRepository) Get(ctx context.Context, id domain.JobID) (*domain.Uploa
 	return toDomain(jobRow{
 		ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 		Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
-		PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
+		PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0, Dismissed: row.Dismissed != 0,
 		Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 }
@@ -71,9 +71,9 @@ func (r *JobRepository) Save(ctx context.Context, j *domain.UploadJob) error {
 		Received:    j.Received,
 		Progress:    int64(j.Progress),
 		VolumeGroup: j.VolumeGroup,
-		FilterDone:  boolInt(j.FilterDone),
-		UpdatedAt:   formatTime(j.UpdatedAt),
-		ID:          string(j.ID),
+		FilterDone:  boolInt(j.FilterDone), Dismissed: boolInt(j.Dismissed),
+		UpdatedAt: formatTime(j.UpdatedAt),
+		ID:        string(j.ID),
 	})
 	if err != nil {
 		return fmt.Errorf("ingestion: save upload job: %w", err)
@@ -205,6 +205,7 @@ type jobRow struct {
 	PartsTotal, VolumeIndex             int64
 	VolumeSet, VolumeGroup              string
 	FilterDone                          bool
+	Dismissed                           bool
 	Origin                              string
 	CreatedAt, UpdatedAt                string
 }
@@ -215,7 +216,7 @@ func toDomainAll(rows []sqlcgen.UploadJob) ([]*domain.UploadJob, error) {
 		j, err := toDomain(jobRow{
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
-			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
+			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0, Dismissed: row.Dismissed != 0,
 			Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
@@ -247,10 +248,10 @@ func toDomain(row jobRow) (*domain.UploadJob, error) {
 		VolumeSet:    row.VolumeSet,
 		VolumeIndex:  int(row.VolumeIndex),
 		VolumeGroup:  row.VolumeGroup,
-		FilterDone:   row.FilterDone,
-		Origin:       domain.BatchOrigin(row.Origin),
-		CreatedAt:    created,
-		UpdatedAt:    updated,
+		FilterDone:   row.FilterDone, Dismissed: row.Dismissed,
+		Origin:    domain.BatchOrigin(row.Origin),
+		CreatedAt: created,
+		UpdatedAt: updated,
 	}, nil
 }
 

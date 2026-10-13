@@ -222,6 +222,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a failed Samba copy off No asignados ("Quitar")
+         * @description Takes a copy of Samba that failed without Reintentar off the section (RF-27a). Its job, and the
+         *     jobs of its volumes, stop being listed in `GET /unassigned`, and stay in `GET /jobs` with the same
+         *     `id`. Nothing is deleted: the copy went to the trash when it failed (RF-30). Answers 409 for any
+         *     other job: an upload, a job that is not failed, or one that failed with a reason Reintentar can
+         *     fix.
+         */
+        post: operations["dismissJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/images/{kind}/{file}": {
         parameters: {
             query?: never;
@@ -703,7 +727,8 @@ export interface components {
              * @description The jobs of the compressed files that Samba copied into `_unassigned/` (RF-27a), one per unit: the
              *     job of the first volume of a set. A job is listed while its content has not reached No asignados,
              *     the trash or a cancellation; a failed one stays listed, with its reason, so that its password or
-             *     its retry can be sent. Each item is the object `GET /jobs` lists, with the same `id`.
+             *     its retry can be sent, until it is taken off with `POST /jobs/{id}/dismiss`. Each item is the object
+             *     `GET /jobs` lists, with the same `id`.
              */
             jobs: components["schemas"]["UploadJob"][];
         };
@@ -1321,6 +1346,32 @@ export interface operations {
         responses: {
             /** @description The retry was queued; the job is `extracting` again. */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadJob"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    dismissJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job id, the id of its tus upload (`GET /jobs`). */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job, which the section no longer lists. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

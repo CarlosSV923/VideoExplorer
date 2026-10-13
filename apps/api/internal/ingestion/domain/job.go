@@ -191,6 +191,9 @@ type UploadJob struct {
 	// Origin is the origin of its batch (RF-27a). A job of origin samba has no tus
 	// upload: the server made its id, and its staged file is the one Samba copied.
 	Origin BatchOrigin
+	// Dismissed says a failed Samba copy was taken off No asignados with "Quitar" (RF-27a). The job
+	// stays in the history of the jobs.
+	Dismissed bool
 	// FilterDone marks a job whose content the filter has been through (RF-07): what
 	// it keeps is in the filter's records and the job waits for the step that moves
 	// it to No asignados. It is internal: the API does not show it.
@@ -266,6 +269,25 @@ func (j *UploadJob) IsVolume() bool { return j.VolumeSet != "" }
 
 // IsSamba reports whether the job came from a compressed file that Samba copied (RF-27a).
 func (j *UploadJob) IsSamba() bool { return j.Origin == OriginSamba }
+
+// ErrNotDismissable means a job cannot be taken off No asignados: only a failed Samba copy that
+// Reintentar does not fix can (RF-27a).
+var ErrNotDismissable = errors.New("job cannot be dismissed")
+
+// Dismissable reports whether the job may be taken off No asignados with "Quitar" (RF-27a): a copy of
+// Samba that failed for a reason that a retry cannot fix. Its copy is already in the trash.
+func (j *UploadJob) Dismissable() bool {
+	return j.IsSamba() && j.Status == StatusFailed && !j.Error.Retryable()
+}
+
+// Dismiss takes a failed Samba copy off No asignados (RF-27a). It refuses any other job.
+func (j *UploadJob) Dismiss(now time.Time) error {
+	if !j.Dismissable() {
+		return fmt.Errorf("%w: %s (%q)", ErrNotDismissable, j.Status, j.Error)
+	}
+	j.Dismissed, j.UpdatedAt = true, now
+	return nil
+}
 
 // WaitForParts parks a volume until the other volumes of its set arrive
 // (uploaded → waiting_parts, RF-10a).

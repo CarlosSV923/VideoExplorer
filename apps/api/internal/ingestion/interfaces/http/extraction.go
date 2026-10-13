@@ -72,3 +72,24 @@ func (h *Handler) RetryJob(ctx context.Context, req httpapi.RetryJobRequestObjec
 	}
 	return httpapi.RetryJob202JSONResponse(JobToAPI(view)), nil
 }
+
+// DismissJob implements httpapi.StrictServerInterface (RF-27a, "Quitar"): a failed copy of Samba that a retry
+// cannot fix leaves No asignados. Any other job answers 409.
+func (h *Handler) DismissJob(ctx context.Context, req httpapi.DismissJobRequestObject) (httpapi.DismissJobResponseObject, error) {
+	view, err := h.svc.DismissSamba(ctx, domain.JobID(req.Id))
+	switch {
+	case errors.Is(err, domain.ErrJobNotFound):
+		return httpapi.DismissJob404ApplicationProblemPlusJSONResponse{
+			NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(
+				problem(http.StatusNotFound, "Not Found", "No upload has that id.")),
+		}, nil
+	case errors.Is(err, domain.ErrNotDismissable):
+		return httpapi.DismissJob409ApplicationProblemPlusJSONResponse{
+			ConflictApplicationProblemPlusJSONResponse: httpapi.ConflictApplicationProblemPlusJSONResponse(
+				problem(http.StatusConflict, "Conflict", "The job cannot be taken off: it is not a failed copy of Samba that a retry cannot fix.")),
+		}, nil
+	case err != nil:
+		return nil, err
+	}
+	return httpapi.DismissJob200JSONResponse(JobToAPI(view)), nil
+}

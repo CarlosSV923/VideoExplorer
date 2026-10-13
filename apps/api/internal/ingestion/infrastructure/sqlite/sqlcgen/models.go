@@ -144,4 +144,5 @@ type UploadJob struct {
 	VolumeGroup  string
 	FilterDone   int64
 	Origin       string
+	Dismissed    int64
 }
