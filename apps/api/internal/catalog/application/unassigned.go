@@ -18,6 +18,13 @@ var ErrNoFiles = errors.New("an unassigned entry needs at least one file")
 type UnassignedRepository interface {
 	// BySource returns the entry recorded for source, with its files, and whether there is one.
 	BySource(ctx context.Context, source string) (domain.UnassignedEntry, bool, error)
+	// ByID returns the entry with this id, with its files and its lock, and whether there is one.
+	ByID(ctx context.Context, id int64) (domain.UnassignedEntry, bool, error)
+	// Lock takes the assignment lock of entry id for token until until, when the entry is free,
+	// its lock has expired at now, or token holds it (a renewal). It reports whether it did.
+	Lock(ctx context.Context, id int64, token string, now, until time.Time) (bool, error)
+	// Unlock frees the lock of entry id when token holds it; another token changes nothing.
+	Unlock(ctx context.Context, id int64, token string) error
 	// Names returns the names of every recorded entry.
 	Names(ctx context.Context) ([]string, error)
 }

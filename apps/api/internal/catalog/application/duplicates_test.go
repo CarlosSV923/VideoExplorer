@@ -31,6 +31,10 @@ func (r *libRepo) TitleByFolder(_ context.Context, folder string) (domain.Librar
 	return r.title, true, nil
 }
 
+func (r *libRepo) Titles(context.Context) ([]domain.LibraryTitle, error) {
+	return []domain.LibraryTitle{r.title}, nil
+}
+
 func (r *libRepo) Files(context.Context, int64) ([]domain.LibraryFile, error) {
 	return r.files, nil
 }

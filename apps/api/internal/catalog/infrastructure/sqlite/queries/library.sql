@@ -23,7 +23,11 @@ WHERE f.title_id = ?
 ORDER BY f.id;
 
 -- name: MoveLibraryFile :exec
-UPDATE library_files SET rel = ? WHERE id = ?;
+UPDATE library_files SET rel = ?, version = ? WHERE id = ?;
 
 -- name: TrashLibraryFile :exec
 UPDATE library_files SET trash_entry_id = ? WHERE id = ?;
+
+-- name: ListLibraryTitles :many
+SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, updated_at
+FROM library_titles ORDER BY id;

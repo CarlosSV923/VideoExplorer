@@ -106,6 +106,8 @@ type UnassignedEntry struct {
 	Relation  string
 	Origin    string
 	CreatedAt string
+	LockToken string
+	LockUntil int64
 }
 
 type UnassignedFile struct {

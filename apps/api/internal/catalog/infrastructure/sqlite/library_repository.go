@@ -49,6 +49,31 @@ func (r *LibraryRepository) TitleByFolder(ctx context.Context, folder string) (d
 	}, true, nil
 }
 
+// Titles implements application.LibraryRepository: every title of the registry, oldest first.
+func (r *LibraryRepository) Titles(ctx context.Context) ([]domain.LibraryTitle, error) {
+	rows, err := r.q.ListLibraryTitles(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: list library titles: %w", err)
+	}
+	titles := make([]domain.LibraryTitle, 0, len(rows))
+	for _, row := range rows {
+		created, err := time.Parse(timeLayout, row.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("catalog: library title time: %w", err)
+		}
+		updated, err := time.Parse(timeLayout, row.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("catalog: library title time: %w", err)
+		}
+		titles = append(titles, domain.LibraryTitle{
+			ID: row.ID, Kind: domain.TitleKind(row.Kind), Title: row.Title, DiscTitle: row.DiscTitle,
+			Year: int(row.Year), TMDBID: row.TmdbID.Int64, IDTag: row.IDTag != 0, Folder: row.Folder,
+			CreatedAt: created, UpdatedAt: updated,
+		})
+	}
+	return titles, nil
+}
+
 // Files implements application.LibraryRepository: every file of the title, trashed ones included.
 func (r *LibraryRepository) Files(ctx context.Context, titleID int64) ([]domain.LibraryFile, error) {
 	rows, err := r.q.ListLibraryFiles(ctx, titleID)

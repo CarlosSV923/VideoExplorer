@@ -47,6 +47,8 @@ type UnassignedEntry struct {
 	Relation  string
 	Origin    string
 	CreatedAt time.Time
+	// Lock is the lock an open assignment holds on the entry (RF-26); the zero value is free.
+	Lock AssignLock
 	// Files are the files of the entry, in the order they were recorded.
 	Files []UnassignedFile
 }

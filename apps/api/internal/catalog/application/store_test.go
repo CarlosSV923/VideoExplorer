@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
@@ -23,6 +25,7 @@ type memStore struct {
 	entries     []domain.UnassignedEntry
 	titles      []domain.LibraryTitle
 	files       []domain.LibraryFile
+	removed     map[int64]bool
 	failRecords bool
 }
 
@@ -66,8 +69,8 @@ func (m *memStore) AddUnassignedFiles(_ context.Context, id int64, files []domai
 func (m *memStore) BySource(_ context.Context, source string) (domain.UnassignedEntry, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for _, e := range m.entries {
-		if e.Source == source {
+	for i, e := range m.entries {
+		if e.Source == source && !m.removed[int64(i+1)] {
 			return cloneEntry(e), true, nil
 		}
 	}
@@ -78,8 +81,10 @@ func (m *memStore) Names(context.Context) ([]string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var names []string
-	for _, e := range m.entries {
-		names = append(names, e.Name)
+	for i, e := range m.entries {
+		if !m.removed[int64(i+1)] {
+			names = append(names, e.Name)
+		}
 	}
 	return names, nil
 }
@@ -93,7 +98,7 @@ func (m *memStore) entry(id int64) *domain.UnassignedEntry {
 func (m *memStore) count() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return len(m.entries)
+	return len(m.entries) - len(m.removed)
 }
 
 func cloneEntry(e domain.UnassignedEntry) domain.UnassignedEntry {
@@ -372,15 +377,126 @@ func (m *memStore) InsertLibraryFiles(_ context.Context, titleID int64, files []
 }
 
 // MoveLibraryFile implements Records.
-func (m *memStore) MoveLibraryFile(_ context.Context, id int64, rel string) error {
+func (m *memStore) MoveLibraryFile(_ context.Context, id int64, rel, version string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for i := range m.files {
 		if m.files[i].ID == id {
 			m.files[i].Rel = rel
+			m.files[i].Version = version
 		}
 	}
 	return nil
+}
+
+// ByID implements UnassignedRepository.
+func (m *memStore) ByID(_ context.Context, id int64) (domain.UnassignedEntry, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.live(id); e != nil {
+		return cloneEntry(*e), true, nil
+	}
+	return domain.UnassignedEntry{}, false, nil
+}
+
+// Lock implements UnassignedRepository: the lock is taken when it is free, expired or held by token.
+func (m *memStore) Lock(_ context.Context, id int64, token string, now, until time.Time) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e := m.live(id)
+	if e == nil {
+		return false, nil
+	}
+	if e.Lock.Token != "" && e.Lock.Held(now) && e.Lock.Token != token {
+		return false, nil
+	}
+	e.Lock = domain.AssignLock{Token: token, Until: until}
+	return true, nil
+}
+
+// Unlock implements UnassignedRepository: only the token that holds the lock frees it.
+func (m *memStore) Unlock(_ context.Context, id int64, token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.live(id); e != nil && e.Lock.Token == token {
+		e.Lock = domain.AssignLock{}
+	}
+	return nil
+}
+
+// TitleByFolder implements LibraryRepository.
+func (m *memStore) TitleByFolder(_ context.Context, folder string) (domain.LibraryTitle, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, t := range m.titles {
+		if strings.EqualFold(t.Folder, folder) {
+			return t, true, nil
+		}
+	}
+	return domain.LibraryTitle{}, false, nil
+}
+
+// Files implements LibraryRepository: every file of the title, trashed ones included.
+func (m *memStore) Files(_ context.Context, titleID int64) ([]domain.LibraryFile, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []domain.LibraryFile
+	for _, f := range m.files {
+		if f.TitleID == titleID {
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+
+// Titles implements LibraryRepository.
+func (m *memStore) Titles(context.Context) ([]domain.LibraryTitle, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]domain.LibraryTitle(nil), m.titles...), nil
+}
+
+// RemoveUnassignedFiles implements Records: the files that left the entry are forgotten.
+func (m *memStore) RemoveUnassignedFiles(_ context.Context, entryID int64, sources []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e := m.entry(entryID)
+	var kept []domain.UnassignedFile
+	for _, f := range e.Files {
+		if !slices.Contains(sources, f.Source) {
+			kept = append(kept, f)
+		}
+	}
+	e.Files = kept
+	return nil
+}
+
+// DeleteUnassignedEntry implements Records. The slot of the entry stays, so the ids keep their index.
+func (m *memStore) DeleteUnassignedEntry(_ context.Context, entryID int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.removed == nil {
+		m.removed = map[int64]bool{}
+	}
+	m.removed[entryID] = true
+	return nil
+}
+
+// ReleaseAssignLock implements Records.
+func (m *memStore) ReleaseAssignLock(_ context.Context, entryID int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entry(entryID).Lock = domain.AssignLock{}
+	return nil
+}
+
+// live returns the stored entry with the id, or nil when there is none or it was deleted. The
+// caller holds the lock.
+func (m *memStore) live(id int64) *domain.UnassignedEntry {
+	if id < 1 || id > int64(len(m.entries)) || m.removed[id] {
+		return nil
+	}
+	return &m.entries[id-1]
 }
 
 // TrashLibraryFiles implements Records.

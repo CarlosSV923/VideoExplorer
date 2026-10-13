@@ -167,7 +167,7 @@ func decisionBuild(ctx context.Context, plan domain.DecisionPlan, now time.Time,
 				if m.ID == 0 {
 					continue
 				}
-				if err := rec.MoveLibraryFile(ctx, m.ID, m.To); err != nil {
+				if err := rec.MoveLibraryFile(ctx, m.ID, m.To, m.Version); err != nil {
 					return err
 				}
 			}

@@ -90,6 +90,8 @@ type Move struct {
 	From string
 	To   string
 	Size int64
+	// Version is the label a renamed video takes (RF-24); "" for the other moves.
+	Version string
 }
 
 // DecisionPlan is what a decision does to the library, step by step (RF-24).
@@ -218,7 +220,7 @@ func renameWithVersion(o Occupant, version string) ([]Move, error) {
 	if len(newStem)+len(ext) > MaxNameBytes {
 		return nil, &NameError{Field: "version"}
 	}
-	out := []Move{{ID: o.Video.ID, From: o.Video.Rel, To: dir + newStem + ext, Size: o.Video.Size}}
+	out := []Move{{ID: o.Video.ID, From: o.Video.Rel, To: dir + newStem + ext, Size: o.Video.Size, Version: version}}
 	for _, s := range o.Subtitles {
 		suffix, ok := SubtitleSuffix(o.Video.Rel, s.Rel)
 		if !ok {
@@ -231,6 +233,36 @@ func renameWithVersion(o Occupant, version string) ([]Move, error) {
 		out = append(out, Move{ID: s.ID, From: s.Rel, To: dir + newName, Size: s.Size})
 	}
 	return out, nil
+}
+
+// PlanPlacement plans the placement of new videos that take no place with anything in the library
+// (no duplicate, RF-24): each video and its subtitles go to their final paths, without a version.
+// The plan has no decision.
+func PlanPlacement(incoming []Incoming) (DecisionPlan, error) {
+	var plan DecisionPlan
+	for _, in := range incoming {
+		if in.Version != "" {
+			return DecisionPlan{}, fmt.Errorf("%w: a video with no duplicate takes no version", ErrInvalidLibrary)
+		}
+		moves, err := placeIncoming(in, "")
+		if err != nil {
+			return DecisionPlan{}, err
+		}
+		plan.Place = append(plan.Place, moves...)
+	}
+	return plan, nil
+}
+
+// ProposeVersion returns the label that a new video would take among the occupants of its place,
+// as Keep both proposes it (RF-24): the label is computed over all the versions, so an incomplete
+// one is reported with Incomplete set and the user completes it.
+func ProposeVersion(occupants []Occupant, in Incoming) VersionLabel {
+	media := make([]VersionMedia, 0, len(occupants)+1)
+	for _, o := range occupants {
+		media = append(media, o.Media)
+	}
+	media = append(media, in.Media)
+	return VersionLabels(media)[len(occupants)]
 }
 
 // placeIncoming returns the moves that place a new video and its subtitles at their final paths

@@ -14,4 +14,6 @@ type LibraryRepository interface {
 	TitleByFolder(ctx context.Context, folder string) (domain.LibraryTitle, bool, error)
 	// Files returns every file of the title, trashed ones included (their TrashEntryID is set).
 	Files(ctx context.Context, titleID int64) ([]domain.LibraryFile, error)
+	// Titles returns every title of the registry (RF-21: the search of Asignar looks in them first).
+	Titles(ctx context.Context) ([]domain.LibraryTitle, error)
 }

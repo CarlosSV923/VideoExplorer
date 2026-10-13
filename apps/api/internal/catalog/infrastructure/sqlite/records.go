@@ -138,9 +138,35 @@ func (r records) InsertLibraryFiles(ctx context.Context, titleID int64, files []
 }
 
 // MoveLibraryFile implements application.Records.
-func (r records) MoveLibraryFile(ctx context.Context, id int64, rel string) error {
-	if err := r.q.MoveLibraryFile(ctx, sqlcgen.MoveLibraryFileParams{Rel: rel, ID: id}); err != nil {
+func (r records) MoveLibraryFile(ctx context.Context, id int64, rel, version string) error {
+	if err := r.q.MoveLibraryFile(ctx, sqlcgen.MoveLibraryFileParams{Rel: rel, Version: version, ID: id}); err != nil {
 		return fmt.Errorf("catalog: move library file: %w", err)
+	}
+	return nil
+}
+
+// RemoveUnassignedFiles implements application.Records: the files that left the entry.
+func (r records) RemoveUnassignedFiles(ctx context.Context, entryID int64, sources []string) error {
+	for _, s := range sources {
+		if err := r.q.DeleteUnassignedFile(ctx, sqlcgen.DeleteUnassignedFileParams{EntryID: entryID, Source: s}); err != nil {
+			return fmt.Errorf("catalog: remove unassigned file: %w", err)
+		}
+	}
+	return nil
+}
+
+// DeleteUnassignedEntry implements application.Records.
+func (r records) DeleteUnassignedEntry(ctx context.Context, entryID int64) error {
+	if err := r.q.DeleteUnassignedEntry(ctx, entryID); err != nil {
+		return fmt.Errorf("catalog: delete unassigned entry: %w", err)
+	}
+	return nil
+}
+
+// ReleaseAssignLock implements application.Records.
+func (r records) ReleaseAssignLock(ctx context.Context, entryID int64) error {
+	if err := r.q.ClearUnassignedLock(ctx, entryID); err != nil {
+		return fmt.Errorf("catalog: clear assign lock: %w", err)
 	}
 	return nil
 }

@@ -101,8 +101,16 @@ type Records interface {
 	// InsertLibraryFiles stores files of a title, in order. A subtitle's video must be stored
 	// before it, in the same change or earlier (RF-23).
 	InsertLibraryFiles(ctx context.Context, titleID int64, files []domain.LibraryFile) error
-	// MoveLibraryFile records the new path of a registered file that the change renamed.
-	MoveLibraryFile(ctx context.Context, id int64, rel string) error
+	// MoveLibraryFile records the new path and version of a registered file that the change
+	// renamed. A subtitle, or a video without a version, gives version "".
+	MoveLibraryFile(ctx context.Context, id int64, rel, version string) error
+	// RemoveUnassignedFiles forgets the files that left an entry of No asignados (sources are
+	// their staging paths, the key of each file of the entry).
+	RemoveUnassignedFiles(ctx context.Context, entryID int64, sources []string) error
+	// DeleteUnassignedEntry forgets an entry of No asignados that is empty now.
+	DeleteUnassignedEntry(ctx context.Context, entryID int64) error
+	// ReleaseAssignLock frees the lock an assignment holds on an entry (RF-26).
+	ReleaseAssignLock(ctx context.Context, entryID int64) error
 	// TrashLibraryFiles records that the files are in the trash entry entryID (RF-30).
 	TrashLibraryFiles(ctx context.Context, ids []int64, entryID int64) error
 }
@@ -146,7 +154,14 @@ type Builder struct {
 	// created and freed hold the paths (lowercased) that a planned step creates or moves away from.
 	created, freed map[string]bool
 	scratch        int
-	record         func(Records) error
+	// records are the catalog records of the change, written in order by its commit.
+	records []func(Records) error
+}
+
+// RemoveDir plans the removal of dir, which must be empty when the change runs (RNF-04).
+// Its parents are not removed.
+func (b *Builder) RemoveDir(dir string) {
+	b.add(domain.Step{Kind: domain.StepRemoveDir, From: dir})
 }
 
 // Mkdir plans the creation of dir and of its missing parents, top first. A folder that
@@ -204,8 +219,9 @@ func (b *Builder) Move(from, to string) error {
 	return nil
 }
 
-// Record sets the catalog records of the change, written in the commit (see Journal.Commit).
-func (b *Builder) Record(fn func(Records) error) { b.record = fn }
+// Record adds a catalog record of the change, written in the commit after the ones added
+// before it (see Journal.Commit).
+func (b *Builder) Record(fn func(Records) error) { b.records = append(b.records, fn) }
 
 func (b *Builder) add(s domain.Step) {
 	switch s.Kind {
@@ -214,6 +230,8 @@ func (b *Builder) add(s domain.Step) {
 	case domain.StepRename:
 		b.freed[strings.ToLower(s.From)] = true
 		b.created[strings.ToLower(s.To)] = true
+	case domain.StepRemoveDir:
+		b.freed[strings.ToLower(s.From)] = true
 	}
 	b.steps = append(b.steps, s)
 }
@@ -244,7 +262,7 @@ func (e *Engine) Do(ctx context.Context, kind, source string, build func(*Builde
 	if err := plan.Validate(); err != nil {
 		return err
 	}
-	if len(plan.Steps) == 0 && b.record == nil {
+	if len(plan.Steps) == 0 && len(b.records) == 0 {
 		return nil
 	}
 	if err := e.checkTargets(plan); err != nil {
@@ -265,9 +283,14 @@ func (e *Engine) Do(ctx context.Context, kind, source string, build func(*Builde
 		}
 	}
 
-	record := b.record
-	if record == nil {
-		record = func(Records) error { return nil }
+	records := b.records
+	record := func(rec Records) error {
+		for _, fn := range records {
+			if err := fn(rec); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	if err := e.journal.Commit(ctx, op.ID, record); err != nil {
 		return e.fail(ctx, op, fmt.Errorf("catalog: record the change: %w", err))

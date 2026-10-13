@@ -195,17 +195,57 @@ func (q *Queries) ListLibraryFiles(ctx context.Context, titleID int64) ([]ListLi
 	return items, nil
 }
 
+const listLibraryTitles = `-- name: ListLibraryTitles :many
+SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, updated_at
+FROM library_titles ORDER BY id
+`
+
+func (q *Queries) ListLibraryTitles(ctx context.Context) ([]LibraryTitle, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryTitles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LibraryTitle
+	for rows.Next() {
+		var i LibraryTitle
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Title,
+			&i.DiscTitle,
+			&i.Year,
+			&i.TmdbID,
+			&i.IDTag,
+			&i.Folder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const moveLibraryFile = `-- name: MoveLibraryFile :exec
-UPDATE library_files SET rel = ? WHERE id = ?
+UPDATE library_files SET rel = ?, version = ? WHERE id = ?
 `
 
 type MoveLibraryFileParams struct {
-	Rel string
-	ID  int64
+	Rel     string
+	Version string
+	ID      int64
 }
 
 func (q *Queries) MoveLibraryFile(ctx context.Context, arg MoveLibraryFileParams) error {
-	_, err := q.db.ExecContext(ctx, moveLibraryFile, arg.Rel, arg.ID)
+	_, err := q.db.ExecContext(ctx, moveLibraryFile, arg.Rel, arg.Version, arg.ID)
 	return err
 }
 

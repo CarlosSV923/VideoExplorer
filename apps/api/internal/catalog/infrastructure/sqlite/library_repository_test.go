@@ -233,7 +233,7 @@ func TestLibraryMovesAndTrashesFilesAndKeepsTheirSubtitles(t *testing.T) {
 	}
 	var entryID int64
 	err = commitLibrary(t.Context(), conn, func(r application.Records) error {
-		if err := r.MoveLibraryFile(t.Context(), videoID, newRel); err != nil {
+		if err := r.MoveLibraryFile(t.Context(), videoID, newRel, "2160p"); err != nil {
 			return err
 		}
 		var err error

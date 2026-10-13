@@ -178,6 +178,20 @@ func SubtitlePath(videoPath string, s Subtitle) (string, error) {
 	return path.Join(dir, stem+suffix+ext), nil
 }
 
+// TitleFolder returns the folder of a title under root (spec §5): <root>/<T> (<A>)<ids>. It is the
+// folder that the movie and chapter paths of the title share, so it names the title in the registry.
+func TitleFolder(root string, t Title) (string, error) {
+	r, err := rootOf(root)
+	if err != nil {
+		return "", err
+	}
+	head, year, tag, err := titleParts(t)
+	if err != nil {
+		return "", err
+	}
+	return path.Join(r, fitHead(head, year+tag, "")), nil
+}
+
 // titleParts checks a title and returns its disc title, ready to be joined (steps 1 to 5 of
 // spec §5), the year part " (<A>)" and the tag part " [tmdbid-ID]", each "" when it is left out.
 func titleParts(t Title) (head, year, tag string, err error) {

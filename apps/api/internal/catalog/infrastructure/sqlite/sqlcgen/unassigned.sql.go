@@ -9,8 +9,62 @@ import (
 	"context"
 )
 
+const clearUnassignedLock = `-- name: ClearUnassignedLock :exec
+UPDATE unassigned_entries SET lock_token = '', lock_until = 0 WHERE id = ?
+`
+
+func (q *Queries) ClearUnassignedLock(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, clearUnassignedLock, id)
+	return err
+}
+
+const deleteUnassignedEntry = `-- name: DeleteUnassignedEntry :exec
+DELETE FROM unassigned_entries WHERE id = ?
+`
+
+func (q *Queries) DeleteUnassignedEntry(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteUnassignedEntry, id)
+	return err
+}
+
+const deleteUnassignedFile = `-- name: DeleteUnassignedFile :exec
+DELETE FROM unassigned_files WHERE entry_id = ? AND source = ?
+`
+
+type DeleteUnassignedFileParams struct {
+	EntryID int64
+	Source  string
+}
+
+func (q *Queries) DeleteUnassignedFile(ctx context.Context, arg DeleteUnassignedFileParams) error {
+	_, err := q.db.ExecContext(ctx, deleteUnassignedFile, arg.EntryID, arg.Source)
+	return err
+}
+
+const getUnassignedEntryByID = `-- name: GetUnassignedEntryByID :one
+SELECT id, source, name, loose, batch_id, relation, origin, created_at, lock_token, lock_until FROM unassigned_entries WHERE id = ?
+`
+
+func (q *Queries) GetUnassignedEntryByID(ctx context.Context, id int64) (UnassignedEntry, error) {
+	row := q.db.QueryRowContext(ctx, getUnassignedEntryByID, id)
+	var i UnassignedEntry
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.Name,
+		&i.Loose,
+		&i.BatchID,
+		&i.Relation,
+		&i.Origin,
+		&i.CreatedAt,
+		&i.LockToken,
+		&i.LockUntil,
+	)
+	return i, err
+}
+
 const getUnassignedEntryBySource = `-- name: GetUnassignedEntryBySource :one
-SELECT id, source, name, loose, batch_id, relation, origin, created_at FROM unassigned_entries WHERE source = ?
+SELECT id, source, name, loose, batch_id, relation, origin, created_at, lock_token, lock_until FROM unassigned_entries WHERE source = ?
 `
 
 func (q *Queries) GetUnassignedEntryBySource(ctx context.Context, source string) (UnassignedEntry, error) {
@@ -25,6 +79,8 @@ func (q *Queries) GetUnassignedEntryBySource(ctx context.Context, source string)
 		&i.Relation,
 		&i.Origin,
 		&i.CreatedAt,
+		&i.LockToken,
+		&i.LockUntil,
 	)
 	return i, err
 }
@@ -137,4 +193,44 @@ func (q *Queries) ListUnassignedNames(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const releaseUnassignedLock = `-- name: ReleaseUnassignedLock :exec
+UPDATE unassigned_entries SET lock_token = '', lock_until = 0 WHERE id = ? AND lock_token = ?
+`
+
+type ReleaseUnassignedLockParams struct {
+	ID        int64
+	LockToken string
+}
+
+func (q *Queries) ReleaseUnassignedLock(ctx context.Context, arg ReleaseUnassignedLockParams) error {
+	_, err := q.db.ExecContext(ctx, releaseUnassignedLock, arg.ID, arg.LockToken)
+	return err
+}
+
+const takeUnassignedLock = `-- name: TakeUnassignedLock :execrows
+UPDATE unassigned_entries SET lock_token = ?, lock_until = ? WHERE id = ? AND (lock_token = '' OR lock_until <= ? OR lock_token = ?)
+`
+
+type TakeUnassignedLockParams struct {
+	LockToken   string
+	LockUntil   int64
+	ID          int64
+	LockUntil_2 int64
+	LockToken_2 string
+}
+
+func (q *Queries) TakeUnassignedLock(ctx context.Context, arg TakeUnassignedLockParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, takeUnassignedLock,
+		arg.LockToken,
+		arg.LockUntil,
+		arg.ID,
+		arg.LockUntil_2,
+		arg.LockToken_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

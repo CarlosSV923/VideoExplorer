@@ -13,7 +13,8 @@ import (
 )
 
 // UnassignedRepository implements application.UnassignedRepository. The entries are written
-// by the commit of the change that moves them in (see records).
+// by the commit of the change that moves them in (see records); the lock of an assignment is
+// written by Lock and Unlock, outside any change.
 type UnassignedRepository struct {
 	q *sqlcgen.Queries
 }
@@ -34,22 +35,91 @@ func (r *UnassignedRepository) BySource(ctx context.Context, source string) (dom
 	if err != nil {
 		return domain.UnassignedEntry{}, false, fmt.Errorf("catalog: read unassigned entry: %w", err)
 	}
-	created, err := time.Parse(timeLayout, row.CreatedAt)
+	return r.withFiles(ctx, entryFields{
+		id: row.ID, source: row.Source, name: row.Name, loose: row.Loose, batchID: row.BatchID,
+		relation: row.Relation, origin: row.Origin, createdAt: row.CreatedAt,
+		lockToken: row.LockToken, lockUntil: row.LockUntil,
+	})
+}
+
+// ByID implements application.UnassignedRepository.
+func (r *UnassignedRepository) ByID(ctx context.Context, id int64) (domain.UnassignedEntry, bool, error) {
+	row, err := r.q.GetUnassignedEntryByID(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.UnassignedEntry{}, false, nil
+	}
+	if err != nil {
+		return domain.UnassignedEntry{}, false, fmt.Errorf("catalog: read unassigned entry: %w", err)
+	}
+	return r.withFiles(ctx, entryFields{
+		id: row.ID, source: row.Source, name: row.Name, loose: row.Loose, batchID: row.BatchID,
+		relation: row.Relation, origin: row.Origin, createdAt: row.CreatedAt,
+		lockToken: row.LockToken, lockUntil: row.LockUntil,
+	})
+}
+
+// entryFields are the columns of an entry, whichever query read them.
+type entryFields struct {
+	id                        int64
+	source, name              string
+	loose                     int64
+	batchID, relation, origin string
+	createdAt                 string
+	lockToken                 string
+	lockUntil                 int64
+}
+
+// withFiles builds the entry from its columns and reads its files.
+func (r *UnassignedRepository) withFiles(ctx context.Context, f entryFields) (domain.UnassignedEntry, bool, error) {
+	created, err := time.Parse(timeLayout, f.createdAt)
 	if err != nil {
 		return domain.UnassignedEntry{}, false, fmt.Errorf("catalog: unassigned entry time: %w", err)
 	}
 	entry := domain.UnassignedEntry{
-		ID: row.ID, Source: row.Source, Name: row.Name, Loose: row.Loose != 0,
-		BatchID: row.BatchID, Relation: row.Relation, Origin: row.Origin, CreatedAt: created,
+		ID: f.id, Source: f.source, Name: f.name, Loose: f.loose != 0,
+		BatchID: f.batchID, Relation: f.relation, Origin: f.origin, CreatedAt: created,
+		Lock: lockOf(f.lockToken, f.lockUntil),
 	}
-	files, err := r.q.ListUnassignedFiles(ctx, row.ID)
+	files, err := r.q.ListUnassignedFiles(ctx, f.id)
 	if err != nil {
 		return domain.UnassignedEntry{}, false, fmt.Errorf("catalog: list unassigned files: %w", err)
 	}
-	for _, f := range files {
-		entry.Files = append(entry.Files, domain.UnassignedFile{Source: f.Source, Rel: f.Rel, Size: f.Size})
+	for _, file := range files {
+		entry.Files = append(entry.Files, domain.UnassignedFile{Source: file.Source, Rel: file.Rel, Size: file.Size})
 	}
 	return entry, true, nil
+}
+
+// lockOf reads the lock columns: an empty token is a free entry.
+func lockOf(token string, untilMillis int64) domain.AssignLock {
+	if token == "" {
+		return domain.AssignLock{}
+	}
+	return domain.AssignLock{Token: token, Until: time.UnixMilli(untilMillis)}
+}
+
+// Lock implements application.UnassignedRepository: it takes the lock for token until until
+// when the entry is free, its lock has expired at now, or token already holds it (a renewal).
+func (r *UnassignedRepository) Lock(ctx context.Context, id int64, token string, now, until time.Time) (bool, error) {
+	n, err := r.q.TakeUnassignedLock(ctx, sqlcgen.TakeUnassignedLockParams{
+		LockToken:   token,
+		LockUntil:   until.UnixMilli(),
+		ID:          id,
+		LockUntil_2: now.UnixMilli(),
+		LockToken_2: token,
+	})
+	if err != nil {
+		return false, fmt.Errorf("catalog: take assign lock: %w", err)
+	}
+	return n == 1, nil
+}
+
+// Unlock implements application.UnassignedRepository: it frees the lock only when token holds it.
+func (r *UnassignedRepository) Unlock(ctx context.Context, id int64, token string) error {
+	if err := r.q.ReleaseUnassignedLock(ctx, sqlcgen.ReleaseUnassignedLockParams{ID: id, LockToken: token}); err != nil {
+		return fmt.Errorf("catalog: release assign lock: %w", err)
+	}
+	return nil
 }
 
 // Names implements application.UnassignedRepository.
