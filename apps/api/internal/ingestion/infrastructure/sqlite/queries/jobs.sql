@@ -1,6 +1,6 @@
 -- name: CreateUploadJob :exec
-INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, origin, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetUploadJob :one
 SELECT * FROM upload_jobs WHERE id = ?;
@@ -10,8 +10,8 @@ UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume
 
 -- name: ListRecentUploadJobs :many
 SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.progress, j.status, j.error,
-       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.created_at, j.updated_at,
-       b.name AS batch_name, b.relation AS batch_relation, b.created_at AS batch_created_at
+       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.origin, j.created_at, j.updated_at,
+       b.name AS batch_name, b.relation AS batch_relation, b.origin AS batch_origin, b.created_at AS batch_created_at
 FROM upload_jobs j
 JOIN upload_batches b ON b.id = j.batch_id
 ORDER BY j.created_at DESC, j.rowid DESC
@@ -31,6 +31,12 @@ SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE id = ?);
 
 -- name: ListUploadJobsByBatch :many
 SELECT * FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid;
+
+-- name: ListOpenSambaUploadJobs :many
+SELECT * FROM upload_jobs WHERE origin = 'samba' AND status NOT IN ('done', 'discarded', 'cancelled') ORDER BY created_at, rowid;
+
+-- name: DeleteUploadJob :exec
+DELETE FROM upload_jobs WHERE id = ?;
 
 -- name: BatchHasOpenUploadJobs :one
 SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE batch_id = ? AND status IN ('uploading', 'uploaded', 'waiting_parts', 'extracting', 'needs_password'));

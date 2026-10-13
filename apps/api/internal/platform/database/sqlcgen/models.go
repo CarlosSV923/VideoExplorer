@@ -123,6 +123,7 @@ type UploadBatch struct {
 	Name      string
 	Relation  string
 	CreatedAt string
+	Origin    string
 }
 
 type UploadJob struct {
@@ -142,4 +143,5 @@ type UploadJob struct {
 	VolumeIndex  int64
 	VolumeGroup  string
 	FilterDone   int64
+	Origin       string
 }

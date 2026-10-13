@@ -21,9 +21,9 @@ func TestNewBatch(t *testing.T) {
 		want      domain.Batch
 		wantErr   bool
 	}{
-		{name: "single file without relation", id: "b1", relation: domain.RelationNone, want: domain.Batch{ID: "b1", Relation: domain.RelationNone, CreatedAt: now}},
-		{name: "parts with a folder name", id: "b2", batchName: "  Iron Man  ", relation: domain.RelationParts, want: domain.Batch{ID: "b2", Name: "Iron Man", Relation: domain.RelationParts, CreatedAt: now}},
-		{name: "episodes", id: "b3", batchName: "Breaking Bad S01", relation: domain.RelationEpisodes, want: domain.Batch{ID: "b3", Name: "Breaking Bad S01", Relation: domain.RelationEpisodes, CreatedAt: now}},
+		{name: "single file without relation", id: "b1", relation: domain.RelationNone, want: domain.Batch{ID: "b1", Relation: domain.RelationNone, Origin: domain.OriginUpload, CreatedAt: now}},
+		{name: "parts with a folder name", id: "b2", batchName: "  Iron Man  ", relation: domain.RelationParts, want: domain.Batch{ID: "b2", Name: "Iron Man", Relation: domain.RelationParts, Origin: domain.OriginUpload, CreatedAt: now}},
+		{name: "episodes", id: "b3", batchName: "Breaking Bad S01", relation: domain.RelationEpisodes, want: domain.Batch{ID: "b3", Name: "Breaking Bad S01", Relation: domain.RelationEpisodes, Origin: domain.OriginUpload, CreatedAt: now}},
 		{name: "unknown relation", id: "b4", relation: "r00", wantErr: true},
 		{name: "empty relation", id: "b5", relation: "", wantErr: true},
 		{name: "id with a slash", id: "a/b", relation: domain.RelationNone, wantErr: true},

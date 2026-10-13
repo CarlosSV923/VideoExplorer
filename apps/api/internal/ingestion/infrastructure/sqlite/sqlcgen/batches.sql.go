@@ -10,13 +10,14 @@ import (
 )
 
 const createBatch = `-- name: CreateBatch :exec
-INSERT INTO upload_batches (id, name, relation, created_at) VALUES (?, ?, ?, ?)
+INSERT INTO upload_batches (id, name, relation, origin, created_at) VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateBatchParams struct {
 	ID        string
 	Name      string
 	Relation  string
+	Origin    string
 	CreatedAt string
 }
 
@@ -25,22 +26,41 @@ func (q *Queries) CreateBatch(ctx context.Context, arg CreateBatchParams) error 
 		arg.ID,
 		arg.Name,
 		arg.Relation,
+		arg.Origin,
 		arg.CreatedAt,
 	)
 	return err
 }
 
-const getBatch = `-- name: GetBatch :one
-SELECT id, name, relation, created_at FROM upload_batches WHERE id = ?
+const deleteBatch = `-- name: DeleteBatch :exec
+DELETE FROM upload_batches WHERE id = ?
 `
 
-func (q *Queries) GetBatch(ctx context.Context, id string) (UploadBatch, error) {
+func (q *Queries) DeleteBatch(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteBatch, id)
+	return err
+}
+
+const getBatch = `-- name: GetBatch :one
+SELECT id, name, relation, origin, created_at FROM upload_batches WHERE id = ?
+`
+
+type GetBatchRow struct {
+	ID        string
+	Name      string
+	Relation  string
+	Origin    string
+	CreatedAt string
+}
+
+func (q *Queries) GetBatch(ctx context.Context, id string) (GetBatchRow, error) {
 	row := q.db.QueryRowContext(ctx, getBatch, id)
-	var i UploadBatch
+	var i GetBatchRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Relation,
+		&i.Origin,
 		&i.CreatedAt,
 	)
 	return i, err

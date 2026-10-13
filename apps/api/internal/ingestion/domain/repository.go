@@ -10,6 +10,8 @@ type BatchRepository interface {
 	Create(ctx context.Context, batch *Batch) error
 	// Get returns ErrBatchNotFound when no batch has the id.
 	Get(ctx context.Context, id BatchID) (*Batch, error)
+	// Delete removes a batch that no job refers to any more (RF-27a: an adoption that did not move its file).
+	Delete(ctx context.Context, id BatchID) error
 }
 
 // JobRepository persists upload jobs.
@@ -36,6 +38,11 @@ type JobRepository interface {
 	Unsettled(ctx context.Context, batch BatchID) (bool, error)
 	// Exists reports whether a job has the id.
 	Exists(ctx context.Context, id JobID) (bool, error)
+	// Delete removes a job that never got its file (RF-27a): the adoption of a Samba copy that did not move.
+	Delete(ctx context.Context, id JobID) error
+	// OpenSamba returns the jobs of the compressed files Samba copied that have not ended in No asignados,
+	// the trash or a cancellation, oldest first (RF-27a).
+	OpenSamba(ctx context.Context) ([]*UploadJob, error)
 }
 
 // FilterRepository persists what the filter found, so that a restart goes on where it

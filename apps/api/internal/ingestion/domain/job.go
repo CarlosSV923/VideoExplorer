@@ -6,6 +6,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -187,6 +188,9 @@ type UploadJob struct {
 	// VolumeGroup is the extraction of the set this volume is part of, once the
 	// set is complete: the id of its first volume. Empty while the volume waits.
 	VolumeGroup string
+	// Origin is the origin of its batch (RF-27a). A job of origin samba has no tus
+	// upload: the server made its id, and its staged file is the one Samba copied.
+	Origin BatchOrigin
 	// FilterDone marks a job whose content the filter has been through (RF-07): what
 	// it keeps is in the filter's records and the job waits for the step that moves
 	// it to No asignados. It is internal: the API does not show it.
@@ -225,6 +229,7 @@ func NewUploadJob(id JobID, meta UploadMeta, size int64, now time.Time) (*Upload
 		Size:         size,
 		Status:       StatusUploading,
 		PartsTotal:   meta.PartsTotal,
+		Origin:       OriginUpload,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -234,8 +239,33 @@ func NewUploadJob(id JobID, meta UploadMeta, size int64, now time.Time) (*Upload
 	return job, nil
 }
 
+// NewSambaJob starts the job of a compressed file that Samba copied (RF-27a), in the batch
+// NewSambaBatch made for it. It goes through the same checks as an upload, and starts
+// uploading: that is the state in which the file reaches its staging folder, which the
+// adoption does in one change of the library. partsTotal is the number of volumes of its set,
+// which is required for a volume and zero for any other file.
+func NewSambaJob(id JobID, batch BatchID, fileName string, size int64, partsTotal int, now time.Time) (*UploadJob, error) {
+	parts := ""
+	if _, isVolume := ParseVolume(fileName); isVolume && partsTotal > 0 {
+		parts = strconv.Itoa(partsTotal)
+	}
+	meta, err := NewUploadMeta(fileName, "", string(batch), parts)
+	if err != nil {
+		return nil, err
+	}
+	job, err := NewUploadJob(id, meta, size, now)
+	if err != nil {
+		return nil, err
+	}
+	job.Origin = OriginSamba
+	return job, nil
+}
+
 // IsVolume reports whether the job is a volume of a multi-volume archive (RF-03).
 func (j *UploadJob) IsVolume() bool { return j.VolumeSet != "" }
+
+// IsSamba reports whether the job came from a compressed file that Samba copied (RF-27a).
+func (j *UploadJob) IsSamba() bool { return j.Origin == OriginSamba }
 
 // WaitForParts parks a volume until the other volumes of its set arrive
 // (uploaded → waiting_parts, RF-10a).

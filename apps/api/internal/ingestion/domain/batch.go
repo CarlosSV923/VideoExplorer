@@ -49,6 +49,8 @@ type Batch struct {
 	// name (RF-01a). The final name comes at the end of processing (RF-08).
 	Name     string
 	Relation Relation
+	// Origin says where the files came from (RF-27a): an upload, or a Samba copy.
+	Origin BatchOrigin
 	// CreatedAt is when the browser asked for the batch.
 	CreatedAt time.Time
 }
@@ -71,5 +73,17 @@ func NewBatch(id BatchID, name string, relation Relation, now time.Time) (*Batch
 		}
 		name = clean
 	}
-	return &Batch{ID: id, Name: name, Relation: relation, CreatedAt: now}, nil
+	return &Batch{ID: id, Name: name, Relation: relation, Origin: OriginUpload, CreatedAt: now}, nil
+}
+
+// NewSambaBatch makes the batch of a compressed file that Samba copied (RF-27a). It has no
+// relation (RF-03: the file is its own entry) and its name is the file's base name, which the
+// batch keeps as its provisional name.
+func NewSambaBatch(id BatchID, name string, now time.Time) (*Batch, error) {
+	b, err := NewBatch(id, name, RelationNone, now)
+	if err != nil {
+		return nil, err
+	}
+	b.Origin = OriginSamba
+	return b, nil
 }

@@ -36,6 +36,7 @@ func (r *JobRepository) Create(ctx context.Context, j *domain.UploadJob) error {
 		PartsTotal:   int64(j.PartsTotal),
 		VolumeSet:    j.VolumeSet,
 		VolumeIndex:  int64(j.VolumeIndex),
+		Origin:       originOrUpload(j.Origin),
 		CreatedAt:    formatTime(j.CreatedAt),
 		UpdatedAt:    formatTime(j.UpdatedAt),
 	})
@@ -58,7 +59,7 @@ func (r *JobRepository) Get(ctx context.Context, id domain.JobID) (*domain.Uploa
 		ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 		Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
 		PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
-		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 }
 
@@ -92,7 +93,7 @@ func (r *JobRepository) Recent(ctx context.Context, limit int) ([]domain.JobView
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
 			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
-			CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+			Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -107,6 +108,7 @@ func (r *JobRepository) Recent(ctx context.Context, limit int) ([]domain.JobView
 				ID:        job.BatchID,
 				Name:      row.BatchName,
 				Relation:  domain.Relation(row.BatchRelation),
+				Origin:    domain.BatchOrigin(row.BatchOrigin),
 				CreatedAt: created,
 			},
 		})
@@ -178,6 +180,23 @@ func (r *JobRepository) Exists(ctx context.Context, id domain.JobID) (bool, erro
 	return ok, nil
 }
 
+// Delete implements domain.JobRepository.
+func (r *JobRepository) Delete(ctx context.Context, id domain.JobID) error {
+	if err := r.q.DeleteUploadJob(ctx, string(id)); err != nil {
+		return fmt.Errorf("ingestion: delete upload job: %w", err)
+	}
+	return nil
+}
+
+// OpenSamba implements domain.JobRepository.
+func (r *JobRepository) OpenSamba(ctx context.Context) ([]*domain.UploadJob, error) {
+	rows, err := r.q.ListOpenSambaUploadJobs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ingestion: list open samba jobs: %w", err)
+	}
+	return toDomainAll(rows)
+}
+
 // jobRow is a stored job, with the columns of every query that reads jobs.
 type jobRow struct {
 	ID, BatchID, FileName, RelativePath string
@@ -186,6 +205,7 @@ type jobRow struct {
 	PartsTotal, VolumeIndex             int64
 	VolumeSet, VolumeGroup              string
 	FilterDone                          bool
+	Origin                              string
 	CreatedAt, UpdatedAt                string
 }
 
@@ -196,7 +216,7 @@ func toDomainAll(rows []sqlcgen.UploadJob) ([]*domain.UploadJob, error) {
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
 			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
-			CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+			Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -228,9 +248,18 @@ func toDomain(row jobRow) (*domain.UploadJob, error) {
 		VolumeIndex:  int(row.VolumeIndex),
 		VolumeGroup:  row.VolumeGroup,
 		FilterDone:   row.FilterDone,
+		Origin:       domain.BatchOrigin(row.Origin),
 		CreatedAt:    created,
 		UpdatedAt:    updated,
 	}, nil
+}
+
+// originOrUpload returns the origin to store: a job made without one is an upload.
+func originOrUpload(o domain.BatchOrigin) string {
+	if o == "" {
+		return string(domain.OriginUpload)
+	}
+	return string(o)
 }
 
 func parseTime(s string) (time.Time, error) {

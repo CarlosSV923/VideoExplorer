@@ -29,6 +29,7 @@ func (r *BatchRepository) Create(ctx context.Context, b *domain.Batch) error {
 		ID:        string(b.ID),
 		Name:      b.Name,
 		Relation:  string(b.Relation),
+		Origin:    originOrUpload(b.Origin),
 		CreatedAt: formatTime(b.CreatedAt),
 	})
 	if err != nil {
@@ -54,6 +55,15 @@ func (r *BatchRepository) Get(ctx context.Context, id domain.BatchID) (*domain.B
 		ID:        domain.BatchID(row.ID),
 		Name:      row.Name,
 		Relation:  domain.Relation(row.Relation),
+		Origin:    domain.BatchOrigin(row.Origin),
 		CreatedAt: created,
 	}, nil
+}
+
+// Delete implements domain.BatchRepository.
+func (r *BatchRepository) Delete(ctx context.Context, id domain.BatchID) error {
+	if err := r.q.DeleteBatch(ctx, string(id)); err != nil {
+		return fmt.Errorf("ingestion: delete batch: %w", err)
+	}
+	return nil
 }
