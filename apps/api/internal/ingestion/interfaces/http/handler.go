@@ -81,7 +81,7 @@ func (h *Handler) ListJobs(ctx context.Context, _ httpapi.ListJobsRequestObject)
 	}
 	out := make(httpapi.ListJobs200JSONResponse, 0, len(views))
 	for _, v := range views {
-		out = append(out, jobToAPI(v))
+		out = append(out, JobToAPI(v))
 	}
 	return out, nil
 }
@@ -169,7 +169,7 @@ func (s eventStream) VisitStreamJobEventsResponse(w http.ResponseWriter) error {
 
 // writeEvent writes one job as an event named job, with the whole job as data.
 func writeEvent(w io.Writer, v domain.JobView) error {
-	data, err := json.Marshal(jobToAPI(v))
+	data, err := json.Marshal(JobToAPI(v))
 	if err != nil {
 		return fmt.Errorf("encode job event: %w", err)
 	}
@@ -177,8 +177,8 @@ func writeEvent(w io.Writer, v domain.JobView) error {
 	return err
 }
 
-// jobToAPI maps a job with its batch to the HTTP representation (RF-10b).
-func jobToAPI(v domain.JobView) httpapi.UploadJob {
+// JobToAPI maps a job with its batch to the HTTP representation (RF-10b).
+func JobToAPI(v domain.JobView) httpapi.UploadJob {
 	j := v.Job
 	out := httpapi.UploadJob{
 		Id:           string(j.ID),

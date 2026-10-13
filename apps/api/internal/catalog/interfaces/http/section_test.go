@@ -1,8 +1,11 @@
 package http_test
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 type sectionHTTP struct {
 	section *catalogshttp.SectionHandler
 	assign  *catalogshttp.Handler
+	svc     *application.Section
 	root    string
 	now     time.Time
 }
@@ -45,7 +49,8 @@ func setupSection(t *testing.T) *sectionHTTP {
 	section := application.NewSection(application.SectionDeps{
 		Unassigned: repo, Files: files, Engine: engine, VideoExts: []string{".mkv"}, SubtitleExts: []string{".srt"}, Now: clock,
 	})
-	env.section = catalogshttp.NewSectionHandler(section, nil)
+	env.svc = section
+	env.section = catalogshttp.NewSectionHandler(section, nil, nil)
 	env.assign = catalogshttp.NewHandler(application.NewAssignments(application.AssignDeps{
 		Unassigned: repo, Library: library, Files: files, Engine: engine,
 		Finder: application.NewDuplicateFinder(library, files, contentHash{}, []string{".mkv"}),
@@ -215,5 +220,48 @@ func TestTheSectionTrashesAndDeletesThroughTheContract(t *testing.T) {
 	}
 	if entries := got.(httpapi.GetUnassigned200JSONResponse).Entries; entries == nil || len(entries) != 0 {
 		t.Errorf("section after the trash = %#v, want an empty list (never null)", entries)
+	}
+}
+
+// recordingArrivals records the order of the reads of a section and answers one job.
+type recordingArrivals struct {
+	calls []string
+	jobs  []httpapi.UploadJob
+	err   error
+}
+
+func (a *recordingArrivals) Adopt(context.Context) error {
+	a.calls = append(a.calls, "adopt")
+	return a.err
+}
+
+func (a *recordingArrivals) Jobs(context.Context) ([]httpapi.UploadJob, error) {
+	a.calls = append(a.calls, "jobs")
+	return a.jobs, nil
+}
+
+func TestTheSectionTakesTheSettledCopiesBeforeItReadsAndListsTheirJobs(t *testing.T) {
+	t.Parallel()
+
+	env := setupSection(t)
+	arrivals := &recordingArrivals{jobs: []httpapi.UploadJob{{Id: "job-samba-1", FileName: "movie.zip"}}, err: errors.New("disk busy")}
+	env.section = catalogshttp.NewSectionHandler(env.svc, arrivals, nil)
+
+	resp, err := env.section.GetUnassigned(t.Context(), httpapi.GetUnassignedRequestObject{})
+	if err != nil {
+		t.Fatalf("GetUnassigned: %v", err)
+	}
+	got, ok := resp.(httpapi.GetUnassigned200JSONResponse)
+	if !ok {
+		t.Fatalf("answer = %T, want 200", resp)
+	}
+	if !slices.Equal(arrivals.calls, []string{"adopt", "jobs"}) {
+		t.Fatalf("calls = %v, want the copies taken, then the jobs listed", arrivals.calls)
+	}
+	if len(got.Jobs) != 1 || got.Jobs[0].Id != "job-samba-1" {
+		t.Fatalf("jobs = %+v, want the Samba job with its id", got.Jobs)
+	}
+	if got.Entries == nil {
+		t.Fatal("entries are null, want an empty list")
 	}
 }

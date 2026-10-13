@@ -10,28 +10,62 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
 )
 
+// SectionArrivals is what the section shows of the copies of Samba that the ingestion takes as uploads
+// (RF-27a). Reading the section takes the settled copies first, and lists the jobs they became.
+type SectionArrivals interface {
+	// Adopt takes the settled copies of Samba. A failure is logged by the caller, and the section is read anyway.
+	Adopt(ctx context.Context) error
+	// Jobs returns the jobs the section shows for the copies of Samba, as GET /jobs shows them.
+	Jobs(ctx context.Context) ([]httpapi.UploadJob, error)
+}
+
+// noArrivals is the arrivals of a section without any ingestion: nothing is taken and nothing is shown.
+type noArrivals struct{}
+
+func (noArrivals) Adopt(context.Context) error { return nil }
+
+func (noArrivals) Jobs(context.Context) ([]httpapi.UploadJob, error) { return nil, nil }
+
 // SectionHandler implements the operations of No asignados (RF-27) of httpapi.StrictServerInterface:
 // the section as the disk holds it, and the changes of its entries.
 type SectionHandler struct {
-	svc *application.Section
-	log *slog.Logger
+	svc      *application.Section
+	arrivals SectionArrivals
+	log      *slog.Logger
 }
 
-// NewSectionHandler builds the handler over the section. log may be nil.
-func NewSectionHandler(svc *application.Section, log *slog.Logger) *SectionHandler {
+// NewSectionHandler builds the handler over the section. arrivals may be nil, and log too.
+func NewSectionHandler(svc *application.Section, arrivals SectionArrivals, log *slog.Logger) *SectionHandler {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &SectionHandler{svc: svc, log: log}
+	if arrivals == nil {
+		arrivals = noArrivals{}
+	}
+	return &SectionHandler{svc: svc, arrivals: arrivals, log: log}
 }
 
-// GetUnassigned implements httpapi.StrictServerInterface (RF-27): it reads the section now.
+// GetUnassigned implements httpapi.StrictServerInterface (RF-27, RF-27a): it takes the settled copies of
+// Samba, then reads the section now and lists the jobs of those copies. A copy that cannot be taken yet
+// does not fail the read.
 func (h *SectionHandler) GetUnassigned(ctx context.Context, _ httpapi.GetUnassignedRequestObject) (httpapi.GetUnassignedResponseObject, error) {
+	if err := h.arrivals.Adopt(ctx); err != nil {
+		h.log.WarnContext(ctx, "copies of Samba not taken", "error", err)
+	}
 	entries, err := h.svc.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return httpapi.GetUnassigned200JSONResponse(sectionToAPI(entries)), nil
+	jobs, err := h.arrivals.Jobs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := sectionToAPI(entries)
+	out.Jobs = jobs
+	if out.Jobs == nil {
+		out.Jobs = []httpapi.UploadJob{}
+	}
+	return httpapi.GetUnassigned200JSONResponse(out), nil
 }
 
 // TrashUnassignedEntry implements httpapi.StrictServerInterface (RF-27, RF-30): the entry goes to the trash.

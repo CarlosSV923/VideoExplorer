@@ -300,7 +300,7 @@ func TestListJobsAnswersWithTheBatchOfEachJob(t *testing.T) {
 	if len(views) != 1 {
 		t.Fatalf("List returned %d jobs, want 1", len(views))
 	}
-	got := jobToAPI(views[0])
+	got := JobToAPI(views[0])
 	if got.Id != string(id) || got.Batch.Id != string(f.batch) || got.Batch.Relation != httpapi.BatchRelation(domain.RelationEpisodes) {
 		t.Errorf("job = %+v, want the job with its batch", got)
 	}

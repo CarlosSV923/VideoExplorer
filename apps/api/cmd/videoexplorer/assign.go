@@ -55,11 +55,10 @@ func newAssign(cfg config.Config, conn *sql.DB, catalog catalogWiring, meta meta
 		Now:          time.Now,
 		Log:          log,
 	})
-	section := catalogapplication.NewSection(catalogapplication.SectionDeps{
-		Unassigned: catalogsqlite.NewUnassignedRepository(conn), Files: files, Engine: catalog.Engine,
-		VideoExts: cfg.VideoExtensions, SubtitleExts: cfg.SubtitleExtensions, Now: time.Now,
-	})
-	return assignWiring{Handler: catalogshttp.NewHandler(svc, log), Section: catalogshttp.NewSectionHandler(section, log)}
+	return assignWiring{
+		Handler: catalogshttp.NewHandler(svc, log),
+		Section: catalogshttp.NewSectionHandler(catalog.Section, arrivalsOf{ingest: ingest}, log),
+	}
 }
 
 // hasherOf gives the catalog the partial hash of a video under the library (RF-24).

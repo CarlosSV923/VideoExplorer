@@ -365,6 +365,11 @@ export interface paths {
          *     until it settles. An entry that an assignment holds is `assigning` (RF-26). A file or folder that
          *     Samba copied is an entry of origin `samba` with no relation. An entry that is gone from the disk
          *     leaves the section. Entries are sorted by name.
+         *
+         *     A compressed file that Samba copied (recognized by its bytes, RF-27a) is taken as an upload once it
+         *     settles: it leaves `_unassigned/` for staging, its job is listed in `jobs`, and when the job is done
+         *     its content is an entry of origin `upload` named after the archive. A folder left empty by that
+         *     leaves the section.
          */
         get: operations["getUnassigned"];
         put?: never;
@@ -691,9 +696,16 @@ export interface components {
              */
             code: "assigning" | "lock_lost" | "plan_changed" | "copying";
         };
-        /** @description The entries of No asignados, as the disk holds them now (RF-27). */
+        /** @description The entries of No asignados, as the disk holds them now (RF-27), and the jobs of the compressed files Samba copied (RF-27a). */
         UnassignedSection: {
             entries: components["schemas"]["UnassignedEntry"][];
+            /**
+             * @description The jobs of the compressed files that Samba copied into `_unassigned/` (RF-27a), one per unit: the
+             *     job of the first volume of a set. A job is listed while its content has not reached No asignados,
+             *     the trash or a cancellation; a failed one stays listed, with its reason, so that its password or
+             *     its retry can be sent. Each item is the object `GET /jobs` lists, with the same `id`.
+             */
+            jobs: components["schemas"]["UploadJob"][];
         };
         /**
          * @description An entry of No asignados: a first-level folder of `_unassigned/`, or a loose file (RF-08, RF-27).

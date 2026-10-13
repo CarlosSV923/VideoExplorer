@@ -924,9 +924,15 @@ type UnassignedFileRequest struct {
 	Path string `json:"path"`
 }
 
-// UnassignedSection The entries of No asignados, as the disk holds them now (RF-27).
+// UnassignedSection The entries of No asignados, as the disk holds them now (RF-27), and the jobs of the compressed files Samba copied (RF-27a).
 type UnassignedSection struct {
 	Entries []UnassignedEntry `json:"entries"`
+
+	// Jobs The jobs of the compressed files that Samba copied into `_unassigned/` (RF-27a), one per unit: the
+	// job of the first volume of a set. A job is listed while its content has not reached No asignados,
+	// the trash or a cancellation; a failed one stays listed, with its reason, so that its password or
+	// its retry can be sent. Each item is the object `GET /jobs` lists, with the same `id`.
+	Jobs []UploadJob `json:"jobs"`
 }
 
 // UploadJob One uploaded file and its state (RF-10a, RF-10b).

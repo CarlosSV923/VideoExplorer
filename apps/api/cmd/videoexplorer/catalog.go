@@ -23,18 +23,25 @@ type catalogWiring struct {
 	Trash *catalogapplication.Trash
 	// Unassigned moves the content the ingestion keeps into No asignados (RF-08, RF-08a).
 	Unassigned *catalogapplication.Unassigned
+	// Section is No asignados as the disk holds it, and the changes of its entries (RF-27, RF-27a).
+	Section *catalogapplication.Section
 }
 
-// newCatalog wires the catalog's engine, trash and unassigned section over the shared
+// newCatalog wires the catalog's engine, trash, unassigned section and section over the shared
 // database. The trash and the operations live inside the library, so a move is a rename
 // (RF-30, RNF-04).
 func newCatalog(conn *sql.DB, cfg config.Config, log *slog.Logger) catalogWiring {
 	files := libraryfs.New(cfg.LibraryPath)
 	engine := catalogapplication.NewEngine(files, catalogsqlite.NewJournal(conn), time.Now, log)
+	unassigned := catalogsqlite.NewUnassignedRepository(conn)
 	return catalogWiring{
 		Engine:     engine,
 		Trash:      catalogapplication.NewTrash(catalogsqlite.NewTrashRepository(conn), files, engine, time.Now),
-		Unassigned: catalogapplication.NewUnassigned(catalogsqlite.NewUnassignedRepository(conn), files, engine, time.Now),
+		Unassigned: catalogapplication.NewUnassigned(unassigned, files, engine, time.Now),
+		Section: catalogapplication.NewSection(catalogapplication.SectionDeps{
+			Unassigned: unassigned, Files: files, Engine: engine,
+			VideoExts: cfg.VideoExtensions, SubtitleExts: cfg.SubtitleExtensions, Now: time.Now,
+		}),
 	}
 }
 

@@ -44,7 +44,7 @@ func (h *Handler) SubmitJobPassword(ctx context.Context, req httpapi.SubmitJobPa
 	case err != nil:
 		return nil, err
 	}
-	return httpapi.SubmitJobPassword202JSONResponse(jobToAPI(view)), nil
+	return httpapi.SubmitJobPassword202JSONResponse(JobToAPI(view)), nil
 }
 
 // RetryJob implements httpapi.StrictServerInterface (RF-10c). Only a failure
@@ -70,5 +70,5 @@ func (h *Handler) RetryJob(ctx context.Context, req httpapi.RetryJobRequestObjec
 	case err != nil:
 		return nil, err
 	}
-	return httpapi.RetryJob202JSONResponse(jobToAPI(view)), nil
+	return httpapi.RetryJob202JSONResponse(JobToAPI(view)), nil
 }
