@@ -80,6 +80,11 @@ type PartialHash struct {
 	Hash    string
 }
 
+type ScanRun struct {
+	Kind       string
+	FinishedAt string
+}
+
 type TrashEntry struct {
 	ID           int64
 	Origin       string
