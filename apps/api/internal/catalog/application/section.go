@@ -159,6 +159,8 @@ type leaveMode int
 const (
 	leaveTrash leaveMode = iota
 	leaveDelete
+	// leaveTake moves the files to the staging area of the ingestion, which takes them as an upload (RF-27a).
+	leaveTake
 )
 
 // leaveEntry performs a change that takes every file of an entry out of it.
@@ -229,20 +231,25 @@ func (s *Section) leave(ctx context.Context, id int64, mode leaveMode, choose fu
 		if err != nil {
 			return err
 		}
-		return s.plan(ctx, b, e, chosen, mode)
+		return s.plan(ctx, b, e, chosen, mode, nil)
 	})
 }
 
 // plan adds to the change the moves of the chosen files and the folders that they leave empty. A file
 // that is trashed gets its own trash record; a deleted one goes to the scratch folder, which the commit
-// removes. When the entry keeps nothing, its junk goes too, and so do its folders (RF-27).
-func (s *Section) plan(ctx context.Context, b *Builder, e *sectionEntry, chosen []domain.UnassignedFile, mode leaveMode) error {
+// removes; a taken one goes to its staging path in dst (RF-27a). When the entry keeps nothing, its junk
+// goes too, and so do its folders (RF-27).
+func (s *Section) plan(ctx context.Context, b *Builder, e *sectionEntry, chosen []domain.UnassignedFile, mode leaveMode, dst map[string]string) error {
 	now := s.now()
 	removed := map[string]bool{}
 	var sources []string
 	for i, f := range chosen {
 		src := s.pathOf(e, f.Rel)
 		switch mode {
+		case leaveTake:
+			if err := b.Move(src, dst[f.Rel]); err != nil {
+				return fmt.Errorf("catalog: take to staging: %w", err)
+			}
 		case leaveTrash:
 			dir := randomName()
 			entry, err := trashRecordOf(e, f, dir, now)
