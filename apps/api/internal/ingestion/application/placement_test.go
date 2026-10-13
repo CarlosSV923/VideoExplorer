@@ -371,12 +371,22 @@ func TestAFailedMoveIsRetriedAndMovesEachFileOnce(t *testing.T) {
 	}
 	r.waitDone(t, ids[0])
 	r.waitDone(t, ids[1])
+	// The settler may still be deciding the batch, and each decision asks the library again: the
+	// check waits until none is pending, then looks at every request it made (RF-08a).
+	if err := r.svc.WaitSettled(t.Context()); err != nil {
+		t.Fatalf("WaitSettled: %v", err)
+	}
 	if got := lib.renames(); got != 2 {
 		t.Errorf("renames = %d, want 2: each file moved once", got)
 	}
 	calls := lib.calls()
-	if len(calls) != 2 || calls[0].Source != calls[1].Source {
-		t.Errorf("requests = %d; want the same entry asked again", len(calls))
+	for _, c := range calls {
+		if c.Source != calls[0].Source {
+			t.Errorf("a request asked for entry %q, want every request for the same entry %q", c.Source, calls[0].Source)
+		}
+	}
+	if len(calls) < 2 {
+		t.Errorf("requests = %d; want the failed move asked again", len(calls))
 	}
 }
 
