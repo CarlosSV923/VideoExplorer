@@ -237,3 +237,16 @@ func sortDeepestFirst(dirs []string) {
 		return strings.Compare(a, b)
 	})
 }
+
+// Held reports whether an entry holds a video or a subtitle inside a junk folder (RF-27): a folder such as
+// @eaDir/ or .algo/ is not listed, but its media keeps the entry from being emptied, so nothing of it is
+// deleted. isMedia tells the videos and subtitles by their name. A dotfile at the top of the entry is junk
+// by itself, not held: only what lies inside a junk folder is.
+func Held(items []Item, isMedia func(rel string) bool) bool {
+	for _, it := range items {
+		if !it.IsDir && isMedia(it.Rel) && Ignored(parentOf(it.Rel)) {
+			return true
+		}
+	}
+	return false
+}

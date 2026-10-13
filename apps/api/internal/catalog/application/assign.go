@@ -397,6 +397,11 @@ func (a *Assignments) isSubtitle(name string) bool {
 	return a.subExt[strings.ToLower(path.Ext(name))]
 }
 
+// isMedia tells the videos and the subtitles of an entry: what a junk folder may hold and keep (RF-27).
+func (a *Assignments) isMedia(name string) bool {
+	return a.isVideo(name) || a.isSubtitle(name)
+}
+
 // entryPath is the path of a file of an entry as its name is read: the entry's name, then the
 // file's place inside it. A loose entry's file is the entry itself.
 func entryPath(entry domain.UnassignedEntry, rel string) string {

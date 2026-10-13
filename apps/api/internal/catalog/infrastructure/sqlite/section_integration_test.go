@@ -637,3 +637,87 @@ func TestAnUploadThatArrivedCompleteIsCopyingOnlyWhileItChanges(t *testing.T) {
 		t.Errorf("upload unchanged on the next reading = %+v, want ready", got)
 	}
 }
+
+// TestAVideoInsideAJunkFolderKeepsItsEntryAndItsFolder: a video in @eaDir/ is not listed, but it holds
+// the entry: trash and deletion of the entry remove what is visible and nothing else (RF-27).
+func TestAVideoInsideAJunkFolderKeepsItsEntryAndItsFolder(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	e := newSectionEnv(t)
+	e.settled("Pack/Visible.mkv", "visible")
+	e.settled("Pack/@eaDir/held.mkv", "held")
+	e.settled("Pack/@eaDir/held.jpg", "thumb")
+	e.settled("Pack/Thumbs.db", "junk")
+	if got := entry(e.list(), "Pack"); !slices.Equal(filePaths(got), []string{"Visible.mkv"}) {
+		t.Fatalf("visible files = %v, want Visible.mkv only", filePaths(got))
+	}
+	id := heldID(t, e, "Pack")
+
+	if err := e.section.TrashEntry(ctx, id); err != nil {
+		t.Fatalf("TrashEntry: %v", err)
+	}
+	if e.exists("Pack/Visible.mkv") {
+		t.Error("the visible video is still in the entry")
+	}
+	if !e.exists("Pack/@eaDir/held.mkv") || !e.exists("Pack/@eaDir/held.jpg") || !e.exists("Pack/Thumbs.db") {
+		t.Error("the held video, its folder or the junk were deleted")
+	}
+	if len(e.trashed()) != 1 {
+		t.Errorf("trash entries = %d, want the visible video only", len(e.trashed()))
+	}
+	// The entry stays listed, with no visible file: it is a folder that still holds a video (RF-27).
+	left := entry(e.list(), "Pack")
+	if left.Name == "" || left.Status != domain.StatusReady || len(left.Files) != 0 {
+		t.Errorf("entry after the trash = %+v, want listed with no visible file", left)
+	}
+
+	if err := e.section.DeleteEntry(ctx, id); err != nil {
+		t.Fatalf("DeleteEntry of the held entry: %v", err)
+	}
+	if !e.exists("Pack/@eaDir/held.mkv") {
+		t.Error("the held video was deleted for good")
+	}
+	if len(e.trashed()) != 1 {
+		t.Errorf("a second change went to the trash: %d entries", len(e.trashed()))
+	}
+}
+
+// TestAnAssignmentThatEmptiesAnEntryKeepsItsHeldVideo: the video is assigned, but the entry still holds a
+// video inside a junk folder, so the entry, its folder and its junk stay (RF-27).
+func TestAnAssignmentThatEmptiesAnEntryKeepsItsHeldVideo(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	e := newSectionEnv(t)
+	src := e.stagedUpload("Iron.Man.2008.1080p.mkv", "iron man")
+	if _, err := e.unassign.Put(ctx, application.AsideRequest{
+		Source: "batch-h", Name: "Iron Man Pack", BatchID: "bh", Relation: domain.RelationParts,
+		Files: []application.AsideFile{{Source: src, Rel: "Iron.Man.2008.1080p.mkv", Size: 8}},
+	}); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	e.settled("Iron Man Pack/.extras/Trailer.mkv", "trailer")
+	e.settled("Iron Man Pack/Thumbs.db", "junk")
+	id := heldID(t, e, "Iron Man Pack")
+
+	lock, err := e.assign.Take(ctx, id, "")
+	if err != nil {
+		t.Fatalf("Take: %v", err)
+	}
+	req := application.Request{Videos: []application.VideoChoice{
+		{File: "Iron.Man.2008.1080p.mkv", Title: application.TitleChoice{Source: "tmdb", TMDBID: 1726, Kind: domain.KindMovie}},
+	}}
+	res, err := e.assign.Commit(ctx, id, lock.Token, req)
+	if err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+	if res.EntryRemoved {
+		t.Error("the entry was removed while a video is held in it")
+	}
+	if !e.exists("Iron Man Pack/.extras/Trailer.mkv") || !e.exists("Iron Man Pack/Thumbs.db") {
+		t.Error("the held video or the junk was deleted")
+	}
+	if left := entry(e.list(), "Iron Man Pack"); left.Name == "" || len(left.Files) != 0 {
+		t.Errorf("entry after the assignment = %+v, want listed with no visible file", left)
+	}
+	e.journalEmpty()
+}

@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"path"
 	"reflect"
 	"testing"
 	"time"
@@ -275,6 +276,37 @@ func TestCopyingKnownLetsAnUploadThatArrivedCompleteSettle(t *testing.T) {
 			t.Parallel()
 			if got := domain.CopyingKnown(tt.origin, tt.prev, tt.cur, sectionNow); got != tt.want {
 				t.Errorf("CopyingKnown = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHeldFindsMediaInsideAJunkFolder(t *testing.T) {
+	t.Parallel()
+	isMedia := func(rel string) bool {
+		switch path.Ext(rel) {
+		case ".mkv", ".srt":
+			return true
+		}
+		return false
+	}
+	tests := []struct {
+		name  string
+		items []domain.Item
+		want  bool
+	}{
+		{name: "a video inside @eaDir", items: []domain.Item{item("@eaDir", true, 0), item("@eaDir/x.mkv", false, 1)}, want: true},
+		{name: "a subtitle inside a hidden folder, nested", items: []domain.Item{item("S01", true, 0), item("S01/.extras", true, 0), item("S01/.extras/a.srt", false, 1)}, want: true},
+		{name: "junk inside a junk folder, no media", items: []domain.Item{item("@eaDir", true, 0), item("@eaDir/x.jpg", false, 1)}, want: false},
+		{name: "a video in a visible folder", items: []domain.Item{item("S01", true, 0), item("S01/x.mkv", false, 1)}, want: false},
+		{name: "a dotfile video at the top of the entry is junk, not held", items: []domain.Item{item(".x.mkv", false, 1)}, want: false},
+		{name: "nothing at all", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := domain.Held(tt.items, isMedia); got != tt.want {
+				t.Errorf("Held = %v, want %v", got, tt.want)
 			}
 		})
 	}

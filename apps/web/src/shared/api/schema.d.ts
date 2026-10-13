@@ -388,7 +388,8 @@ export interface paths {
          * Send an entry of No asignados to the trash (RF-27, RF-30)
          * @description Sends every file of the entry to the trash, each with its own trash record: its origin (`upload`
          *     or `samba`), the reason `removed`, its batch and its place in the drop. Its junk goes without the
-         *     trash, and so do its folders. An entry that an assignment holds is refused (`assigning`), and one
+         *     trash, and so do its folders. A video or subtitle inside a junk folder is held (RF-27): that folder
+         *     and the entry stay. An entry that an assignment holds is refused (`assigning`), and one
          *     with a file still being copied is refused (`copying`).
          */
         post: operations["trashUnassignedEntry"];
@@ -411,6 +412,8 @@ export interface paths {
          * Delete an entry of No asignados for good (RF-27, RF-30)
          * @description Deletes every file of the entry and its junk, without the trash. The interface asks for
          *     confirmation before it calls this operation. The same refusals as the trash apply (RF-26, RF-27).
+         *     A video or subtitle inside a junk folder (such as `@eaDir/`) is held (RF-27): that folder stays with
+         *     its content, and so does the entry, which is listed with the files that remain visible.
          */
         post: operations["deleteUnassignedEntry"];
         delete?: never;

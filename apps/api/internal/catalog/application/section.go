@@ -278,19 +278,21 @@ func (s *Section) plan(ctx context.Context, b *Builder, e *sectionEntry, chosen 
 		b.Record(func(rec Records) error { return rec.RemoveUnassignedFiles(ctx, entryID, sources) })
 	}
 
-	gone := true
+	// The entry is empty when no visible file is left and nothing is held in a junk folder (RF-27).
+	empty := true
 	for _, f := range e.Files {
 		if !removed[f.Rel] {
-			gone = false
+			empty = false
 			break
 		}
 	}
+	empty = empty && !domain.Held(e.items, s.isMedia)
 	if !e.Loose {
-		if err := s.leaveFolders(b, e.Name, e.items, removed, gone); err != nil {
+		if err := s.leaveFolders(b, e.Name, e.items, removed, empty); err != nil {
 			return err
 		}
 	}
-	if gone {
+	if empty {
 		entryID := e.ID
 		b.Record(func(rec Records) error { return rec.DeleteUnassignedEntry(ctx, entryID) })
 	}
@@ -344,6 +346,11 @@ func (s *Section) isVideo(rel string) bool {
 
 func (s *Section) isSubtitle(rel string) bool {
 	return s.subExt[strings.ToLower(path.Ext(rel))]
+}
+
+// isMedia tells the videos and the subtitles of an entry (RF-27).
+func (s *Section) isMedia(rel string) bool {
+	return s.isVideo(rel) || s.isSubtitle(rel)
 }
 
 // trashRecordOf returns the trash record of a file that leaves an entry: where it was in its drop (RF-30)

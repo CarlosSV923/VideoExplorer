@@ -29,7 +29,8 @@ type Result struct {
 // go to the trash and the versions take their labels, and the entry forgets what left it. The request
 // is checked again under the engine's lock: a request that is not valid is refused with a
 // PlanInvalidError and nothing changes. A failure undoes the whole change (RNF-04). What the request
-// does not place stays in the entry, and the entry disappears when nothing is left in it (RF-26).
+// does not place stays in the entry, and the entry disappears when nothing is left in it and no video
+// or subtitle is held in a junk folder (RF-26, RF-27).
 func (a *Assignments) Commit(ctx context.Context, entryID int64, token string, req Request) (Result, error) {
 	entry, err := a.entry(ctx, entryID)
 	if err != nil {
@@ -175,17 +176,24 @@ func (a *Assignments) bookkeeping(ctx context.Context, b *Builder, entry domain.
 			remaining = append(remaining, f)
 		}
 	}
-	gone := len(remaining) == 0
+	// What is inside the entry now, junk included. A video or subtitle inside a junk folder is held
+	// (RF-27): the entry is not empty while it is there, and nothing of it is removed.
+	var items []domain.Item
+	held := false
+	if !entry.Loose {
+		var err error
+		items, err = a.d.Files.Tree(a.d.Files.UnassignedPath(entry.Name))
+		if err != nil {
+			return fmt.Errorf("catalog: read entry %s: %w", entry.Name, err)
+		}
+		held = domain.Held(items, a.isMedia)
+	}
+	gone := len(remaining) == 0 && !held
 	out.EntryID = entry.ID
 	out.EntryRemoved = gone
 
 	if !entry.Loose && len(sources) > 0 {
-		// What is inside the entry now, junk included: the folders the moves empty go, and the junk
-		// goes too when nothing is left in the entry (RF-27).
-		items, err := a.d.Files.Tree(a.d.Files.UnassignedPath(entry.Name))
-		if err != nil {
-			return fmt.Errorf("catalog: read entry %s: %w", entry.Name, err)
-		}
+		// The folders the moves empty go, and the junk goes too when nothing is left in the entry (RF-27).
 		if err := a.section.leaveFolders(b, entry.Name, items, moved, gone); err != nil {
 			return err
 		}
