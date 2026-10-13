@@ -207,6 +207,9 @@ func TestASetIsExtractedFromItsFirstVolumeOnceItIsComplete(t *testing.T) {
 			if err != nil || !bytes.Equal(got, video) {
 				t.Fatalf("extracted video differs from the original: %v", err)
 			}
+			// The jobs are filtering before their originals reach the trash (finish saves the state
+			// first), so the trash is waited for, not counted at the first look.
+			r.waitTrashed(t, len(names))
 			puts := r.trash.puts()
 			if len(puts) != len(names) {
 				t.Fatalf("trash entries = %d, want one per volume (%d)", len(puts), len(names))
