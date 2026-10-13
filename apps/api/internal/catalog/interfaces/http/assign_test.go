@@ -84,6 +84,10 @@ func setup(t *testing.T) (*catalogshttp.Handler, int64) {
 	if err := os.WriteFile(disk, []byte("iron"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// Settled: a file modified less than a minute before the clock is still being copied (RF-27).
+	if err := os.Chtimes(disk, now.Add(-2*time.Minute), now.Add(-2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
 	var entryID int64
 	if err := journal.Commit(ctx, "", func(rec application.Records) error {
 		var err error

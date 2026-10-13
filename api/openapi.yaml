@@ -51,6 +51,8 @@ tags:
     description: Title images (posters, backdrops, logos, stills) from the local cache.
   - name: ingestion
     description: Upload batches, the files dropped together in the browser (RF-03), and the state of each upload (RF-10a, RF-10b).
+  - name: section
+    description: No asignados as the disk holds it now, and the changes of its entries (RF-27).
 security:
   - sessionCookie: []
 paths:
@@ -489,6 +491,130 @@ paths:
         '422':
           $ref: '#/components/responses/AssignInvalid'
 
+  /unassigned:
+    get:
+      tags: [section]
+      operationId: getUnassigned
+      summary: The entries of No asignados, read now from _unassigned/ (RF-27)
+      description: |
+        Reads `_unassigned/` at this moment, without waiting for the scan, so that what Samba copied
+        shows up here. Each entry is a first-level folder, or a loose file, that is not junk: names that
+        start with `.`, `@`, `#` or `$` and `Thumbs.db` or `desktop.ini` are neither listed nor counted
+        (RF-28). Its files are those inside it, in any subfolder, with their sizes.
+
+        A file is `copying` when its size or modification time changed since the previous reading, or when
+        it was modified less than a minute ago (RF-27); its entry is `copying` too, and admits no action
+        until it settles. An entry that an assignment holds is `assigning` (RF-26). A file or folder that
+        Samba copied is an entry of origin `samba` with no relation. An entry that is gone from the disk
+        leaves the section. Entries are sorted by name.
+      responses:
+        '200':
+          description: The entries of the section.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnassignedSection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /unassigned/{id}/trash:
+    post:
+      tags: [section]
+      operationId: trashUnassignedEntry
+      summary: Send an entry of No asignados to the trash (RF-27, RF-30)
+      description: |
+        Sends every file of the entry to the trash, each with its own trash record: its origin (`upload`
+        or `samba`), the reason `removed`, its batch and its place in the drop. Its junk goes without the
+        trash, and so do its folders. An entry that an assignment holds is refused (`assigning`), and one
+        with a file still being copied is refused (`copying`).
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      responses:
+        '204':
+          description: The entry is in the trash.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EntryConflict'
+
+  /unassigned/{id}/delete:
+    post:
+      tags: [section]
+      operationId: deleteUnassignedEntry
+      summary: Delete an entry of No asignados for good (RF-27, RF-30)
+      description: |
+        Deletes every file of the entry and its junk, without the trash. The interface asks for
+        confirmation before it calls this operation. The same refusals as the trash apply (RF-26, RF-27).
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      responses:
+        '204':
+          description: The entry is deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EntryConflict'
+
+  /unassigned/{id}/files/trash:
+    post:
+      tags: [section]
+      operationId: trashUnassignedFile
+      summary: Send one file of an entry of No asignados to the trash (RF-27, RF-30)
+      description: |
+        Sends the file to the trash, with its record, as the trash of the entry does. A video goes with the
+        subtitles of its name. The file of a loose entry is the entry itself: use the entry operations.
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnassignedFileRequest'
+      responses:
+        '204':
+          description: The file is in the trash.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EntryConflict'
+
+  /unassigned/{id}/files/delete:
+    post:
+      tags: [section]
+      operationId: deleteUnassignedFile
+      summary: Delete one file of an entry of No asignados for good (RF-27, RF-30)
+      description: |
+        Deletes the file without the trash. A video goes with the subtitles of its name. The file of a loose
+        entry is the entry itself: use the entry operations. The interface asks for confirmation first.
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnassignedFileRequest'
+      responses:
+        '204':
+          description: The file is deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EntryConflict'
+
   /titles/search:
     get:
       tags: [assign]
@@ -596,12 +722,21 @@ components:
             $ref: '#/components/schemas/Problem'
     AssignConflict:
       description: |
-        The assignment cannot go on: another tab is assigning the entry (`assigning`), or this tab
-        does not hold its lock (`lock_lost`) (RF-26).
+        The assignment cannot go on: another tab is assigning the entry (`assigning`), this tab
+        does not hold its lock (`lock_lost`), or a file of the entry is still being copied (`copying`)
+        (RF-26, RF-27).
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/AssignProblem'
+    EntryConflict:
+      description: |
+        The entry cannot change now: another tab is assigning it (`assigning`, RF-26), or a file of it
+        is still being copied (`copying`, RF-27). Nothing was changed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/EntryProblem'
     AssignInvalid:
       description: |
         The choices do not form an assignment that can be stored. The body is the plan of the same
@@ -902,7 +1037,100 @@ components:
                 `assigning`: another tab holds the entry, which is being assigned (RF-26). `lock_lost`:
                 this tab does not hold the lock any more (it expired, or it was never taken); open the
                 assignment again. `plan_changed`: a file of the library took a place that the plan needed, so nothing was changed; the plan is checked again (RF-25).
-              enum: [assigning, lock_lost, plan_changed]
+                `copying`: a file of the entry is still being copied, so it cannot be assigned yet (RF-27).
+              enum: [assigning, lock_lost, plan_changed, copying]
+    UnassignedSection:
+      type: object
+      description: The entries of No asignados, as the disk holds them now (RF-27).
+      required: [entries]
+      additionalProperties: false
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnassignedEntry'
+    UnassignedEntry:
+      type: object
+      description: |
+        An entry of No asignados: a first-level folder of `_unassigned/`, or a loose file (RF-08, RF-27).
+        Its `id` is its id in the registry and stays while the entry is in No asignados.
+      required: [id, name, origin, relation, loose, status, size, files]
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          description: The name of the folder or of the loose file, with its extension.
+        origin:
+          type: string
+          description: '`upload` when the ingestion moved it in (RF-08), `samba` when Samba copied it (RF-27).'
+          enum: [upload, samba]
+        relation:
+          $ref: '#/components/schemas/BatchRelation'
+        loose:
+          type: boolean
+          description: A single file kept as it is. Its only file is the entry itself.
+        status:
+          type: string
+          description: |
+            `copying` while a file is still being copied, which takes precedence; `assigning` while an
+            assignment holds the entry (RF-26); `ready` otherwise.
+          enum: [ready, copying, assigning]
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The total size of its files, junk not counted.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnassignedFile'
+    UnassignedFile:
+      type: object
+      description: A file of an entry, with its size and whether it is still being copied (RF-27).
+      required: [path, size, copying]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: |
+            Its place inside the entry, with "/" separators (a subfolder's files have one). Empty for a loose
+            entry, whose file is the entry itself.
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+        copying:
+          type: boolean
+    UnassignedFileRequest:
+      type: object
+      description: The file of an entry that a change applies to, by its place inside the entry.
+      required: [path]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: |
+            The place of the file inside the entry, as the section listed it. Names are checked on the
+            server: no empty name, no `.` or `..`, no separator in a name, no control character.
+          minLength: 1
+          maxLength: 1024
+    EntryProblem:
+      description: RFC 9457 problem details of a change of an entry, with the stable reason in `code`.
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              description: |
+                `assigning`: another tab holds the entry (RF-26). `copying`: a file of the entry is still being
+                copied (RF-27).
+              enum: [assigning, copying]
     TitleKind:
       type: string
       description: A movie (Movies/) or a series (TV Shows/), spec §2.

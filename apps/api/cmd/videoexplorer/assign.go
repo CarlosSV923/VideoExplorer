@@ -28,6 +28,8 @@ import (
 // assignWiring is the assignment of No asignados (RF-20 to RF-26) as the composition root builds it.
 type assignWiring struct {
 	Handler *catalogshttp.Handler
+	// Section is No asignados as the disk holds it, and the changes of its entries (RF-27).
+	Section *catalogshttp.SectionHandler
 }
 
 // newAssign wires the assignment over the catalog's engine and registry. TMDB is the metadata
@@ -53,7 +55,11 @@ func newAssign(cfg config.Config, conn *sql.DB, catalog catalogWiring, meta meta
 		Now:          time.Now,
 		Log:          log,
 	})
-	return assignWiring{Handler: catalogshttp.NewHandler(svc, log)}
+	section := catalogapplication.NewSection(catalogapplication.SectionDeps{
+		Unassigned: catalogsqlite.NewUnassignedRepository(conn), Files: files, Engine: catalog.Engine,
+		VideoExts: cfg.VideoExtensions, SubtitleExts: cfg.SubtitleExtensions, Now: time.Now,
+	})
+	return assignWiring{Handler: catalogshttp.NewHandler(svc, log), Section: catalogshttp.NewSectionHandler(section, log)}
 }
 
 // hasherOf gives the catalog the partial hash of a video under the library (RF-24).

@@ -38,6 +38,10 @@ func (h *Handler) TakeAssignLock(ctx context.Context, req httpapi.TakeAssignLock
 		return httpapi.TakeAssignLock409ApplicationProblemPlusJSONResponse{
 			AssignConflictApplicationProblemPlusJSONResponse: conflict(httpapi.AssignProblemCode("assigning"), "The entry is being assigned in another tab."),
 		}, nil
+	case errors.Is(err, application.ErrCopying):
+		return httpapi.TakeAssignLock409ApplicationProblemPlusJSONResponse{
+			AssignConflictApplicationProblemPlusJSONResponse: lockConflict(err),
+		}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -122,7 +126,7 @@ func (h *Handler) CommitAssign(ctx context.Context, req httpapi.CommitAssignRequ
 	case errors.Is(err, application.ErrTargetTaken):
 		h.log.WarnContext(ctx, "assignment refused: a target was taken", "entry", req.Id, "error", err)
 		return httpapi.CommitAssign409ApplicationProblemPlusJSONResponse{
-			AssignConflictApplicationProblemPlusJSONResponse: conflict(httpapi.PlanChanged, "A file took a place that the plan needed. Nothing was changed; check the plan again."),
+			AssignConflictApplicationProblemPlusJSONResponse: conflict(httpapi.AssignProblemCodePlanChanged, "A file took a place that the plan needed. Nothing was changed; check the plan again."),
 		}, nil
 	case errors.As(err, &invalid):
 		return httpapi.CommitAssign422JSONResponse{AssignInvalidJSONResponse: httpapi.AssignInvalidJSONResponse(planToAPI(invalid.Plan))}, nil
@@ -164,13 +168,17 @@ func tokenOf(token *httpapi.AssignLockToken) string {
 
 // isLockError reports whether err says that the assignment lock does not allow the call.
 func isLockError(err error) bool {
-	return errors.Is(err, application.ErrAssigning) || errors.Is(err, application.ErrLockLost)
+	return errors.Is(err, application.ErrAssigning) || errors.Is(err, application.ErrLockLost) || errors.Is(err, application.ErrCopying)
 }
 
-// lockConflict is the 409 of a call that the lock does not allow.
+// lockConflict is the 409 of a call that the lock does not allow, or that a file still being copied
+// does not allow (RF-27).
 func lockConflict(err error) httpapi.AssignConflictApplicationProblemPlusJSONResponse {
 	if errors.Is(err, application.ErrAssigning) {
 		return conflict(httpapi.AssignProblemCode("assigning"), "The entry is being assigned in another tab.")
+	}
+	if errors.Is(err, application.ErrCopying) {
+		return conflict(httpapi.AssignProblemCode("copying"), "A file of the entry is still being copied. Nothing was changed.")
 	}
 	return conflict(httpapi.AssignProblemCode("lock_lost"), "This tab does not hold the assignment lock any more. Open the assignment again.")
 }

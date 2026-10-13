@@ -346,6 +346,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/unassigned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The entries of No asignados, read now from _unassigned/ (RF-27)
+         * @description Reads `_unassigned/` at this moment, without waiting for the scan, so that what Samba copied
+         *     shows up here. Each entry is a first-level folder, or a loose file, that is not junk: names that
+         *     start with `.`, `@`, `#` or `$` and `Thumbs.db` or `desktop.ini` are neither listed nor counted
+         *     (RF-28). Its files are those inside it, in any subfolder, with their sizes.
+         *
+         *     A file is `copying` when its size or modification time changed since the previous reading, or when
+         *     it was modified less than a minute ago (RF-27); its entry is `copying` too, and admits no action
+         *     until it settles. An entry that an assignment holds is `assigning` (RF-26). A file or folder that
+         *     Samba copied is an entry of origin `samba` with no relation. An entry that is gone from the disk
+         *     leaves the section. Entries are sorted by name.
+         */
+        get: operations["getUnassigned"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an entry of No asignados to the trash (RF-27, RF-30)
+         * @description Sends every file of the entry to the trash, each with its own trash record: its origin (`upload`
+         *     or `samba`), the reason `removed`, its batch and its place in the drop. Its junk goes without the
+         *     trash, and so do its folders. An entry that an assignment holds is refused (`assigning`), and one
+         *     with a file still being copied is refused (`copying`).
+         */
+        post: operations["trashUnassignedEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete an entry of No asignados for good (RF-27, RF-30)
+         * @description Deletes every file of the entry and its junk, without the trash. The interface asks for
+         *     confirmation before it calls this operation. The same refusals as the trash apply (RF-26, RF-27).
+         */
+        post: operations["deleteUnassignedEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/files/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send one file of an entry of No asignados to the trash (RF-27, RF-30)
+         * @description Sends the file to the trash, with its record, as the trash of the entry does. A video goes with the
+         *     subtitles of its name. The file of a loose entry is the entry itself: use the entry operations.
+         */
+        post: operations["trashUnassignedFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/files/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete one file of an entry of No asignados for good (RF-27, RF-30)
+         * @description Deletes the file without the trash. A video goes with the subtitles of its name. The file of a loose
+         *     entry is the entry itself: use the entry operations. The interface asks for confirmation first.
+         */
+        post: operations["deleteUnassignedFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles/search": {
         parameters: {
             query?: never;
@@ -568,9 +683,72 @@ export interface components {
              * @description `assigning`: another tab holds the entry, which is being assigned (RF-26). `lock_lost`:
              *     this tab does not hold the lock any more (it expired, or it was never taken); open the
              *     assignment again. `plan_changed`: a file of the library took a place that the plan needed, so nothing was changed; the plan is checked again (RF-25).
+             *     `copying`: a file of the entry is still being copied, so it cannot be assigned yet (RF-27).
              * @enum {string}
              */
-            code: "assigning" | "lock_lost" | "plan_changed";
+            code: "assigning" | "lock_lost" | "plan_changed" | "copying";
+        };
+        /** @description The entries of No asignados, as the disk holds them now (RF-27). */
+        UnassignedSection: {
+            entries: components["schemas"]["UnassignedEntry"][];
+        };
+        /**
+         * @description An entry of No asignados: a first-level folder of `_unassigned/`, or a loose file (RF-08, RF-27).
+         *     Its `id` is its id in the registry and stays while the entry is in No asignados.
+         */
+        UnassignedEntry: {
+            /** Format: int64 */
+            id: number;
+            /** @description The name of the folder or of the loose file, with its extension. */
+            name: string;
+            /**
+             * @description `upload` when the ingestion moved it in (RF-08), `samba` when Samba copied it (RF-27).
+             * @enum {string}
+             */
+            origin: "upload" | "samba";
+            relation: components["schemas"]["BatchRelation"];
+            /** @description A single file kept as it is. Its only file is the entry itself. */
+            loose: boolean;
+            /**
+             * @description `copying` while a file is still being copied, which takes precedence; `assigning` while an
+             *     assignment holds the entry (RF-26); `ready` otherwise.
+             * @enum {string}
+             */
+            status: "ready" | "copying" | "assigning";
+            /**
+             * Format: int64
+             * @description The total size of its files, junk not counted.
+             */
+            size: number;
+            files: components["schemas"]["UnassignedFile"][];
+        };
+        /** @description A file of an entry, with its size and whether it is still being copied (RF-27). */
+        UnassignedFile: {
+            /**
+             * @description Its place inside the entry, with "/" separators (a subfolder's files have one). Empty for a loose
+             *     entry, whose file is the entry itself.
+             */
+            path: string;
+            /** Format: int64 */
+            size: number;
+            copying: boolean;
+        };
+        /** @description The file of an entry that a change applies to, by its place inside the entry. */
+        UnassignedFileRequest: {
+            /**
+             * @description The place of the file inside the entry, as the section listed it. Names are checked on the
+             *     server: no empty name, no `.` or `..`, no separator in a name, no control character.
+             */
+            path: string;
+        };
+        /** @description RFC 9457 problem details of a change of an entry, with the stable reason in `code`. */
+        EntryProblem: components["schemas"]["Problem"] & {
+            /**
+             * @description `assigning`: another tab holds the entry (RF-26). `copying`: a file of the entry is still being
+             *     copied (RF-27).
+             * @enum {string}
+             */
+            code: "assigning" | "copying";
         };
         /**
          * @description A movie (Movies/) or a series (TV Shows/), spec §2.
@@ -864,8 +1042,9 @@ export interface components {
             };
         };
         /**
-         * @description The assignment cannot go on: another tab is assigning the entry (`assigning`), or this tab
-         *     does not hold its lock (`lock_lost`) (RF-26).
+         * @description The assignment cannot go on: another tab is assigning the entry (`assigning`), this tab
+         *     does not hold its lock (`lock_lost`), or a file of the entry is still being copied (`copying`)
+         *     (RF-26, RF-27).
          */
         AssignConflict: {
             headers: {
@@ -873,6 +1052,18 @@ export interface components {
             };
             content: {
                 "application/problem+json": components["schemas"]["AssignProblem"];
+            };
+        };
+        /**
+         * @description The entry cannot change now: another tab is assigning it (`assigning`, RF-26), or a file of it
+         *     is still being copied (`copying`, RF-27). Nothing was changed.
+         */
+        EntryConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["EntryProblem"];
             };
         };
         /**
@@ -1329,6 +1520,133 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["AssignConflict"];
             422: components["responses"]["AssignInvalid"];
+        };
+    };
+    getUnassigned: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries of the section. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnassignedSection"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    trashUnassignedEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry is in the trash. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EntryConflict"];
+        };
+    };
+    deleteUnassignedEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry is deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EntryConflict"];
+        };
+    };
+    trashUnassignedFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnassignedFileRequest"];
+            };
+        };
+        responses: {
+            /** @description The file is in the trash. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EntryConflict"];
+        };
+    };
+    deleteUnassignedFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnassignedFileRequest"];
+            };
+        };
+        responses: {
+            /** @description The file is deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EntryConflict"];
         };
     };
     searchTitles: {
