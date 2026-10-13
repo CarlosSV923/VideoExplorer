@@ -47,6 +47,10 @@ type Service struct {
 	library Library
 	// settle decides the batches of the filter, in the background, as one worker (RF-07, RF-08a).
 	settle *settler
+	// samba is the section the copies of Samba come from; nil until WithSamba (RF-27a).
+	samba SambaSection
+	// adopting serializes AdoptSamba: two readings of the section never take the same copy.
+	adopting sync.Mutex
 }
 
 var _ Uploads = (*Service)(nil)
@@ -215,6 +219,7 @@ type PurgeResult struct {
 func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
 	err := s.reconcile(ctx, s.now(), &res)
+	s.recoverSamba(ctx)   // the copies of Samba a cut left half taken are finished or forgotten (RF-27a)
 	s.trashLeftovers(ctx) // the originals a cut left in staging go to the trash before any batch settles (RF-06)
 	return res, err
 }
@@ -236,6 +241,9 @@ func (s *Service) Purge(ctx context.Context) (PurgeResult, error) {
 		return res, err
 	}
 	for _, job := range stale {
+		if job.IsSamba() {
+			continue // a copy of Samba is not an upload that was abandoned (RF-27a)
+		}
 		changed, err := s.mutateChanged(ctx, job.ID, func(j *domain.UploadJob) (bool, error) {
 			if j.Status != domain.StatusUploading || !j.UpdatedAt.Before(cutoff) {
 				return false, nil
@@ -295,6 +303,9 @@ func (s *Service) reconcile(ctx context.Context, missingBefore time.Time, res *P
 		return err
 	}
 	for _, job := range uploading {
+		if job.IsSamba() {
+			continue // settled by recoverSamba: its file is not a tus upload, and it never waits for bytes (RF-27a)
+		}
 		staged, err := s.staging.Inspect(ctx, job.ID)
 		if err != nil {
 			// One unreadable upload must not stop the others from being settled.

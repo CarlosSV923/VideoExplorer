@@ -87,6 +87,15 @@ func (s *Service) checkSet(ctx context.Context, id domain.JobID) error {
 		return nil // the rest of the set has not arrived yet
 	}
 	if !formsSet(waiting, job.PartsTotal) {
+		if job.IsSamba() {
+			// A copy of Samba has the volumes that were copied, and its total is the number found: a
+			// hole among them is a missing part, not a set that does not match (RF-27a).
+			reason := domain.FailurePartsMissing
+			if hasRepeatedVolume(waiting) {
+				reason = domain.FailurePartsMismatch
+			}
+			return s.refuseSetAs(ctx, waiting, reason)
+		}
 		return s.refuseSet(ctx, waiting)
 	}
 
@@ -113,8 +122,13 @@ func (s *Service) checkSet(ctx context.Context, id domain.JobID) error {
 // refuseSet ends the waiting volumes of a set that does not form one archive
 // (RF-10c, parts_mismatch) and deletes their files.
 func (s *Service) refuseSet(ctx context.Context, waiting []*domain.UploadJob) error {
+	return s.refuseSetAs(ctx, waiting, domain.FailurePartsMismatch)
+}
+
+// refuseSetAs ends the waiting volumes of a set with the reason, and deletes their files.
+func (s *Service) refuseSetAs(ctx context.Context, waiting []*domain.UploadJob, reason domain.FailureReason) error {
 	for _, v := range waiting {
-		if err := v.Fail(domain.FailurePartsMismatch, s.now()); err != nil {
+		if err := v.Fail(reason, s.now()); err != nil {
 			return err
 		}
 		if err := s.saveAnnounce(ctx, v); err != nil {
@@ -142,6 +156,18 @@ func (s *Service) waitingSet(ctx context.Context, job *domain.UploadJob) ([]*dom
 	}
 	slices.SortFunc(set, func(a, b *domain.UploadJob) int { return a.VolumeIndex - b.VolumeIndex })
 	return set, nil
+}
+
+// hasRepeatedVolume reports whether two of the waiting volumes have the same position.
+func hasRepeatedVolume(waiting []*domain.UploadJob) bool {
+	seen := map[int]bool{}
+	for _, v := range waiting {
+		if seen[v.VolumeIndex] {
+			return true
+		}
+		seen[v.VolumeIndex] = true
+	}
+	return false
 }
 
 // formsSet reports whether the waiting volumes are the whole of a set of total
