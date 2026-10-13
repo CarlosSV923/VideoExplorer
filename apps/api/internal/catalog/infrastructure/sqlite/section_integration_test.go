@@ -596,3 +596,44 @@ func TestAssigningKeepsAFolderThatStillHoldsJunk(t *testing.T) {
 		t.Error("the file that stays in the entry is gone")
 	}
 }
+
+// TestAnUploadThatArrivedCompleteIsCopyingOnlyWhileItChanges: a file that an upload moved in is complete
+// (RF-27), so the minute after its modification does not make it copying; a change between two readings
+// does, and a file that Samba copied keeps the rule of the minute.
+func TestAnUploadThatArrivedCompleteIsCopyingOnlyWhileItChanges(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	e := newSectionEnv(t)
+	src := filepath.Join(e.root, ".videoexplorer", "staging", "movie.mkv")
+	if err := os.WriteFile(src, []byte("movie"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(src, e.now.Add(-5*time.Second), e.now.Add(-5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.unassign.Put(ctx, application.AsideRequest{
+		Source: "batch-u", Name: "Movie Upload", BatchID: "bu", Relation: domain.RelationParts,
+		Files: []application.AsideFile{{Source: src, Rel: "movie.mkv", Size: 5}},
+	}); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	e.put("Copied/new.mkv", "fresh", e.now.Add(-5*time.Second))
+
+	got := e.list()
+	upload := entry(got, "Movie Upload")
+	if upload.Status != domain.StatusReady || upload.Files[0].Copying {
+		t.Errorf("upload that arrived complete = %+v, want ready", upload)
+	}
+	if samba := entry(got, "Copied"); samba.Status != domain.StatusCopying {
+		t.Errorf("Samba copy modified 5 s ago = %+v, want copying", samba)
+	}
+
+	// A change between two readings is a copy again, until it settles.
+	e.put("Movie Upload/movie.mkv", "movie, bigger", e.now.Add(-5*time.Second))
+	if got := entry(e.list(), "Movie Upload"); got.Status != domain.StatusCopying || !got.Files[0].Copying {
+		t.Errorf("upload changed between readings = %+v, want copying", got)
+	}
+	if got := entry(e.list(), "Movie Upload"); got.Status != domain.StatusReady {
+		t.Errorf("upload unchanged on the next reading = %+v, want ready", got)
+	}
+}

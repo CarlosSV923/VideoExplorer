@@ -55,7 +55,23 @@ func Copying(prev *Stamp, cur Stamp, now time.Time) bool {
 	if age := now.Sub(cur.ModTime); age >= 0 && age < SettleTime {
 		return true
 	}
+	return Changed(prev, cur)
+}
+
+// Changed reports whether a file changed since its previous reading: its size or its time differs. A file
+// never read (prev nil) has not changed.
+func Changed(prev *Stamp, cur Stamp) bool {
 	return prev != nil && (prev.Size != cur.Size || prev.ModTime.UnixMilli() != cur.ModTime.UnixMilli())
+}
+
+// CopyingKnown is Copying for a file that the registry already holds, with its previous reading (prev). A
+// file of an upload arrived complete (the ingestion moved a finished file with a rename), so for it only a
+// change between two readings means a copy (RF-27); the other origins follow Copying.
+func CopyingKnown(origin string, prev *Stamp, cur Stamp, now time.Time) bool {
+	if origin == OriginUpload {
+		return Changed(prev, cur)
+	}
+	return Copying(prev, cur, now)
 }
 
 // Ignored reports whether a path inside _unassigned/ is junk (RF-28): a name that starts with '.', '@',

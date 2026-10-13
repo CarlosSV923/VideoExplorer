@@ -454,7 +454,7 @@ func syncEntry(ctx context.Context, rec Records, row domain.UnassignedEntry, f d
 				}
 			}
 			e.Files = append(e.Files, file)
-			e.copying[it.Rel] = domain.Copying(previousStamp(old), cur, now)
+			e.copying[it.Rel] = domain.CopyingKnown(row.Origin, previousStamp(old), cur, now)
 			continue
 		}
 		file := domain.UnassignedFile{Source: placeOf(row.Name, row.Loose, it.Rel), Rel: it.Rel, Size: it.Size, Mtime: it.ModTime.UnixMilli()}

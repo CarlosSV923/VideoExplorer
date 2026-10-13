@@ -250,3 +250,32 @@ func TestNewSambaEntryHasNoBatchAndNoRelation(t *testing.T) {
 		})
 	}
 }
+
+func TestCopyingKnownLetsAnUploadThatArrivedCompleteSettle(t *testing.T) {
+	t.Parallel()
+	old := sectionNow.Add(-2 * time.Minute)
+	fresh := sectionNow.Add(-10 * time.Second)
+	tests := []struct {
+		name   string
+		origin string
+		prev   *domain.Stamp
+		cur    domain.Stamp
+		want   bool
+	}{
+		{name: "an upload read for the first time, modified just now", origin: domain.OriginUpload, cur: domain.Stamp{Size: 10, ModTime: fresh}, want: false},
+		{name: "an upload unchanged since its reading, modified just now", origin: domain.OriginUpload, prev: &domain.Stamp{Size: 10, ModTime: fresh}, cur: domain.Stamp{Size: 10, ModTime: fresh}, want: false},
+		{name: "an upload whose size changed", origin: domain.OriginUpload, prev: &domain.Stamp{Size: 10, ModTime: old}, cur: domain.Stamp{Size: 20, ModTime: old}, want: true},
+		{name: "an upload whose time changed", origin: domain.OriginUpload, prev: &domain.Stamp{Size: 10, ModTime: old}, cur: domain.Stamp{Size: 10, ModTime: fresh}, want: true},
+		{name: "a Samba file read for the first time, modified just now", origin: domain.OriginSamba, cur: domain.Stamp{Size: 10, ModTime: fresh}, want: true},
+		{name: "a Samba file unchanged, modified just now", origin: domain.OriginSamba, prev: &domain.Stamp{Size: 10, ModTime: fresh}, cur: domain.Stamp{Size: 10, ModTime: fresh}, want: true},
+		{name: "a Samba file unchanged and old", origin: domain.OriginSamba, prev: &domain.Stamp{Size: 10, ModTime: old}, cur: domain.Stamp{Size: 10, ModTime: old}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := domain.CopyingKnown(tt.origin, tt.prev, tt.cur, sectionNow); got != tt.want {
+				t.Errorf("CopyingKnown = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
