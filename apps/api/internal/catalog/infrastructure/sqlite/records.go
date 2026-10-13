@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -80,4 +81,86 @@ func boolInt(b bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+// InsertLibraryTitle implements application.Records.
+func (r records) InsertLibraryTitle(ctx context.Context, t domain.LibraryTitle) (int64, error) {
+	id, err := r.q.InsertLibraryTitle(ctx, sqlcgen.InsertLibraryTitleParams{
+		Kind:      string(t.Kind),
+		Title:     t.Title,
+		DiscTitle: t.DiscTitle,
+		Year:      int64(t.Year),
+		TmdbID:    nullInt(t.TMDBID),
+		IDTag:     boolInt(t.IDTag),
+		Folder:    t.Folder,
+		CreatedAt: formatTime(t.CreatedAt),
+		UpdatedAt: formatTime(t.UpdatedAt),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("catalog: insert library title: %w", err)
+	}
+	return id, nil
+}
+
+// InsertLibraryFiles implements application.Records. A subtitle is stored with the id of its
+// video, which must already be in the registry.
+func (r records) InsertLibraryFiles(ctx context.Context, titleID int64, files []domain.LibraryFile) error {
+	for _, f := range files {
+		var videoID sql.NullInt64
+		if f.Kind == domain.FileSubtitle {
+			id, err := r.q.LibraryFileIDByRel(ctx, f.VideoRel)
+			if err != nil {
+				return fmt.Errorf("catalog: the video of %s is not in the library: %w", f.Rel, err)
+			}
+			videoID = sql.NullInt64{Int64: id, Valid: true}
+		}
+		if _, err := r.q.InsertLibraryFile(ctx, sqlcgen.InsertLibraryFileParams{
+			TitleID:      titleID,
+			Rel:          f.Rel,
+			Kind:         string(f.Kind),
+			Season:       episodeInt(f.Place, f.Place.Season),
+			FirstChapter: episodeInt(f.Place, f.Place.First),
+			LastChapter:  episodeInt(f.Place, f.Place.Last),
+			Part:         int64(f.Place.Part),
+			Version:      f.Version,
+			Language:     f.Language,
+			Forced:       boolInt(f.Forced),
+			Sdh:          boolInt(f.SDH),
+			VideoID:      videoID,
+			Size:         f.Size,
+			PartialHash:  f.PartialHash,
+			CreatedAt:    formatTime(f.CreatedAt),
+		}); err != nil {
+			return fmt.Errorf("catalog: insert library file: %w", err)
+		}
+	}
+	return nil
+}
+
+// MoveLibraryFile implements application.Records.
+func (r records) MoveLibraryFile(ctx context.Context, id int64, rel string) error {
+	if err := r.q.MoveLibraryFile(ctx, sqlcgen.MoveLibraryFileParams{Rel: rel, ID: id}); err != nil {
+		return fmt.Errorf("catalog: move library file: %w", err)
+	}
+	return nil
+}
+
+// TrashLibraryFiles implements application.Records.
+func (r records) TrashLibraryFiles(ctx context.Context, ids []int64, entryID int64) error {
+	for _, id := range ids {
+		if err := r.q.TrashLibraryFile(ctx, sqlcgen.TrashLibraryFileParams{TrashEntryID: sql.NullInt64{Int64: entryID, Valid: true}, ID: id}); err != nil {
+			return fmt.Errorf("catalog: trash library file: %w", err)
+		}
+	}
+	return nil
+}
+
+// nullInt stores a number that is absent when it is 0.
+func nullInt(n int64) sql.NullInt64 {
+	return sql.NullInt64{Int64: n, Valid: n != 0}
+}
+
+// episodeInt stores a number of a series file (its season or a chapter); NULL for a movie or a subtitle.
+func episodeInt(p domain.Place, n int) sql.NullInt64 {
+	return sql.NullInt64{Int64: int64(n), Valid: p.Episode}
 }

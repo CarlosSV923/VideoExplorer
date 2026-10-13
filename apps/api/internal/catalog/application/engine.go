@@ -92,6 +92,15 @@ type Records interface {
 	InsertUnassigned(ctx context.Context, entry domain.UnassignedEntry) (int64, error)
 	// AddUnassignedFiles adds files to an entry of No asignados that exists.
 	AddUnassignedFiles(ctx context.Context, entryID int64, files []domain.UnassignedFile) error
+	// InsertLibraryTitle stores a title of the library and returns its id (RF-21).
+	InsertLibraryTitle(ctx context.Context, title domain.LibraryTitle) (int64, error)
+	// InsertLibraryFiles stores files of a title, in order. A subtitle's video must be stored
+	// before it, in the same change or earlier (RF-23).
+	InsertLibraryFiles(ctx context.Context, titleID int64, files []domain.LibraryFile) error
+	// MoveLibraryFile records the new path of a registered file that the change renamed.
+	MoveLibraryFile(ctx context.Context, id int64, rel string) error
+	// TrashLibraryFiles records that the files are in the trash entry entryID (RF-30).
+	TrashLibraryFiles(ctx context.Context, ids []int64, entryID int64) error
 }
 
 // Engine performs the changes of the library. Changes run one at a time: planning reads

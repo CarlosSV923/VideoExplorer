@@ -4,12 +4,36 @@
 
 package sqlcgen
 
+import (
+	"database/sql"
+)
+
 type FilterFile struct {
 	JobID   string
 	Path    string
 	Size    int64
 	Kind    string
 	Trashed int64
+}
+
+type LibraryFile struct {
+	ID           int64
+	TitleID      int64
+	Rel          string
+	Kind         string
+	Season       sql.NullInt64
+	FirstChapter sql.NullInt64
+	LastChapter  sql.NullInt64
+	Part         int64
+	Version      string
+	Language     string
+	Forced       int64
+	Sdh          int64
+	VideoID      sql.NullInt64
+	Size         int64
+	PartialHash  string
+	TrashEntryID sql.NullInt64
+	CreatedAt    string
 }
 
 type LibraryOperation struct {
@@ -19,6 +43,19 @@ type LibraryOperation struct {
 	Steps     string
 	Started   int64
 	CreatedAt string
+}
+
+type LibraryTitle struct {
+	ID        int64
+	Kind      string
+	Title     string
+	DiscTitle string
+	Year      int64
+	TmdbID    sql.NullInt64
+	IDTag     int64
+	Folder    string
+	CreatedAt string
+	UpdatedAt string
 }
 
 type MediaProbe struct {

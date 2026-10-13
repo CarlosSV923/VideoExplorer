@@ -21,6 +21,8 @@ type memStore struct {
 	mu          sync.Mutex
 	trash       []domain.TrashEntry
 	entries     []domain.UnassignedEntry
+	titles      []domain.LibraryTitle
+	files       []domain.LibraryFile
 	failRecords bool
 }
 
@@ -346,4 +348,51 @@ func readFile(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(data)
+}
+
+// InsertLibraryTitle implements Records: the title gets the next id.
+func (m *memStore) InsertLibraryTitle(_ context.Context, t domain.LibraryTitle) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	t.ID = int64(len(m.titles) + 1)
+	m.titles = append(m.titles, t)
+	return t.ID, nil
+}
+
+// InsertLibraryFiles implements Records.
+func (m *memStore) InsertLibraryFiles(_ context.Context, titleID int64, files []domain.LibraryFile) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, f := range files {
+		f.ID = int64(len(m.files) + 1)
+		f.TitleID = titleID
+		m.files = append(m.files, f)
+	}
+	return nil
+}
+
+// MoveLibraryFile implements Records.
+func (m *memStore) MoveLibraryFile(_ context.Context, id int64, rel string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range m.files {
+		if m.files[i].ID == id {
+			m.files[i].Rel = rel
+		}
+	}
+	return nil
+}
+
+// TrashLibraryFiles implements Records.
+func (m *memStore) TrashLibraryFiles(_ context.Context, ids []int64, entryID int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range m.files {
+		for _, id := range ids {
+			if m.files[i].ID == id {
+				m.files[i].TrashEntryID = entryID
+			}
+		}
+	}
+	return nil
 }
