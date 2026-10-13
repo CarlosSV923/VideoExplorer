@@ -145,9 +145,11 @@ func run(cfg config.Config, log *slog.Logger) error {
 		go ingest.Service.RunProbing(ctx) // one reading at a time, behind the extractions (RF-24)
 		go ingest.Service.RunPurge(ctx, purgeInterval)
 	}
+	// The assignment of No asignados hashes the videos through the ingestion, so it is wired after it (RF-24).
+	assign := newAssign(cfg, conn, catalog, meta, ingest.Service, log)
 
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler))
+		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)

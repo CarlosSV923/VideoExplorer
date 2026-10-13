@@ -246,6 +246,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/unassigned/{id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open the assignment of an entry of No asignados (RF-26)
+         * @description Takes the assignment lock of the entry for this tab and answers its token. The tab
+         *     sends the token back in `X-Assign-Lock` on the other operations of the assignment. A tab
+         *     that already holds the lock renews it by sending its token. While another tab holds
+         *     the lock the answer is 409 with `code: assigning`. A lock with no activity for 15 minutes
+         *     expires by itself (RF-26); every plan renews it.
+         */
+        post: operations["takeAssignLock"];
+        /**
+         * Cancel the assignment of an entry (RF-26)
+         * @description Frees the lock when the token in `X-Assign-Lock` holds it. With any other token nothing
+         *     changes. The entry stays in No asignados as it was.
+         */
+        delete: operations["releaseAssignLock"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each file of the entry is, and its best TMDB match (RF-20, RF-23)
+         * @description Reads the name of each video and subtitle of the entry and of its folders (RF-20), with the
+         *     title that TMDB finds first for each video when TMDB is configured (spec §6). A relation of
+         *     chapters (RF-03) gives the entry a title: the series of its chapters. Subtitles whose name
+         *     gives no language are preselected as Latin American Spanish (RF-23). Needs the lock.
+         */
+        get: operations["getAssignSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview the assignment of an entry (RF-24, RF-25)
+         * @description Checks the choices of the form and answers the preview: the final paths (spec §5), the
+         *     duplicates of each place and what can be answered to them, and the errors and warnings,
+         *     each with the file and the field it is about. Changes nothing in the library. Renews the
+         *     lock (RF-26). `valid` is true when the same choices can be committed.
+         */
+        post: operations["planAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store the assignment of an entry in the library (RF-25, RF-26)
+         * @description Checks the choices again and performs them as one change of the library (RF-25): the
+         *     titles that are new are added to the registry, the videos and their subtitles move to their
+         *     final paths, the duplicates that are replaced go to the trash, and the versions take their
+         *     labels. Nothing is overwritten. If anything fails, everything is undone and the entry stays
+         *     as it was. What is not placed stays in No asignados, and the entry disappears when nothing is
+         *     left in it. A commit that succeeds releases the lock.
+         */
+        post: operations["commitAssign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/titles/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Titles to assign to, the library's first (RF-21)
+         * @description The titles of the library whose words all appear in their title, without regard to case or
+         *     accents, and then the TMDB movies and series that match (RF-21). A TMDB title already in the
+         *     library carries its `libraryTitleId`, so that it is assigned there. Only the library answers
+         *     when TMDB is not configured or does not answer (`tmdbAvailable` false).
+         */
+        get: operations["searchTitles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -430,6 +553,250 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        /**
+         * @description The assignment lock of an entry (RF-26). The tab keeps `token` and sends it back in
+         *     `X-Assign-Lock`; the lock ends at `expiresAt` unless a plan renews it.
+         */
+        AssignLock: {
+            token: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        /** @description RFC 9457 problem details of an assignment, with the stable reason in `code`. */
+        AssignProblem: components["schemas"]["Problem"] & {
+            /**
+             * @description `assigning`: another tab holds the entry, which is being assigned (RF-26). `lock_lost`:
+             *     this tab does not hold the lock any more (it expired, or it was never taken); open the
+             *     assignment again. `plan_changed`: a file of the library took a place that the plan needed, so nothing was changed; the plan is checked again (RF-25).
+             * @enum {string}
+             */
+            code: "assigning" | "lock_lost" | "plan_changed";
+        };
+        /**
+         * @description A movie (Movies/) or a series (TV Shows/), spec §2.
+         * @enum {string}
+         */
+        TitleKind: "movie" | "series";
+        /**
+         * @description Where a title comes from: the library (`library`), TMDB (`tmdb`), or a name typed by the
+         *     user (`free`, spec §6).
+         * @enum {string}
+         */
+        TitleSource: "library" | "tmdb" | "free";
+        /**
+         * @description The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+         *     `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+         *     `keep_both` is not allowed when parts and versions are involved (RF-22).
+         * @enum {string}
+         */
+        DuplicateDecision: "replace" | "keep_both" | "skip";
+        /** @description The title a video goes to (RF-21). Which fields apply depends on `source`. */
+        TitleChoice: {
+            source: components["schemas"]["TitleSource"];
+            /**
+             * Format: int64
+             * @description The title of the library (`library`).
+             */
+            libraryTitleId?: number;
+            /**
+             * Format: int64
+             * @description The TMDB title (`tmdb`).
+             */
+            tmdbId?: number;
+            kind?: components["schemas"]["TitleKind"];
+            /** @description The name of a free title (`free`); the title of the disc, which is not renamed by TMDB. */
+            title?: string;
+            /** @description The year of a free title (`free`); omitted when unknown. */
+            year?: number;
+        };
+        /**
+         * @description What one video of the entry becomes (RF-22). `place` puts it in a title: a movie takes a
+         *     part, or the whole movie when `part` is omitted; a series takes a season (0 holds the
+         *     specials), a chapter and, for a file with several chapters, the last one. `keep` is "No
+         *     guardar": the video stays in No asignados.
+         */
+        AssignVideo: {
+            /**
+             * @description The file inside the entry, with "/" separators, as the suggestions name it. Empty for a
+             *     loose entry, which is one file. The server takes it from the entry; no path is built from it.
+             */
+            file: string;
+            /** @enum {string} */
+            action: "place" | "keep";
+            title?: components["schemas"]["TitleChoice"];
+            part?: number;
+            season?: number;
+            chapter?: number;
+            /** @description The last chapter of a file with several consecutive chapters (RF-22). */
+            lastChapter?: number;
+            /** @description The chapter's title for a free series (spec §6); omitted when it has none. */
+            chapterTitle?: string;
+            /** @description The label of a version kept with `keep_both` (RF-24), as the user edited it. */
+            version?: string;
+            duplicate?: components["schemas"]["DuplicateDecision"];
+        };
+        /** @description What one subtitle of the entry becomes (RF-23): the video it goes with, its language and its flags. */
+        AssignSubtitle: {
+            file: string;
+            /** @description The video of the entry it goes with. Omitted when it goes with none. */
+            video?: string;
+            /** @description ISO 639-1 with an optional region, as spec §5 writes it (`es`, `en`, `es-419`). */
+            language: string;
+            forced?: boolean;
+            sdh?: boolean;
+        };
+        /** @description The choices of the form for an entry (RF-22, RF-23, RF-24). Every video and subtitle of the entry needs one. */
+        AssignRequest: {
+            videos: components["schemas"]["AssignVideo"][];
+            subtitles: components["schemas"]["AssignSubtitle"][];
+        };
+        /** @description A title that an assignment can take (RF-21): a title of the library, or a TMDB title. */
+        TitleHit: {
+            source: components["schemas"]["TitleSource"];
+            /**
+             * Format: int64
+             * @description The title of the library; for a TMDB result, set when the library already has it.
+             */
+            libraryTitleId?: number;
+            /** Format: int64 */
+            tmdbId?: number;
+            kind: components["schemas"]["TitleKind"];
+            title: string;
+            year?: number;
+            /** @description The poster's file for `GET /images/poster/{file}`; omitted when there is none. */
+            posterFile?: string;
+        };
+        TitleSearch: {
+            /** @description False when TMDB is not configured or did not answer. */
+            tmdbAvailable: boolean;
+            /** @description The titles of the library that match, sorted by title (RF-21). */
+            library: components["schemas"]["TitleHit"][];
+            /** @description The TMDB movies, then the series, that match. */
+            tmdb: components["schemas"]["TitleHit"][];
+        };
+        /** @description What a file name, and its folders, say about the file (RF-20, RF-23). Absent fields are not known. */
+        NameReading: {
+            /**
+             * @description `unknown` when the name does not say (absolute numbering, a generic name, §8).
+             * @enum {string}
+             */
+            type: "movie" | "series" | "unknown";
+            title?: string;
+            year?: number;
+            season?: number;
+            chapter?: number;
+            lastChapter?: number;
+            part?: number;
+            language?: string;
+            forced?: boolean;
+            sdh?: boolean;
+        };
+        VideoSuggestion: {
+            file: string;
+            reading: components["schemas"]["NameReading"];
+            /** @description The best TMDB match for the title the name gives; omitted when TMDB is not configured or finds none. */
+            match?: components["schemas"]["TitleHit"];
+        };
+        SubtitleSuggestion: {
+            file: string;
+            /** @description The language the name gives, or es-419 when it gives none (RF-23). */
+            language: string;
+            forced: boolean;
+            sdh: boolean;
+            /** @description The video the name shares with it; omitted when none is named. */
+            video?: string;
+        };
+        /** @description The starting point of the assignment of an entry (RF-20, RF-23). */
+        AssignSuggestions: {
+            /** Format: int64 */
+            entryId: number;
+            /** @description The name of the entry in No asignados. */
+            name: string;
+            relation: components["schemas"]["BatchRelation"];
+            tmdbConfigured: boolean;
+            /** @description For a relation of chapters (RF-03), the series that its chapters match. Omitted otherwise. */
+            title?: components["schemas"]["TitleHit"];
+            videos: components["schemas"]["VideoSuggestion"][];
+            subtitles: components["schemas"]["SubtitleSuggestion"][];
+        };
+        /** @description One thing that the choices get wrong (RF-22, RF-24, RF-25). The UI translates `code` with i18n keys. */
+        PlanIssue: {
+            /** @description The file the issue is about; omitted when it is about the entry. */
+            file?: string;
+            /** @description The field of the choice, such as `title`, `season`, `duplicate`, `version`, `video` or `file`. */
+            field: string;
+            /**
+             * @description A stable reason, such as `missing`, `unknown`, `required`, `invalid`, `in_library`,
+             *     `tmdb_unavailable`, `not_allowed`, `incomplete`, `duplicate_target`, `parts_and_whole`,
+             *     `chapters_overlap` or `mismatch`.
+             */
+            code: string;
+        };
+        /** @description A video that already holds the place of a planned video (RF-24). */
+        PlanDuplicate: {
+            /** @description The path of the video inside the library. */
+            rel: string;
+            /** Format: int64 */
+            size: number;
+            /** @description The label of the video, when it has one. */
+            version?: string;
+        };
+        /** @description A video of the entry in the preview (RF-25). */
+        PlanVideo: {
+            file: string;
+            /** @description True for "No guardar" (RF-22). */
+            keep: boolean;
+            /** @description The path inside the library once placed (spec §5); omitted when the video stays in No asignados. */
+            finalPath?: string;
+            duplicates: components["schemas"]["PlanDuplicate"][];
+            /** @description True when a duplicate has the same content (RF-24). */
+            exactCopy: boolean;
+            /** @description The answers that a duplicate accepts. Empty without a duplicate. */
+            allowed: components["schemas"]["DuplicateDecision"][];
+            proposal?: components["schemas"]["DuplicateDecision"];
+            decision?: components["schemas"]["DuplicateDecision"];
+            /** @description The label that a version kept with `keep_both` takes. */
+            version?: string;
+            /** @description The label that the rule proposes for the new version (RF-24). */
+            versionProposal?: string;
+            /** @description True when the proposed label cannot name a part that tells the versions apart; the user writes it (RF-24). */
+            versionIncomplete?: boolean;
+        };
+        /** @description A subtitle of the entry in the preview (RF-23). */
+        PlanSubtitle: {
+            file: string;
+            /** @description The video it goes with; empty when none. */
+            video: string;
+            /** @description Its path inside the library, next to its video (spec §5); omitted when it stays in No asignados. */
+            finalPath?: string;
+        };
+        /**
+         * @description The preview of the choices of an entry (RF-25). It changes nothing. `valid` is true when the
+         *     choices can be committed; `errors` say what stops them and `warnings` what does not (RF-22).
+         */
+        AssignPlan: {
+            /** Format: int64 */
+            entryId: number;
+            valid: boolean;
+            videos: components["schemas"]["PlanVideo"][];
+            subtitles: components["schemas"]["PlanSubtitle"][];
+            errors: components["schemas"]["PlanIssue"][];
+            /** @description Things that do not stop the commit, such as a season or a chapter that TMDB does not know (RF-22). */
+            warnings: components["schemas"]["PlanIssue"][];
+        };
+        PlacedFile: {
+            file: string;
+            /** @description The path inside the library, with "/" separators. */
+            path: string;
+        };
+        /** @description What a commit did (RF-25, RF-26). */
+        AssignResult: {
+            /** Format: int64 */
+            entryId: number;
+            /** @description True when nothing is left in the entry, which disappears (RF-26). */
+            entryRemoved: boolean;
+            placed: components["schemas"]["PlacedFile"][];
+        };
     };
     responses: {
         /** @description Missing, invalid or expired session, or wrong password. */
@@ -477,6 +844,30 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /**
+         * @description The assignment cannot go on: another tab is assigning the entry (`assigning`), or this tab
+         *     does not hold its lock (`lock_lost`) (RF-26).
+         */
+        AssignConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["AssignProblem"];
+            };
+        };
+        /**
+         * @description The choices do not form an assignment that can be stored. The body is the plan of the same
+         *     choices, with the errors that stop it (RF-25).
+         */
+        AssignInvalid: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AssignPlan"];
+            };
+        };
         /** @description The image is not cached and TMDB could not provide it. */
         BadGateway: {
             headers: {
@@ -488,6 +879,14 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+        EntryId: number;
+        /**
+         * @description The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+         *     it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+         *     (RF-26).
+         */
+        AssignLockToken: string;
         /** @description Job id, the id of its tus upload (`GET /jobs`). */
         JobId: string;
     };
@@ -738,6 +1137,205 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["BadGateway"];
+        };
+    };
+    takeAssignLock: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+                 *     it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+                 *     (RF-26).
+                 */
+                "X-Assign-Lock"?: components["parameters"]["AssignLockToken"];
+            };
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The lock is held by this tab until `expiresAt`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignLock"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["AssignConflict"];
+        };
+    };
+    releaseAssignLock: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+                 *     it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+                 *     (RF-26).
+                 */
+                "X-Assign-Lock"?: components["parameters"]["AssignLockToken"];
+            };
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The lock is free, or it was not held by this tab. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAssignSuggestions: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+                 *     it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+                 *     (RF-26).
+                 */
+                "X-Assign-Lock"?: components["parameters"]["AssignLockToken"];
+            };
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions of the entry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignSuggestions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["AssignConflict"];
+        };
+    };
+    planAssign: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+                 *     it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+                 *     (RF-26).
+                 */
+                "X-Assign-Lock"?: components["parameters"]["AssignLockToken"];
+            };
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description The preview. It may hold errors, which `valid` reports. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignPlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["AssignConflict"];
+        };
+    };
+    commitAssign: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+                 *     it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+                 *     (RF-26).
+                 */
+                "X-Assign-Lock"?: components["parameters"]["AssignLockToken"];
+            };
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["AssignConflict"];
+            422: components["responses"]["AssignInvalid"];
+        };
+    };
+    searchTitles: {
+        parameters: {
+            query: {
+                query: string;
+                /** @description Only TMDB results from this year (the first release or air year). */
+                year?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The titles found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleSearch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

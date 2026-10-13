@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,45 @@ import (
 
 	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for AssignProblemCode.
+const (
+	Assigning   AssignProblemCode = "assigning"
+	LockLost    AssignProblemCode = "lock_lost"
+	PlanChanged AssignProblemCode = "plan_changed"
+)
+
+// Valid indicates whether the value is a known member of the AssignProblemCode enum.
+func (e AssignProblemCode) Valid() bool {
+	switch e {
+	case Assigning:
+		return true
+	case LockLost:
+		return true
+	case PlanChanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssignVideoAction.
+const (
+	Keep  AssignVideoAction = "keep"
+	Place AssignVideoAction = "place"
+)
+
+// Valid indicates whether the value is a known member of the AssignVideoAction enum.
+func (e AssignVideoAction) Valid() bool {
+	switch e {
+	case Keep:
+		return true
+	case Place:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for BatchRelation.
 const (
@@ -56,6 +96,27 @@ func (e CheckCode) Valid() bool {
 	case LibraryNotWritable:
 		return true
 	case SevenzipMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DuplicateDecision.
+const (
+	KeepBoth DuplicateDecision = "keep_both"
+	Replace  DuplicateDecision = "replace"
+	Skip     DuplicateDecision = "skip"
+)
+
+// Valid indicates whether the value is a known member of the DuplicateDecision enum.
+func (e DuplicateDecision) Valid() bool {
+	switch e {
+	case KeepBoth:
+		return true
+	case Replace:
+		return true
+	case Skip:
 		return true
 	default:
 		return false
@@ -200,6 +261,184 @@ func (e JobStatus) Valid() bool {
 	}
 }
 
+// Defines values for NameReadingType.
+const (
+	NameReadingTypeMovie   NameReadingType = "movie"
+	NameReadingTypeSeries  NameReadingType = "series"
+	NameReadingTypeUnknown NameReadingType = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the NameReadingType enum.
+func (e NameReadingType) Valid() bool {
+	switch e {
+	case NameReadingTypeMovie:
+		return true
+	case NameReadingTypeSeries:
+		return true
+	case NameReadingTypeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitleKind.
+const (
+	TitleKindMovie  TitleKind = "movie"
+	TitleKindSeries TitleKind = "series"
+)
+
+// Valid indicates whether the value is a known member of the TitleKind enum.
+func (e TitleKind) Valid() bool {
+	switch e {
+	case TitleKindMovie:
+		return true
+	case TitleKindSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TitleSource.
+const (
+	Free    TitleSource = "free"
+	Library TitleSource = "library"
+	Tmdb    TitleSource = "tmdb"
+)
+
+// Valid indicates whether the value is a known member of the TitleSource enum.
+func (e TitleSource) Valid() bool {
+	switch e {
+	case Free:
+		return true
+	case Library:
+		return true
+	case Tmdb:
+		return true
+	default:
+		return false
+	}
+}
+
+// AssignLock The assignment lock of an entry (RF-26). The tab keeps `token` and sends it back in
+// `X-Assign-Lock`; the lock ends at `expiresAt` unless a plan renews it.
+type AssignLock struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	Token     string    `json:"token"`
+}
+
+// AssignPlan The preview of the choices of an entry (RF-25). It changes nothing. `valid` is true when the
+// choices can be committed; `errors` say what stops them and `warnings` what does not (RF-22).
+type AssignPlan struct {
+	EntryId   int64          `json:"entryId"`
+	Errors    []PlanIssue    `json:"errors"`
+	Subtitles []PlanSubtitle `json:"subtitles"`
+	Valid     bool           `json:"valid"`
+	Videos    []PlanVideo    `json:"videos"`
+
+	// Warnings Things that do not stop the commit, such as a season or a chapter that TMDB does not know (RF-22).
+	Warnings []PlanIssue `json:"warnings"`
+}
+
+// AssignProblem RFC 9457 problem details of an assignment, with the stable reason in `code`.
+type AssignProblem struct {
+	// Code `assigning`: another tab holds the entry, which is being assigned (RF-26). `lock_lost`:
+	// this tab does not hold the lock any more (it expired, or it was never taken); open the
+	// assignment again. `plan_changed`: a file of the library took a place that the plan needed, so nothing was changed; the plan is checked again (RF-25).
+	Code   AssignProblemCode `json:"code"`
+	Detail *string           `json:"detail,omitempty"`
+	Status int               `json:"status"`
+	Title  string            `json:"title"`
+	Type   *string           `json:"type,omitempty"`
+}
+
+// AssignProblemCode `assigning`: another tab holds the entry, which is being assigned (RF-26). `lock_lost`:
+// this tab does not hold the lock any more (it expired, or it was never taken); open the
+// assignment again. `plan_changed`: a file of the library took a place that the plan needed, so nothing was changed; the plan is checked again (RF-25).
+type AssignProblemCode string
+
+// AssignRequest The choices of the form for an entry (RF-22, RF-23, RF-24). Every video and subtitle of the entry needs one.
+type AssignRequest struct {
+	Subtitles []AssignSubtitle `json:"subtitles"`
+	Videos    []AssignVideo    `json:"videos"`
+}
+
+// AssignResult What a commit did (RF-25, RF-26).
+type AssignResult struct {
+	EntryId int64 `json:"entryId"`
+
+	// EntryRemoved True when nothing is left in the entry, which disappears (RF-26).
+	EntryRemoved bool         `json:"entryRemoved"`
+	Placed       []PlacedFile `json:"placed"`
+}
+
+// AssignSubtitle What one subtitle of the entry becomes (RF-23): the video it goes with, its language and its flags.
+type AssignSubtitle struct {
+	File   string `json:"file"`
+	Forced *bool  `json:"forced,omitempty"`
+
+	// Language ISO 639-1 with an optional region, as spec §5 writes it (`es`, `en`, `es-419`).
+	Language string `json:"language"`
+	Sdh      *bool  `json:"sdh,omitempty"`
+
+	// Video The video of the entry it goes with. Omitted when it goes with none.
+	Video *string `json:"video,omitempty"`
+}
+
+// AssignSuggestions The starting point of the assignment of an entry (RF-20, RF-23).
+type AssignSuggestions struct {
+	EntryId int64 `json:"entryId"`
+
+	// Name The name of the entry in No asignados.
+	Name string `json:"name"`
+
+	// Relation How the files of a batch relate (RF-03): `parts` for parts of one film or
+	// series, `episodes` for chapters of one series, `none` for no relation.
+	Relation  BatchRelation        `json:"relation"`
+	Subtitles []SubtitleSuggestion `json:"subtitles"`
+
+	// Title For a relation of chapters (RF-03), the series that its chapters match. Omitted otherwise.
+	Title          *TitleHit         `json:"title,omitempty"`
+	TmdbConfigured bool              `json:"tmdbConfigured"`
+	Videos         []VideoSuggestion `json:"videos"`
+}
+
+// AssignVideo What one video of the entry becomes (RF-22). `place` puts it in a title: a movie takes a
+// part, or the whole movie when `part` is omitted; a series takes a season (0 holds the
+// specials), a chapter and, for a file with several chapters, the last one. `keep` is "No
+// guardar": the video stays in No asignados.
+type AssignVideo struct {
+	Action  AssignVideoAction `json:"action"`
+	Chapter *int              `json:"chapter,omitempty"`
+
+	// ChapterTitle The chapter's title for a free series (spec §6); omitted when it has none.
+	ChapterTitle *string `json:"chapterTitle,omitempty"`
+
+	// Duplicate The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Duplicate *DuplicateDecision `json:"duplicate,omitempty"`
+
+	// File The file inside the entry, with "/" separators, as the suggestions name it. Empty for a
+	// loose entry, which is one file. The server takes it from the entry; no path is built from it.
+	File string `json:"file"`
+
+	// LastChapter The last chapter of a file with several consecutive chapters (RF-22).
+	LastChapter *int `json:"lastChapter,omitempty"`
+	Part        *int `json:"part,omitempty"`
+	Season      *int `json:"season,omitempty"`
+
+	// Title The title a video goes to (RF-21). Which fields apply depends on `source`.
+	Title *TitleChoice `json:"title,omitempty"`
+
+	// Version The label of a version kept with `keep_both` (RF-24), as the user edited it.
+	Version *string `json:"version,omitempty"`
+}
+
+// AssignVideoAction defines model for AssignVideo.Action.
+type AssignVideoAction string
+
 // Batch defines model for Batch.
 type Batch struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -279,6 +518,11 @@ type CreateBatchRequest struct {
 	Relation BatchRelation `json:"relation"`
 }
 
+// DuplicateDecision The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+// `keep_both` is not allowed when parts and versions are involved (RF-22).
+type DuplicateDecision string
+
 // Health Status of the process and of its startup diagnostics.
 type Health struct {
 	// Checks Diagnostics in the order they run.
@@ -339,11 +583,109 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// NameReading What a file name, and its folders, say about the file (RF-20, RF-23). Absent fields are not known.
+type NameReading struct {
+	Chapter     *int    `json:"chapter,omitempty"`
+	Forced      *bool   `json:"forced,omitempty"`
+	Language    *string `json:"language,omitempty"`
+	LastChapter *int    `json:"lastChapter,omitempty"`
+	Part        *int    `json:"part,omitempty"`
+	Sdh         *bool   `json:"sdh,omitempty"`
+	Season      *int    `json:"season,omitempty"`
+	Title       *string `json:"title,omitempty"`
+
+	// Type `unknown` when the name does not say (absolute numbering, a generic name, §8).
+	Type NameReadingType `json:"type"`
+	Year *int            `json:"year,omitempty"`
+}
+
+// NameReadingType `unknown` when the name does not say (absolute numbering, a generic name, §8).
+type NameReadingType string
+
 // PasswordRequest defines model for PasswordRequest.
 type PasswordRequest struct {
 	// Password Password of the archive. Sent once; never stored or logged. Without NUL
 	// characters (RF-04).
 	Password string `json:"password"`
+}
+
+// PlacedFile defines model for PlacedFile.
+type PlacedFile struct {
+	File string `json:"file"`
+
+	// Path The path inside the library, with "/" separators.
+	Path string `json:"path"`
+}
+
+// PlanDuplicate A video that already holds the place of a planned video (RF-24).
+type PlanDuplicate struct {
+	// Rel The path of the video inside the library.
+	Rel  string `json:"rel"`
+	Size int64  `json:"size"`
+
+	// Version The label of the video, when it has one.
+	Version *string `json:"version,omitempty"`
+}
+
+// PlanIssue One thing that the choices get wrong (RF-22, RF-24, RF-25). The UI translates `code` with i18n keys.
+type PlanIssue struct {
+	// Code A stable reason, such as `missing`, `unknown`, `required`, `invalid`, `in_library`,
+	// `tmdb_unavailable`, `not_allowed`, `incomplete`, `duplicate_target`, `parts_and_whole`,
+	// `chapters_overlap` or `mismatch`.
+	Code string `json:"code"`
+
+	// Field The field of the choice, such as `title`, `season`, `duplicate`, `version`, `video` or `file`.
+	Field string `json:"field"`
+
+	// File The file the issue is about; omitted when it is about the entry.
+	File *string `json:"file,omitempty"`
+}
+
+// PlanSubtitle A subtitle of the entry in the preview (RF-23).
+type PlanSubtitle struct {
+	File string `json:"file"`
+
+	// FinalPath Its path inside the library, next to its video (spec §5); omitted when it stays in No asignados.
+	FinalPath *string `json:"finalPath,omitempty"`
+
+	// Video The video it goes with; empty when none.
+	Video string `json:"video"`
+}
+
+// PlanVideo A video of the entry in the preview (RF-25).
+type PlanVideo struct {
+	// Allowed The answers that a duplicate accepts. Empty without a duplicate.
+	Allowed []DuplicateDecision `json:"allowed"`
+
+	// Decision The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Decision   *DuplicateDecision `json:"decision,omitempty"`
+	Duplicates []PlanDuplicate    `json:"duplicates"`
+
+	// ExactCopy True when a duplicate has the same content (RF-24).
+	ExactCopy bool   `json:"exactCopy"`
+	File      string `json:"file"`
+
+	// FinalPath The path inside the library once placed (spec §5); omitted when the video stays in No asignados.
+	FinalPath *string `json:"finalPath,omitempty"`
+
+	// Keep True for "No guardar" (RF-22).
+	Keep bool `json:"keep"`
+
+	// Proposal The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Proposal *DuplicateDecision `json:"proposal,omitempty"`
+
+	// Version The label that a version kept with `keep_both` takes.
+	Version *string `json:"version,omitempty"`
+
+	// VersionIncomplete True when the proposed label cannot name a part that tells the versions apart; the user writes it (RF-24).
+	VersionIncomplete *bool `json:"versionIncomplete,omitempty"`
+
+	// VersionProposal The label that the rule proposes for the new version (RF-24).
+	VersionProposal *string `json:"versionProposal,omitempty"`
 }
 
 // Problem RFC 9457 problem details.
@@ -358,6 +700,79 @@ type Problem struct {
 type Session struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
+
+// SubtitleSuggestion defines model for SubtitleSuggestion.
+type SubtitleSuggestion struct {
+	File   string `json:"file"`
+	Forced bool   `json:"forced"`
+
+	// Language The language the name gives, or es-419 when it gives none (RF-23).
+	Language string `json:"language"`
+	Sdh      bool   `json:"sdh"`
+
+	// Video The video the name shares with it; omitted when none is named.
+	Video *string `json:"video,omitempty"`
+}
+
+// TitleChoice The title a video goes to (RF-21). Which fields apply depends on `source`.
+type TitleChoice struct {
+	// Kind A movie (Movies/) or a series (TV Shows/), spec §2.
+	Kind *TitleKind `json:"kind,omitempty"`
+
+	// LibraryTitleId The title of the library (`library`).
+	LibraryTitleId *int64 `json:"libraryTitleId,omitempty"`
+
+	// Source Where a title comes from: the library (`library`), TMDB (`tmdb`), or a name typed by the
+	// user (`free`, spec §6).
+	Source TitleSource `json:"source"`
+
+	// Title The name of a free title (`free`); the title of the disc, which is not renamed by TMDB.
+	Title *string `json:"title,omitempty"`
+
+	// TmdbId The TMDB title (`tmdb`).
+	TmdbId *int64 `json:"tmdbId,omitempty"`
+
+	// Year The year of a free title (`free`); omitted when unknown.
+	Year *int `json:"year,omitempty"`
+}
+
+// TitleHit A title that an assignment can take (RF-21): a title of the library, or a TMDB title.
+type TitleHit struct {
+	// Kind A movie (Movies/) or a series (TV Shows/), spec §2.
+	Kind TitleKind `json:"kind"`
+
+	// LibraryTitleId The title of the library; for a TMDB result, set when the library already has it.
+	LibraryTitleId *int64 `json:"libraryTitleId,omitempty"`
+
+	// PosterFile The poster's file for `GET /images/poster/{file}`; omitted when there is none.
+	PosterFile *string `json:"posterFile,omitempty"`
+
+	// Source Where a title comes from: the library (`library`), TMDB (`tmdb`), or a name typed by the
+	// user (`free`, spec §6).
+	Source TitleSource `json:"source"`
+	Title  string      `json:"title"`
+	TmdbId *int64      `json:"tmdbId,omitempty"`
+	Year   *int        `json:"year,omitempty"`
+}
+
+// TitleKind A movie (Movies/) or a series (TV Shows/), spec §2.
+type TitleKind string
+
+// TitleSearch defines model for TitleSearch.
+type TitleSearch struct {
+	// Library The titles of the library that match, sorted by title (RF-21).
+	Library []TitleHit `json:"library"`
+
+	// Tmdb The TMDB movies, then the series, that match.
+	Tmdb []TitleHit `json:"tmdb"`
+
+	// TmdbAvailable False when TMDB is not configured or did not answer.
+	TmdbAvailable bool `json:"tmdbAvailable"`
+}
+
+// TitleSource Where a title comes from: the library (`library`), TMDB (`tmdb`), or a name typed by the
+// user (`free`, spec §6).
+type TitleSource string
 
 // UploadJob One uploaded file and its state (RF-10a, RF-10b).
 type UploadJob struct {
@@ -423,8 +838,32 @@ type UploadJob struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// VideoSuggestion defines model for VideoSuggestion.
+type VideoSuggestion struct {
+	File string `json:"file"`
+
+	// Match The best TMDB match for the title the name gives; omitted when TMDB is not configured or finds none.
+	Match *TitleHit `json:"match,omitempty"`
+
+	// Reading What a file name, and its folders, say about the file (RF-20, RF-23). Absent fields are not known.
+	Reading NameReading `json:"reading"`
+}
+
+// AssignLockToken defines model for AssignLockToken.
+type AssignLockToken = string
+
+// EntryId defines model for EntryId.
+type EntryId = int64
+
 // JobId defines model for JobId.
 type JobId = string
+
+// AssignConflict RFC 9457 problem details of an assignment, with the stable reason in `code`.
+type AssignConflict = AssignProblem
+
+// AssignInvalid The preview of the choices of an entry (RF-25). It changes nothing. `valid` is true when the
+// choices can be committed; `errors` say what stops them and `warnings` what does not (RF-22).
+type AssignInvalid = AssignPlan
 
 // BadGateway RFC 9457 problem details.
 type BadGateway = Problem
@@ -444,6 +883,54 @@ type TooManyRequests = Problem
 // Unauthorized RFC 9457 problem details.
 type Unauthorized = Problem
 
+// SearchTitlesParams defines parameters for SearchTitles.
+type SearchTitlesParams struct {
+	Query string `form:"query" json:"query"`
+
+	// Year Only TMDB results from this year (the first release or air year).
+	Year *int `form:"year,omitempty" json:"year,omitempty"`
+}
+
+// CommitAssignParams defines parameters for CommitAssign.
+type CommitAssignParams struct {
+	// XAssignLock The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+	// it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+	// (RF-26).
+	XAssignLock *AssignLockToken `json:"X-Assign-Lock,omitempty"`
+}
+
+// ReleaseAssignLockParams defines parameters for ReleaseAssignLock.
+type ReleaseAssignLockParams struct {
+	// XAssignLock The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+	// it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+	// (RF-26).
+	XAssignLock *AssignLockToken `json:"X-Assign-Lock,omitempty"`
+}
+
+// TakeAssignLockParams defines parameters for TakeAssignLock.
+type TakeAssignLockParams struct {
+	// XAssignLock The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+	// it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+	// (RF-26).
+	XAssignLock *AssignLockToken `json:"X-Assign-Lock,omitempty"`
+}
+
+// PlanAssignParams defines parameters for PlanAssign.
+type PlanAssignParams struct {
+	// XAssignLock The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+	// it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+	// (RF-26).
+	XAssignLock *AssignLockToken `json:"X-Assign-Lock,omitempty"`
+}
+
+// GetAssignSuggestionsParams defines parameters for GetAssignSuggestions.
+type GetAssignSuggestionsParams struct {
+	// XAssignLock The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
+	// it, or with a token that does not hold the lock, is answered with `lock_lost` or `assigning`
+	// (RF-26).
+	XAssignLock *AssignLockToken `json:"X-Assign-Lock,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -452,6 +939,12 @@ type CreateBatchJSONRequestBody = CreateBatchRequest
 
 // SubmitJobPasswordJSONRequestBody defines body for SubmitJobPassword for application/json ContentType.
 type SubmitJobPasswordJSONRequestBody = PasswordRequest
+
+// CommitAssignJSONRequestBody defines body for CommitAssign for application/json ContentType.
+type CommitAssignJSONRequestBody = AssignRequest
+
+// PlanAssignJSONRequestBody defines body for PlanAssign for application/json ContentType.
+type PlanAssignJSONRequestBody = AssignRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -485,6 +978,24 @@ type ServerInterface interface {
 	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(w http.ResponseWriter, r *http.Request, id JobId)
+	// SearchTitles Titles to assign to, the library's first (RF-21)
+	// (GET /titles/search)
+	SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams)
+	// CommitAssign Store the assignment of an entry in the library (RF-25, RF-26)
+	// (POST /unassigned/{id}/commit)
+	CommitAssign(w http.ResponseWriter, r *http.Request, id EntryId, params CommitAssignParams)
+	// ReleaseAssignLock Cancel the assignment of an entry (RF-26)
+	// (DELETE /unassigned/{id}/lock)
+	ReleaseAssignLock(w http.ResponseWriter, r *http.Request, id EntryId, params ReleaseAssignLockParams)
+	// TakeAssignLock Open the assignment of an entry of No asignados (RF-26)
+	// (POST /unassigned/{id}/lock)
+	TakeAssignLock(w http.ResponseWriter, r *http.Request, id EntryId, params TakeAssignLockParams)
+	// PlanAssign Preview the assignment of an entry (RF-24, RF-25)
+	// (POST /unassigned/{id}/plan)
+	PlanAssign(w http.ResponseWriter, r *http.Request, id EntryId, params PlanAssignParams)
+	// GetAssignSuggestions What each file of the entry is, and its best TMDB match (RF-20, RF-23)
+	// (GET /unassigned/{id}/suggestions)
+	GetAssignSuggestions(w http.ResponseWriter, r *http.Request, id EntryId, params GetAssignSuggestionsParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -681,6 +1192,302 @@ func (siw *ServerInterfaceWrapper) RetryJob(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// SearchTitles operation middleware
+func (siw *ServerInterfaceWrapper) SearchTitles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchTitlesParams
+
+	// ------------- Required query parameter "query" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "query", r.URL.Query(), &params.Query, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "query"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "query", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year", r.URL.Query(), &params.Year, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchTitles(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CommitAssign operation middleware
+func (siw *ServerInterfaceWrapper) CommitAssign(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CommitAssignParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Assign-Lock" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Assign-Lock")]; found {
+		var XAssignLock AssignLockToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Assign-Lock", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Assign-Lock", valueList[0], &XAssignLock, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Assign-Lock", Err: err})
+			return
+		}
+
+		params.XAssignLock = &XAssignLock
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CommitAssign(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReleaseAssignLock operation middleware
+func (siw *ServerInterfaceWrapper) ReleaseAssignLock(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReleaseAssignLockParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Assign-Lock" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Assign-Lock")]; found {
+		var XAssignLock AssignLockToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Assign-Lock", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Assign-Lock", valueList[0], &XAssignLock, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Assign-Lock", Err: err})
+			return
+		}
+
+		params.XAssignLock = &XAssignLock
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReleaseAssignLock(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TakeAssignLock operation middleware
+func (siw *ServerInterfaceWrapper) TakeAssignLock(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TakeAssignLockParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Assign-Lock" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Assign-Lock")]; found {
+		var XAssignLock AssignLockToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Assign-Lock", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Assign-Lock", valueList[0], &XAssignLock, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Assign-Lock", Err: err})
+			return
+		}
+
+		params.XAssignLock = &XAssignLock
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TakeAssignLock(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlanAssign operation middleware
+func (siw *ServerInterfaceWrapper) PlanAssign(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PlanAssignParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Assign-Lock" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Assign-Lock")]; found {
+		var XAssignLock AssignLockToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Assign-Lock", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Assign-Lock", valueList[0], &XAssignLock, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Assign-Lock", Err: err})
+			return
+		}
+
+		params.XAssignLock = &XAssignLock
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlanAssign(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAssignSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) GetAssignSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAssignSuggestionsParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Assign-Lock" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Assign-Lock")]; found {
+		var XAssignLock AssignLockToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Assign-Lock", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Assign-Lock", valueList[0], &XAssignLock, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Assign-Lock", Err: err})
+			return
+		}
+
+		params.XAssignLock = &XAssignLock
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAssignSuggestions(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -811,9 +1618,19 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/password", wrapper.SubmitJobPassword)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/jobs/{id}/retry", wrapper.RetryJob)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/images/{kind}/{file}", wrapper.GetImage)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/unassigned/{id}/lock", wrapper.ReleaseAssignLock)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/lock", wrapper.TakeAssignLock)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/unassigned/{id}/suggestions", wrapper.GetAssignSuggestions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/plan", wrapper.PlanAssign)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/commit", wrapper.CommitAssign)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 
 	return m
 }
+
+type AssignConflictApplicationProblemPlusJSONResponse AssignProblem
+
+type AssignInvalidJSONResponse AssignPlan
 
 type BadGatewayApplicationProblemPlusJSONResponse Problem
 
@@ -1429,6 +2246,441 @@ func (response RetryJob409ApplicationProblemPlusJSONResponse) VisitRetryJobRespo
 	return err
 }
 
+type SearchTitlesRequestObject struct {
+	Params SearchTitlesParams
+}
+
+type SearchTitlesResponseObject interface {
+	VisitSearchTitlesResponse(w http.ResponseWriter) error
+}
+
+type SearchTitles200JSONResponse TitleSearch
+
+func (response SearchTitles200JSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTitles400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response SearchTitles400ApplicationProblemPlusJSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchTitles401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response SearchTitles401ApplicationProblemPlusJSONResponse) VisitSearchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAssignRequestObject struct {
+	Id     EntryId `json:"id"`
+	Params CommitAssignParams
+	Body   *CommitAssignJSONRequestBody
+}
+
+type CommitAssignResponseObject interface {
+	VisitCommitAssignResponse(w http.ResponseWriter) error
+}
+
+type CommitAssign200JSONResponse AssignResult
+
+func (response CommitAssign200JSONResponse) VisitCommitAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAssign400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CommitAssign400ApplicationProblemPlusJSONResponse) VisitCommitAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAssign401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CommitAssign401ApplicationProblemPlusJSONResponse) VisitCommitAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAssign404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CommitAssign404ApplicationProblemPlusJSONResponse) VisitCommitAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAssign409ApplicationProblemPlusJSONResponse struct {
+	AssignConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CommitAssign409ApplicationProblemPlusJSONResponse) VisitCommitAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitAssign422JSONResponse struct{ AssignInvalidJSONResponse }
+
+func (response CommitAssign422JSONResponse) VisitCommitAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReleaseAssignLockRequestObject struct {
+	Id     EntryId `json:"id"`
+	Params ReleaseAssignLockParams
+}
+
+type ReleaseAssignLockResponseObject interface {
+	VisitReleaseAssignLockResponse(w http.ResponseWriter) error
+}
+
+type ReleaseAssignLock204Response struct {
+}
+
+func (response ReleaseAssignLock204Response) VisitReleaseAssignLockResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ReleaseAssignLock401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ReleaseAssignLock401ApplicationProblemPlusJSONResponse) VisitReleaseAssignLockResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReleaseAssignLock404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ReleaseAssignLock404ApplicationProblemPlusJSONResponse) VisitReleaseAssignLockResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TakeAssignLockRequestObject struct {
+	Id     EntryId `json:"id"`
+	Params TakeAssignLockParams
+}
+
+type TakeAssignLockResponseObject interface {
+	VisitTakeAssignLockResponse(w http.ResponseWriter) error
+}
+
+type TakeAssignLock200JSONResponse AssignLock
+
+func (response TakeAssignLock200JSONResponse) VisitTakeAssignLockResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TakeAssignLock401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response TakeAssignLock401ApplicationProblemPlusJSONResponse) VisitTakeAssignLockResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TakeAssignLock404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response TakeAssignLock404ApplicationProblemPlusJSONResponse) VisitTakeAssignLockResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TakeAssignLock409ApplicationProblemPlusJSONResponse struct {
+	AssignConflictApplicationProblemPlusJSONResponse
+}
+
+func (response TakeAssignLock409ApplicationProblemPlusJSONResponse) VisitTakeAssignLockResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanAssignRequestObject struct {
+	Id     EntryId `json:"id"`
+	Params PlanAssignParams
+	Body   *PlanAssignJSONRequestBody
+}
+
+type PlanAssignResponseObject interface {
+	VisitPlanAssignResponse(w http.ResponseWriter) error
+}
+
+type PlanAssign200JSONResponse AssignPlan
+
+func (response PlanAssign200JSONResponse) VisitPlanAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanAssign400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PlanAssign400ApplicationProblemPlusJSONResponse) VisitPlanAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanAssign401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response PlanAssign401ApplicationProblemPlusJSONResponse) VisitPlanAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanAssign404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PlanAssign404ApplicationProblemPlusJSONResponse) VisitPlanAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanAssign409ApplicationProblemPlusJSONResponse struct {
+	AssignConflictApplicationProblemPlusJSONResponse
+}
+
+func (response PlanAssign409ApplicationProblemPlusJSONResponse) VisitPlanAssignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAssignSuggestionsRequestObject struct {
+	Id     EntryId `json:"id"`
+	Params GetAssignSuggestionsParams
+}
+
+type GetAssignSuggestionsResponseObject interface {
+	VisitGetAssignSuggestionsResponse(w http.ResponseWriter) error
+}
+
+type GetAssignSuggestions200JSONResponse AssignSuggestions
+
+func (response GetAssignSuggestions200JSONResponse) VisitGetAssignSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAssignSuggestions401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetAssignSuggestions401ApplicationProblemPlusJSONResponse) VisitGetAssignSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAssignSuggestions404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetAssignSuggestions404ApplicationProblemPlusJSONResponse) VisitGetAssignSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAssignSuggestions409ApplicationProblemPlusJSONResponse struct {
+	AssignConflictApplicationProblemPlusJSONResponse
+}
+
+func (response GetAssignSuggestions409ApplicationProblemPlusJSONResponse) VisitGetAssignSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Login Start a session with the shared password
@@ -1461,6 +2713,24 @@ type StrictServerInterface interface {
 	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(ctx context.Context, request RetryJobRequestObject) (RetryJobResponseObject, error)
+	// SearchTitles Titles to assign to, the library's first (RF-21)
+	// (GET /titles/search)
+	SearchTitles(ctx context.Context, request SearchTitlesRequestObject) (SearchTitlesResponseObject, error)
+	// CommitAssign Store the assignment of an entry in the library (RF-25, RF-26)
+	// (POST /unassigned/{id}/commit)
+	CommitAssign(ctx context.Context, request CommitAssignRequestObject) (CommitAssignResponseObject, error)
+	// ReleaseAssignLock Cancel the assignment of an entry (RF-26)
+	// (DELETE /unassigned/{id}/lock)
+	ReleaseAssignLock(ctx context.Context, request ReleaseAssignLockRequestObject) (ReleaseAssignLockResponseObject, error)
+	// TakeAssignLock Open the assignment of an entry of No asignados (RF-26)
+	// (POST /unassigned/{id}/lock)
+	TakeAssignLock(ctx context.Context, request TakeAssignLockRequestObject) (TakeAssignLockResponseObject, error)
+	// PlanAssign Preview the assignment of an entry (RF-24, RF-25)
+	// (POST /unassigned/{id}/plan)
+	PlanAssign(ctx context.Context, request PlanAssignRequestObject) (PlanAssignResponseObject, error)
+	// GetAssignSuggestions What each file of the entry is, and its best TMDB match (RF-20, RF-23)
+	// (GET /unassigned/{id}/suggestions)
+	GetAssignSuggestions(ctx context.Context, request GetAssignSuggestionsRequestObject) (GetAssignSuggestionsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1763,6 +3033,181 @@ func (sh *strictHandler) RetryJob(w http.ResponseWriter, r *http.Request, id Job
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryJobResponseObject); ok {
 		if err := validResponse.VisitRetryJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchTitles operation middleware
+func (sh *strictHandler) SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams) {
+	var request SearchTitlesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchTitles(ctx, request.(SearchTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchTitlesResponseObject); ok {
+		if err := validResponse.VisitSearchTitlesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CommitAssign operation middleware
+func (sh *strictHandler) CommitAssign(w http.ResponseWriter, r *http.Request, id EntryId, params CommitAssignParams) {
+	var request CommitAssignRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body CommitAssignJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CommitAssign(ctx, request.(CommitAssignRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CommitAssign")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CommitAssignResponseObject); ok {
+		if err := validResponse.VisitCommitAssignResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReleaseAssignLock operation middleware
+func (sh *strictHandler) ReleaseAssignLock(w http.ResponseWriter, r *http.Request, id EntryId, params ReleaseAssignLockParams) {
+	var request ReleaseAssignLockRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReleaseAssignLock(ctx, request.(ReleaseAssignLockRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReleaseAssignLock")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReleaseAssignLockResponseObject); ok {
+		if err := validResponse.VisitReleaseAssignLockResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TakeAssignLock operation middleware
+func (sh *strictHandler) TakeAssignLock(w http.ResponseWriter, r *http.Request, id EntryId, params TakeAssignLockParams) {
+	var request TakeAssignLockRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TakeAssignLock(ctx, request.(TakeAssignLockRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TakeAssignLock")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TakeAssignLockResponseObject); ok {
+		if err := validResponse.VisitTakeAssignLockResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PlanAssign operation middleware
+func (sh *strictHandler) PlanAssign(w http.ResponseWriter, r *http.Request, id EntryId, params PlanAssignParams) {
+	var request PlanAssignRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	var body PlanAssignJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PlanAssign(ctx, request.(PlanAssignRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlanAssign")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PlanAssignResponseObject); ok {
+		if err := validResponse.VisitPlanAssignResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAssignSuggestions operation middleware
+func (sh *strictHandler) GetAssignSuggestions(w http.ResponseWriter, r *http.Request, id EntryId, params GetAssignSuggestionsParams) {
+	var request GetAssignSuggestionsRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAssignSuggestions(ctx, request.(GetAssignSuggestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAssignSuggestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAssignSuggestionsResponseObject); ok {
+		if err := validResponse.VisitGetAssignSuggestionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
