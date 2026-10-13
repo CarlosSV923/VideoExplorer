@@ -1,0 +1,464 @@
+{
+  "description": "Version labels (spec RF-24, §5 <versión>): the label that tells apart the versions of one place (a movie, or a chapter), read from the main video track and the audio tracks with ffprobe. Input: versions, the versions in conflict in the order they were given. Each has width and height (the frame of the main video track), codec (ffprobe's codec name) and audio (its audio tracks, each with language and title, as ffprobe reports them; they may be empty). Output: one label per version, in the same order. Rules: (1) the resolution is the first part of the label: the first class, from 2160p down, that the frame reaches by its width or by its height within 2 % (a letterboxed 1920x800 is 1080p, a 1280x534 is 720p, a 720x576 is 576p, a 720x480 is 480p). The classes are 2160p, 1440p, 1080p, 720p, 576p and 480p; a frame that reaches none is refused with 'video'. (2) The codec follows, with its short name (HEVC, H.264, AV1, VP9, MPEG-2, VC-1), only when some versions share the resolution and their codecs differ. (3) The audio follows only when some versions share the resolution and the codec and their audio differs: Latino for a Spanish track (language spa, es, esp or es-<region>) with no further indication, Castellano when its title contains castellano, españa, espana or es-es, the name in Spanish of another language (Inglés, Japonés, Francés, Alemán, Italiano, Portugués, Coreano, Chino, Ruso), and Dual when the tracks name two or more different languages. (4) Equal labels are made distinct: the first keeps its label and the next ones get ' (2)', ' (3)'. A version whose label would need something this rule does not decide is refused with the missing field: 'video' (no frame size or no class), 'codec' (a codec without a short name, only when the codec must tell the versions apart), 'audio' (no audio track, or a track whose language has no name here, only when the audio must tell the versions apart). Such a refusal marks a case not decided yet; it is not a label.",
+  "versionLabel": {
+    "description": "Labels of the versions of one place (RF-24). Each case lists the versions in conflict; expected is the label of each one, in order, or an object {\"error\": field} for a version that cannot be labelled.",
+    "cases": [
+      {
+        "name": "a single version has only its resolution",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p"]
+      },
+      {
+        "name": "different resolutions need nothing more",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "codec": "h264",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p", "720p"]
+      },
+      {
+        "name": "the same resolution with different codecs shows the codec",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p HEVC", "1080p H.264"]
+      },
+      {
+        "name": "the same resolution and codec with other audio shows the audio language",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "spa", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p Latino", "1080p Inglés"]
+      },
+      {
+        "name": "a Spanish track whose title says Castellano is Castellano",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "spa", "title": "Castellano" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "spa", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p Castellano", "1080p Latino"]
+      },
+      {
+        "name": "a Spanish track whose title says España or es-ES is Castellano, and two Castellano tracks are equal labels",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "spa", "title": "Español (España)" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "spa", "title": "es-ES" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "spa", "title": "Latino" }]
+            }
+          ]
+        },
+        "expected": ["1080p Castellano", "1080p Castellano (2)", "1080p Latino"]
+      },
+      {
+        "name": "a regional Spanish tag is Spanish: es-419 and es-MX are Latino",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "es-419", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "es-MX", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "jpn", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p Latino", "1080p Latino (2)", "1080p Japonés"]
+      },
+      {
+        "name": "two languages in one version make it Dual, and the same language counts once",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [
+                { "language": "eng", "title": "" },
+                { "language": "spa", "title": "" }
+              ]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [
+                { "language": "eng", "title": "" },
+                { "language": "eng", "title": "commentary" }
+              ]
+            }
+          ]
+        },
+        "expected": ["1080p Dual", "1080p Inglés", "1080p Inglés (2)"]
+      },
+      {
+        "name": "Latino and Castellano in one version are two languages, so Dual",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [
+                { "language": "spa", "title": "" },
+                { "language": "spa", "title": "Castellano" }
+              ]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "spa", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p Dual", "1080p Latino"]
+      },
+      {
+        "name": "a letterboxed 1920x800 frame is 1080p and a 1280x534 frame is 720p",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 800,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1280,
+              "height": 534,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p", "720p"]
+      },
+      {
+        "name": "a 4K frame, a 1440p frame and a 4:3 frame are 2160p, 1440p and 576p",
+        "input": {
+          "versions": [
+            {
+              "width": 3840,
+              "height": 2160,
+              "codec": "av1",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 2560,
+              "height": 1440,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 720,
+              "height": 576,
+              "codec": "mpeg2video",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["2160p", "1440p", "576p"]
+      },
+      {
+        "name": "a 720x480 frame is 480p",
+        "input": {
+          "versions": [
+            {
+              "width": 720,
+              "height": 480,
+              "codec": "mpeg2video",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["480p"]
+      },
+      {
+        "name": "three versions mix the codec and the audio inside it",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "spa", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p HEVC", "1080p H.264 Latino", "1080p H.264 Inglés"]
+      },
+      {
+        "name": "identical versions get the suffix from the second on",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p", "1080p (2)", "1080p (3)"]
+      },
+      {
+        "name": "a version without frame size is refused",
+        "input": {
+          "versions": [
+            {
+              "width": 0,
+              "height": 0,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "error": "video" }
+      },
+      {
+        "name": "a frame smaller than 480p has no class and is refused",
+        "input": {
+          "versions": [
+            {
+              "width": 320,
+              "height": 240,
+              "codec": "h264",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "error": "video" }
+      },
+      {
+        "name": "a codec without a short name is refused when the codec must tell the versions apart",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "wmv3",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "error": "codec" }
+      },
+      {
+        "name": "a codec without a short name is not read when the resolutions already tell the versions apart",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "wmv3",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1280,
+              "height": 720,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p", "720p"]
+      },
+      {
+        "name": "an audio track with no language is refused when the audio must tell the versions apart",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "und", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "error": "audio" }
+      },
+      {
+        "name": "a language with no name here is refused when the audio must tell the versions apart",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "pol", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "error": "audio" }
+      },
+      {
+        "name": "a version without any audio track is refused when the audio must tell the versions apart",
+        "input": {
+          "versions": [
+            { "width": 1920, "height": 1080, "codec": "hevc", "audio": [] },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "error": "audio" }
+      },
+      {
+        "name": "an unknown language is not read when the codec already tells the versions apart",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "und", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "h264",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": ["1080p HEVC", "1080p H.264"]
+      }
+    ]
+  }
+}
