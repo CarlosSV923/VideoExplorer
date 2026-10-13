@@ -149,8 +149,16 @@ func run(cfg config.Config, log *slog.Logger) error {
 	// The assignment of No asignados hashes the videos through the ingestion, so it is wired after it (RF-24).
 	assign := newAssign(cfg, conn, catalog, meta, ingest.Service, log)
 
+	// The scans of the library (RF-28) run under their own context, so that they stop before the database closes.
+	scansCtx, cancelScans := context.WithCancel(ctx)
+	defer cancelScans()
+	scans, err := newScans(scansCtx, cfg, conn, catalog, ingest.Service, log)
+	if err != nil {
+		return err
+	}
+
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section))
+		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)
@@ -164,6 +172,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- httpserver.Serve(ctx, srv, ln, shutdownTimeout) }()
+	// The scans start once the server serves: the first run of each does not delay the start (RF-28).
+	// They are stopped and awaited before the database closes.
+	defer stopScans(cancelScans, scans.Scanner.Start(), log)
 
 	select {
 	case err := <-serveErr:

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	catalogshttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/interfaces/http"
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
 	ingestionhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/interfaces/http"
@@ -42,12 +43,12 @@ func newTestRoutesWith(t *testing.T, cookieSecure bool, images application.Image
 	log := slog.New(slog.DiscardHandler)
 	ingest, _ := newTestIngestion(t)
 	uploads := newUploads(config.Config{LibraryPath: t.TempDir()}, log, ingest.Service)
-	return newTestRoutesWithUploads(t, cookieSecure, images, ingest.Handler, uploads.handler)
+	return newTestRoutesWithUploads(t, cookieSecure, images, ingest.Handler, uploads.handler, nil)
 }
 
 // newTestRoutesWithUploads is newTestRoutesWith with the batch and upload
 // endpoints of the test.
-func newTestRoutesWithUploads(t *testing.T, cookieSecure bool, images application.ImageStore, ingest *ingestionhttp.Handler, uploads http.Handler) http.Handler {
+func newTestRoutesWithUploads(t *testing.T, cookieSecure bool, images application.ImageStore, ingest *ingestionhttp.Handler, uploads http.Handler, scans *catalogshttp.ScanHandler) http.Handler {
 	t.Helper()
 
 	hash, err := identityinfra.HashPassword(testPassword)
@@ -64,7 +65,7 @@ func newTestRoutesWithUploads(t *testing.T, cookieSecure bool, images applicatio
 		t.Fatal(err)
 	}
 	log := slog.New(slog.DiscardHandler)
-	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), ingest, uploads, nil, nil)
+	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), ingest, uploads, nil, nil, scans)
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {

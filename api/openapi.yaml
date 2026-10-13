@@ -53,6 +53,8 @@ tags:
     description: Upload batches, the files dropped together in the browser (RF-03), and the state of each upload (RF-10a, RF-10b).
   - name: section
     description: No asignados as the disk holds it now, and the changes of its entries (RF-27).
+  - name: scans
+    description: The two scans of the library, on a schedule and on demand, and when each last finished (RF-28).
 security:
   - sessionCookie: []
 paths:
@@ -650,6 +652,42 @@ paths:
         '409':
           $ref: '#/components/responses/EntryConflict'
 
+  /scans:
+    get:
+      tags: [scans]
+      operationId: getScans
+      summary: The two scans of the library and when each last finished (RF-28)
+      description: |
+        `unassigned` reads `_unassigned/` and takes its settled copies of Samba (RF-27, RF-27a); `library`
+        scans `Movies/` and `TV Shows/`. Each runs when the server starts, without delaying it, and then at
+        its interval (`UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`). A scan never overlaps itself.
+        `lastFinishedAt` is when the scan last finished; it is absent until it does, and it survives a restart.
+      responses:
+        '200':
+          description: The state of both scans, `unassigned` first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanStatuses'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [scans]
+      operationId: runScans
+      summary: Scan now, both scans («Escanear ahora», RF-28)
+      description: |
+        Starts both scans in the background. A scan that is running is not started again, so asking while
+        one runs only starts the other. The answer is the state of both scans right after the call.
+      responses:
+        '202':
+          description: The scans were started, or were already running; the state of both, `unassigned` first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanStatuses'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /titles/search:
     get:
       tags: [assign]
@@ -1074,6 +1112,37 @@ components:
                 assignment again. `plan_changed`: a file of the library took a place that the plan needed, so nothing was changed; the plan is checked again (RF-25).
                 `copying`: a file of the entry is still being copied, so it cannot be assigned yet (RF-27).
               enum: [assigning, lock_lost, plan_changed, copying]
+    ScanKind:
+      type: string
+      description: |
+        `unassigned` is the scan of `_unassigned/` (RF-27a, RF-28); `library` is the scan of `Movies/` and
+        `TV Shows/` (RF-29).
+      enum: [unassigned, library]
+    ScanStatus:
+      type: object
+      description: One scan of the library (RF-28).
+      required: [kind, running]
+      additionalProperties: false
+      properties:
+        kind:
+          $ref: '#/components/schemas/ScanKind'
+        lastFinishedAt:
+          type: string
+          format: date-time
+          description: When the scan last finished. Absent until it does; it survives a restart.
+        running:
+          type: boolean
+          description: Whether the scan is running now.
+    ScanStatuses:
+      type: object
+      description: The state of the two scans of the library, `unassigned` first (RF-28).
+      required: [scans]
+      additionalProperties: false
+      properties:
+        scans:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScanStatus'
     UnassignedSection:
       type: object
       description: The entries of No asignados, as the disk holds them now (RF-27), and the jobs of the compressed files Samba copied (RF-27a).

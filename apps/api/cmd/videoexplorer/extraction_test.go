@@ -34,7 +34,7 @@ func newExtractionRoutes(t *testing.T) http.Handler {
 	}
 	ingest.Service.WithStaging(uploads.adapter)
 	ingest.Service.WithExtraction(workspace.New(stagingDir(lib), nil), sevenzip.New(""), discardTrash{})
-	return newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler)
+	return newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler, nil)
 }
 
 func TestPasswordAndRetryNeedASession(t *testing.T) {

@@ -143,7 +143,7 @@ func TestUploadOfABatchIsTrackedAsItsJob(t *testing.T) {
 	uploads := newUploads(testConfigFor(t), log, ingest.Service)
 	// As in main: tusd blocks the request that completes an upload until its event is taken.
 	go uploads.adapter.Run(t.Context())
-	h := newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler)
+	h := newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler, nil)
 	cookie := loginCookie(t, h)
 
 	batch := createBatch(t, h, `{"relation":"none"}`, cookie)
@@ -182,7 +182,7 @@ func TestUploadWithAnUnknownBatchIsRefused(t *testing.T) {
 
 	ingest, _ := newTestIngestion(t)
 	uploads := newUploads(testConfigFor(t), slog.New(slog.DiscardHandler), ingest.Service)
-	h := newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler)
+	h := newTestRoutesWithUploads(t, false, imagecache.New(t.TempDir(), nil), ingest.Handler, uploads.handler, nil)
 	cookie := loginCookie(t, h)
 
 	res := tusCreateWith(t, h, "filename "+b64("a.mkv")+",batchId "+b64("does-not-exist"), cookie)

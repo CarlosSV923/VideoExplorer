@@ -493,6 +493,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The two scans of the library and when each last finished (RF-28)
+         * @description `unassigned` reads `_unassigned/` and takes its settled copies of Samba (RF-27, RF-27a); `library`
+         *     scans `Movies/` and `TV Shows/`. Each runs when the server starts, without delaying it, and then at
+         *     its interval (`UNASSIGNED_SCAN_INTERVAL`, `LIBRARY_SCAN_INTERVAL`). A scan never overlaps itself.
+         *     `lastFinishedAt` is when the scan last finished; it is absent until it does, and it survives a restart.
+         */
+        get: operations["getScans"];
+        put?: never;
+        /**
+         * Scan now, both scans («Escanear ahora», RF-28)
+         * @description Starts both scans in the background. A scan that is running is not started again, so asking while
+         *     one runs only starts the other. The answer is the state of both scans right after the call.
+         */
+        post: operations["runScans"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles/search": {
         parameters: {
             query?: never;
@@ -719,6 +747,27 @@ export interface components {
              * @enum {string}
              */
             code: "assigning" | "lock_lost" | "plan_changed" | "copying";
+        };
+        /**
+         * @description `unassigned` is the scan of `_unassigned/` (RF-27a, RF-28); `library` is the scan of `Movies/` and
+         *     `TV Shows/` (RF-29).
+         * @enum {string}
+         */
+        ScanKind: "unassigned" | "library";
+        /** @description One scan of the library (RF-28). */
+        ScanStatus: {
+            kind: components["schemas"]["ScanKind"];
+            /**
+             * Format: date-time
+             * @description When the scan last finished. Absent until it does; it survives a restart.
+             */
+            lastFinishedAt?: string;
+            /** @description Whether the scan is running now. */
+            running: boolean;
+        };
+        /** @description The state of the two scans of the library, `unassigned` first (RF-28). */
+        ScanStatuses: {
+            scans: components["schemas"]["ScanStatus"][];
         };
         /** @description The entries of No asignados, as the disk holds them now (RF-27), and the jobs of the compressed files Samba copied (RF-27a). */
         UnassignedSection: {
@@ -1713,6 +1762,48 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["EntryConflict"];
+        };
+    };
+    getScans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The state of both scans, `unassigned` first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanStatuses"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    runScans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The scans were started, or were already running; the state of both, `unassigned` first. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanStatuses"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     searchTitles: {

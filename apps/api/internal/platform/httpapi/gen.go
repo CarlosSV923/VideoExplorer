@@ -303,6 +303,24 @@ func (e NameReadingType) Valid() bool {
 	}
 }
 
+// Defines values for ScanKind.
+const (
+	ScanKindLibrary    ScanKind = "library"
+	ScanKindUnassigned ScanKind = "unassigned"
+)
+
+// Valid indicates whether the value is a known member of the ScanKind enum.
+func (e ScanKind) Valid() bool {
+	switch e {
+	case ScanKindLibrary:
+		return true
+	case ScanKindUnassigned:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TitleKind.
 const (
 	TitleKindMovie  TitleKind = "movie"
@@ -323,19 +341,19 @@ func (e TitleKind) Valid() bool {
 
 // Defines values for TitleSource.
 const (
-	Free    TitleSource = "free"
-	Library TitleSource = "library"
-	Tmdb    TitleSource = "tmdb"
+	TitleSourceFree    TitleSource = "free"
+	TitleSourceLibrary TitleSource = "library"
+	TitleSourceTmdb    TitleSource = "tmdb"
 )
 
 // Valid indicates whether the value is a known member of the TitleSource enum.
 func (e TitleSource) Valid() bool {
 	switch e {
-	case Free:
+	case TitleSourceFree:
 		return true
-	case Library:
+	case TitleSourceLibrary:
 		return true
-	case Tmdb:
+	case TitleSourceTmdb:
 		return true
 	default:
 		return false
@@ -795,6 +813,28 @@ type Problem struct {
 	Type   *string `json:"type,omitempty"`
 }
 
+// ScanKind `unassigned` is the scan of `_unassigned/` (RF-27a, RF-28); `library` is the scan of `Movies/` and
+// `TV Shows/` (RF-29).
+type ScanKind string
+
+// ScanStatus One scan of the library (RF-28).
+type ScanStatus struct {
+	// Kind `unassigned` is the scan of `_unassigned/` (RF-27a, RF-28); `library` is the scan of `Movies/` and
+	// `TV Shows/` (RF-29).
+	Kind ScanKind `json:"kind"`
+
+	// LastFinishedAt When the scan last finished. Absent until it does; it survives a restart.
+	LastFinishedAt *time.Time `json:"lastFinishedAt,omitempty"`
+
+	// Running Whether the scan is running now.
+	Running bool `json:"running"`
+}
+
+// ScanStatuses The state of the two scans of the library, `unassigned` first (RF-28).
+type ScanStatuses struct {
+	Scans []ScanStatus `json:"scans"`
+}
+
 // Session defines model for Session.
 type Session struct {
 	ExpiresAt time.Time `json:"expiresAt"`
@@ -1152,6 +1192,12 @@ type ServerInterface interface {
 	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(w http.ResponseWriter, r *http.Request, id JobId)
+	// GetScans The two scans of the library and when each last finished (RF-28)
+	// (GET /scans)
+	GetScans(w http.ResponseWriter, r *http.Request)
+	// RunScans Scan now, both scans («Escanear ahora», RF-28)
+	// (POST /scans)
+	RunScans(w http.ResponseWriter, r *http.Request)
 	// SearchTitles Titles to assign to, the library's first (RF-21)
 	// (GET /titles/search)
 	SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams)
@@ -1398,6 +1444,34 @@ func (siw *ServerInterfaceWrapper) RetryJob(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RetryJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetScans operation middleware
+func (siw *ServerInterfaceWrapper) GetScans(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetScans(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunScans operation middleware
+func (siw *ServerInterfaceWrapper) RunScans(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunScans(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1962,6 +2036,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/delete", wrapper.DeleteUnassignedEntry)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/files/trash", wrapper.TrashUnassignedFile)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/files/delete", wrapper.DeleteUnassignedFile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/scans", wrapper.GetScans)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/scans", wrapper.RunScans)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 
 	return m
@@ -2653,6 +2729,80 @@ func (response RetryJob409ApplicationProblemPlusJSONResponse) VisitRetryJobRespo
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetScansRequestObject struct {
+}
+
+type GetScansResponseObject interface {
+	VisitGetScansResponse(w http.ResponseWriter) error
+}
+
+type GetScans200JSONResponse ScanStatuses
+
+func (response GetScans200JSONResponse) VisitGetScansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetScans401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetScans401ApplicationProblemPlusJSONResponse) VisitGetScansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunScansRequestObject struct {
+}
+
+type RunScansResponseObject interface {
+	VisitRunScansResponse(w http.ResponseWriter) error
+}
+
+type RunScans202JSONResponse ScanStatuses
+
+func (response RunScans202JSONResponse) VisitRunScansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RunScans401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RunScans401ApplicationProblemPlusJSONResponse) VisitRunScansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3454,6 +3604,12 @@ type StrictServerInterface interface {
 	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(ctx context.Context, request RetryJobRequestObject) (RetryJobResponseObject, error)
+	// GetScans The two scans of the library and when each last finished (RF-28)
+	// (GET /scans)
+	GetScans(ctx context.Context, request GetScansRequestObject) (GetScansResponseObject, error)
+	// RunScans Scan now, both scans («Escanear ahora», RF-28)
+	// (POST /scans)
+	RunScans(ctx context.Context, request RunScansRequestObject) (RunScansResponseObject, error)
 	// SearchTitles Titles to assign to, the library's first (RF-21)
 	// (GET /titles/search)
 	SearchTitles(ctx context.Context, request SearchTitlesRequestObject) (SearchTitlesResponseObject, error)
@@ -3815,6 +3971,54 @@ func (sh *strictHandler) RetryJob(w http.ResponseWriter, r *http.Request, id Job
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryJobResponseObject); ok {
 		if err := validResponse.VisitRetryJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetScans operation middleware
+func (sh *strictHandler) GetScans(w http.ResponseWriter, r *http.Request) {
+	var request GetScansRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetScans(ctx, request.(GetScansRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetScans")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetScansResponseObject); ok {
+		if err := validResponse.VisitGetScansResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RunScans operation middleware
+func (sh *strictHandler) RunScans(w http.ResponseWriter, r *http.Request) {
+	var request RunScansRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RunScans(ctx, request.(RunScansRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RunScans")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RunScansResponseObject); ok {
+		if err := validResponse.VisitRunScansResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
