@@ -649,6 +649,18 @@ export interface components {
         AssignRequest: {
             videos: components["schemas"]["AssignVideo"][];
             subtitles: components["schemas"]["AssignSubtitle"][];
+            /**
+             * @description The labels written for the versions that already hold the place of a video and have no
+             *     readable label of their own (RF-24). Only with "keep both"; the plan says which need one.
+             */
+            labels?: components["schemas"]["AssignLabel"][];
+        };
+        /** @description The label the user wrote for an old version, as the plan names it (RF-24). */
+        AssignLabel: {
+            /** @description The path of the old version inside the library, as the plan lists it in its duplicates. */
+            rel: string;
+            /** @description The label. It is cleaned like the label of the new video; the new one takes " (2)" if they collide. */
+            version: string;
         };
         /** @description A title that an assignment can take (RF-21): a title of the library, or a TMDB title. */
         TitleHit: {
@@ -725,10 +737,13 @@ export interface components {
             file?: string;
             /** @description The field of the choice, such as `title`, `season`, `duplicate`, `version`, `video` or `file`. */
             field: string;
+            /** @description The path inside the library of the old version the issue is about, when it is about one. */
+            target?: string;
             /**
              * @description A stable reason, such as `missing`, `unknown`, `required`, `invalid`, `in_library`,
              *     `tmdb_unavailable`, `not_allowed`, `incomplete`, `duplicate_target`, `parts_and_whole`,
-             *     `chapters_overlap` or `mismatch`.
+             *     `chapters_overlap`, `mismatch`, `not_needed` (a label for a version that needs none), or
+             *     `invalid` (a label with nothing usable in it).
              */
             code: string;
         };
@@ -740,6 +755,10 @@ export interface components {
             size: number;
             /** @description The label of the video, when it has one. */
             version?: string;
+            /** @description The label the rule proposes for this version when both versions are kept (RF-24). */
+            versionProposal?: string;
+            /** @description True when the rule cannot name this version and the user must write its label (RF-24). */
+            versionNeeded?: boolean;
         };
         /** @description A video of the entry in the preview (RF-25). */
         PlanVideo: {

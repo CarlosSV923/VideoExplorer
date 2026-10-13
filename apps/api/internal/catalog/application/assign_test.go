@@ -227,10 +227,8 @@ func (e *assignEnv) read(rel string) string {
 }
 
 // movieTMDB chooses a TMDB movie for a video.
-// libraryChoice chooses a title of the registry by its id.
-func libraryChoice(id int64) application.TitleChoice {
-	return application.TitleChoice{Source: "library", LibraryID: id}
-}
+// registeredTitle chooses the title of the registry that the tests register first (id 1).
+var registeredTitle = application.TitleChoice{Source: "library", LibraryID: 1}
 
 func movieTMDB(id int64) application.TitleChoice {
 	return application.TitleChoice{Source: "tmdb", TMDBID: id, Kind: domain.KindMovie}
@@ -686,7 +684,7 @@ func TestReplaceSendsTheDuplicateToTheTrash(t *testing.T) {
 	}, map[string]string{old: "old"})
 	id := e.entry("Iron Man new.mkv", domain.RelationNone, true, map[string]string{"": "new"})
 	e.lockAs(id)
-	req := application.Request{Videos: []application.VideoChoice{{File: "", Title: libraryChoice(1), Duplicate: domain.DecisionReplace}}}
+	req := application.Request{Videos: []application.VideoChoice{{File: "", Title: registeredTitle, Duplicate: domain.DecisionReplace}}}
 
 	if _, err := e.svc.Commit(t.Context(), id, "tab-a", req); err != nil {
 		t.Fatalf("Commit: %v", err)
@@ -712,7 +710,7 @@ func TestKeepBothLabelsTheVersionsAndRecordsThem(t *testing.T) {
 	id := e.entry("Iron.Man.4K.mkv", domain.RelationNone, true, map[string]string{"": "2160"})
 	e.media["Iron.Man.4K.mkv"] = domain.VersionMedia{Width: 3840, Height: 2160, Codec: "hevc", Audio: []domain.AudioMedia{{Language: "eng"}}}
 	e.lockAs(id)
-	req := application.Request{Videos: []application.VideoChoice{{File: "", Title: libraryChoice(1), Duplicate: domain.DecisionKeepBoth}}}
+	req := application.Request{Videos: []application.VideoChoice{{File: "", Title: registeredTitle, Duplicate: domain.DecisionKeepBoth}}}
 
 	plan := planOf(t, e, id, req)
 	if !plan.Valid || plan.Videos[0].Version != "2160p" {
@@ -854,7 +852,7 @@ func TestAnUnreadableLabelIsIncompleteAndNotInvented(t *testing.T) {
 	}, map[string]string{old: "old"})
 	id := e.entry("Iron Man unknown.mkv", domain.RelationNone, true, map[string]string{"": "new"})
 	e.lockAs(id)
-	req := application.Request{Videos: []application.VideoChoice{{File: "", Title: libraryChoice(1), Duplicate: domain.DecisionKeepBoth}}}
+	req := application.Request{Videos: []application.VideoChoice{{File: "", Title: registeredTitle, Duplicate: domain.DecisionKeepBoth}}}
 
 	plan := planOf(t, e, id, req)
 	if plan.Valid || !hasIssue(plan.Errors, "", "version", "incomplete") {

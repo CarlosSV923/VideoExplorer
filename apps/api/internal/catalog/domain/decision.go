@@ -40,6 +40,8 @@ var (
 	// ErrIncompleteLabel means the label of a version cannot be proposed yet: the user completes it
 	// in the preview, and the plan takes it from there (RF-24).
 	ErrIncompleteLabel = errors.New("the label of a version is incomplete: the user completes it")
+	// ErrInvalidVersion means a label the user wrote has nothing usable in it once cleaned (RF-24).
+	ErrInvalidVersion = errors.New("the version label is empty once cleaned")
 )
 
 // Occupant is a video that holds the place a new video is going to take, with the subtitles that go
@@ -51,6 +53,9 @@ type Occupant struct {
 	Subtitles []Existing
 	// Media is what its label reads from the file (ffprobe).
 	Media VersionMedia
+	// Label is the version the user wrote for this video, when it has no readable label of its own (RF-24).
+	// It is "" when the user wrote none.
+	Label string
 }
 
 // IncomingSubtitle is a subtitle of a new video, where it waits and what it is (RF-23).
@@ -160,43 +165,48 @@ func trashMoves(occupants []Occupant) []Move {
 	return out
 }
 
-// planKeepBoth plans the versions of a place (RF-24): the labels are computed over all the versions,
-// the occupants that have no label yet take theirs with their subtitles, the ones that have one keep
-// it, and the new video takes the label computed for it, or the one the user chose. A label that
-// another version of the place already has gets " (2)", " (3)"…
+// planKeepBoth plans the versions of a place (RF-24): the labels are computed over all the versions.
+// An occupant with no label takes the label that the user wrote for it, or the one the rule proposes
+// when that one is complete; it is refused when neither is usable. The occupants that have a label keep
+// it, and the new video takes the label the user wrote or the one computed for it. A label that another
+// version of the place already has gets " (2)", " (3)"…
 func planKeepBoth(plan DecisionPlan, occupants []Occupant, in Incoming) (DecisionPlan, error) {
-	media := make([]VersionMedia, 0, len(occupants)+1)
-	for _, o := range occupants {
-		media = append(media, o.Media)
-	}
-	media = append(media, in.Media)
-	labels := VersionLabels(media)
+	labels := ProposeVersions(occupants, in)
 
 	taken := make([]string, 0, len(occupants)+1)
-	for i, o := range occupants {
+	for _, o := range occupants {
 		if !o.Video.VersionKnown {
 			return DecisionPlan{}, ErrVersionUnknown
 		}
-		version := o.Video.Version
-		if version == "" {
-			label := labels[i]
-			if label.Incomplete {
-				return DecisionPlan{}, ErrIncompleteLabel
-			}
-			version = label.Text
-			renames, err := renameWithVersion(o, version)
-			if err != nil {
-				return DecisionPlan{}, err
-			}
-			plan.Renames = append(plan.Renames, renames...)
+		if o.Video.Version != "" {
+			taken = append(taken, o.Video.Version)
 		}
+	}
+	for i, o := range occupants {
+		if o.Video.Version != "" {
+			continue
+		}
+		version, err := occupantVersion(o, labels[i])
+		if err != nil {
+			return DecisionPlan{}, err
+		}
+		version = uniqueVersion(version, taken)
+		renames, err := renameWithVersion(o, version)
+		if err != nil {
+			return DecisionPlan{}, err
+		}
+		plan.Renames = append(plan.Renames, renames...)
 		taken = append(taken, version)
 	}
 
 	proposed := labels[len(occupants)]
 	version := proposed.Text
 	if in.Version != "" {
-		version = in.Version
+		clean, err := CleanVersion(in.Version)
+		if err != nil {
+			return DecisionPlan{}, err
+		}
+		version = clean
 	} else if proposed.Incomplete {
 		return DecisionPlan{}, ErrIncompleteLabel
 	}
@@ -208,6 +218,29 @@ func planKeepBoth(plan DecisionPlan, occupants []Occupant, in Incoming) (Decisio
 	plan.Place = append(plan.Place, moves...)
 	plan.Version = version
 	return plan, nil
+}
+
+// occupantVersion returns the label that an occupant without one takes when both versions are kept: the
+// label the user wrote for it, cleaned as a label of a new version is (RF-24), or else the proposed one
+// when it is complete.
+func occupantVersion(o Occupant, proposed VersionLabel) (string, error) {
+	if o.Label != "" {
+		return CleanVersion(o.Label)
+	}
+	if proposed.Incomplete {
+		return "", ErrIncompleteLabel
+	}
+	return proposed.Text, nil
+}
+
+// CleanVersion returns a label that the user wrote, as it goes in a file name (spec §5, steps 1 to 6).
+// It fails with ErrInvalidVersion when nothing usable is left, for example a label of dots and spaces.
+func CleanVersion(label string) (string, error) {
+	v := finishName(cleanChars(label))
+	if v == "" {
+		return "", ErrInvalidVersion
+	}
+	return v, nil
 }
 
 // renameWithVersion returns the moves that give an occupant with no label its version (RF-24): its
@@ -253,16 +286,21 @@ func PlanPlacement(incoming []Incoming) (DecisionPlan, error) {
 	return plan, nil
 }
 
-// ProposeVersion returns the label that a new video would take among the occupants of its place,
-// as Keep both proposes it (RF-24): the label is computed over all the versions, so an incomplete
+// ProposeVersions returns the label that each occupant of a place would take as a version, and then the
+// one of the new video (RF-24), in that order. The labels are computed over all of them, so an incomplete
 // one is reported with Incomplete set and the user completes it.
-func ProposeVersion(occupants []Occupant, in Incoming) VersionLabel {
+func ProposeVersions(occupants []Occupant, in Incoming) []VersionLabel {
 	media := make([]VersionMedia, 0, len(occupants)+1)
 	for _, o := range occupants {
 		media = append(media, o.Media)
 	}
 	media = append(media, in.Media)
-	return VersionLabels(media)[len(occupants)]
+	return VersionLabels(media)
+}
+
+// ProposeVersion returns the label that a new video would take among the occupants of its place.
+func ProposeVersion(occupants []Occupant, in Incoming) VersionLabel {
+	return ProposeVersions(occupants, in)[len(occupants)]
 }
 
 // placeIncoming returns the moves that place a new video and its subtitles at their final paths

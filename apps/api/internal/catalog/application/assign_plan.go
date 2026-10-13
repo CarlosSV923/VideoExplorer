@@ -17,6 +17,16 @@ import (
 type Request struct {
 	Videos    []VideoChoice
 	Subtitles []SubtitleChoice
+	// Labels are the labels written for the old versions that need one (RF-24).
+	Labels []LabelChoice
+}
+
+// LabelChoice is the label the user wrote for a version that already holds the place of a video and has
+// no readable label of its own (RF-24). Rel is the path of that version inside the library, as the plan
+// names it; Version is cleaned like the label of a new version.
+type LabelChoice struct {
+	Rel     string
+	Version string
 }
 
 // TitleChoice is the title a video goes to (RF-21): a title of the registry, a TMDB title, or a free
@@ -75,6 +85,8 @@ type FieldIssue struct {
 	File  string
 	Field string
 	Code  string
+	// Target is the path inside the library of the version the issue is about, when it is about one (RF-24).
+	Target string
 }
 
 // PlannedVideo is a video of the entry in the preview. FinalPath is its library path once placed
@@ -98,9 +110,14 @@ type PlannedVideo struct {
 
 // PlannedDuplicate is a video that already holds the place of a planned video (RF-24).
 type PlannedDuplicate struct {
-	Rel     string
-	Size    int64
-	Version string
+	Rel       string
+	Size      int64
+	Version   string
+	ExactCopy bool
+	// VersionProposal is the label the rule proposes for this version when both are kept. VersionNeeded
+	// says that the rule cannot name it: the user writes its label in the request (RF-24).
+	VersionProposal string
+	VersionNeeded   bool
 }
 
 // PlannedSubtitle is a subtitle in the preview: the video it goes with and its final path, "" when
@@ -159,6 +176,8 @@ type videoState struct {
 	version   string
 	labelProp string
 	labelBad  bool
+	// occLabels are the labels the rule proposes for the versions of the place, then the new video's.
+	occLabels []domain.VersionLabel
 }
 
 // subtitleState is a subtitle of the entry while a request is checked.
@@ -186,11 +205,16 @@ type placement struct {
 
 // prepared is a request with its titles and places read, before the disk is read.
 type prepared struct {
-	entry     domain.UnassignedEntry
-	videos    []*videoState
-	subtitles []*subtitleState
-	issues    []FieldIssue
-	warns     []FieldIssue
+	// labels are the labels the user wrote, by the key of their version; labelOrder keeps their order and
+	// labelUsed marks the ones that address a version of a place.
+	labels     map[string]string
+	labelOrder []string
+	labelUsed  map[string]bool
+	entry      domain.UnassignedEntry
+	videos     []*videoState
+	subtitles  []*subtitleState
+	issues     []FieldIssue
+	warns      []FieldIssue
 }
 
 // Plan checks a request for the entry and returns its preview (RF-25). It renews the lock of the tab
@@ -223,7 +247,7 @@ func (a *Assignments) Plan(ctx context.Context, entryID int64, token string, req
 // prepare reads the titles and the places of a request: it checks which file each choice names, and
 // reads TMDB for the titles and chapters that need it (spec §6). It reads the registry, not the disk.
 func (a *Assignments) prepare(ctx context.Context, entry domain.UnassignedEntry, req Request) (*prepared, error) {
-	p := &prepared{entry: entry}
+	p := &prepared{entry: entry, labels: map[string]string{}, labelUsed: map[string]bool{}}
 	titles, err := a.d.Library.Titles(ctx)
 	if err != nil {
 		return nil, err
@@ -258,6 +282,15 @@ func (a *Assignments) prepare(ctx context.Context, entry domain.UnassignedEntry,
 		subChoice[c.File] = c
 	}
 
+	for _, l := range req.Labels {
+		key := strings.ToLower(l.Rel)
+		if _, dup := p.labels[key]; dup {
+			p.issues = append(p.issues, FieldIssue{Field: "version", Code: "duplicate", Target: l.Rel})
+			continue
+		}
+		p.labels[key] = l.Version
+		p.labelOrder = append(p.labelOrder, l.Rel)
+	}
 	for _, f := range entry.Files {
 		switch {
 		case a.isVideo(entryPath(entry, f.Rel)):
@@ -491,6 +524,11 @@ func (a *Assignments) assess(ctx context.Context, p *prepared) (*evaluation, err
 		}
 	}
 
+	for _, rel := range p.labelOrder {
+		if !p.labelUsed[strings.ToLower(rel)] {
+			ev.issues = append(ev.issues, FieldIssue{Field: "version", Code: "unknown", Target: rel})
+		}
+	}
 	return ev.finish(p), nil
 }
 
@@ -521,8 +559,7 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 	for _, vs := range g.videos[1:] {
 		if vs.choice.Duplicate != decision {
 			for _, v := range g.videos {
-				v.issues = append(v.issues, FieldIssue{File: v.rel, Field: "duplicate", Code: "mismatch"})
-				ev.issues = append(ev.issues, FieldIssue{File: v.rel, Field: "duplicate", Code: "mismatch"})
+				v.addIssue(ev, "duplicate", "mismatch", "")
 			}
 			return nil
 		}
@@ -560,23 +597,30 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 	}
 	for _, vs := range g.videos {
 		vs.occupants = occupants
-	}
-	for _, vs := range g.videos {
 		vs.incoming.Media, err = a.mediaOf(ctx, vs.incoming.Source)
 		if err != nil {
 			return err
 		}
 	}
 	single := len(g.videos) == 1
+	occ := append([]domain.Occupant(nil), occupants...)
 	if single {
-		lbl := domain.ProposeVersion(occupants, first.incoming)
-		first.labelProp, first.labelBad = lbl.Text, lbl.Incomplete
+		labels := domain.ProposeVersions(occ, first.incoming)
+		first.occLabels = labels
+		first.labelProp, first.labelBad = labels[len(occ)].Text, labels[len(occ)].Incomplete
 	}
 	if decision == "" {
+		p.markLabels(occ)
 		for _, vs := range g.videos {
-			vs.issues = append(vs.issues, FieldIssue{File: vs.rel, Field: "duplicate", Code: "required"})
-			ev.issues = append(ev.issues, FieldIssue{File: vs.rel, Field: "duplicate", Code: "required"})
+			vs.addIssue(ev, "duplicate", "required", "")
 		}
+		return nil
+	}
+	if decision != domain.DecisionKeepBoth || !single || first.dups.Exclusive {
+		// Labels of the old versions are read only when both versions are kept, by one video of a place
+		// that takes versions (RF-22, RF-24).
+		p.markLabels(occ)
+	} else if !applyLabels(p, first, occ, ev) {
 		return nil
 	}
 
@@ -588,15 +632,14 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 		}
 		incomings = append(incomings, in)
 	}
-	plan, err := domain.PlanDecision(decision, occupants, first.dups.Exclusive, incomings)
+	plan, err := domain.PlanDecision(decision, occ, first.dups.Exclusive, incomings)
 	if err != nil {
 		field, code, ok := decisionIssue(err)
 		if !ok {
 			return err
 		}
 		for _, vs := range g.videos {
-			vs.issues = append(vs.issues, FieldIssue{File: vs.rel, Field: field, Code: code})
-			ev.issues = append(ev.issues, FieldIssue{File: vs.rel, Field: field, Code: code})
+			vs.addIssue(ev, field, code, "")
 		}
 		return nil
 	}
@@ -613,6 +656,55 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 	return nil
 }
 
+// applyLabels gives each old version that needs one the label the user wrote for it (RF-24). An old
+// version with a label of its own, or with a complete proposal, needs none: a label written for it is an
+// issue, and so is a version that needs one and has none. It reports whether every label is usable.
+func applyLabels(p *prepared, vs *videoState, occ []domain.Occupant, ev *evaluation) bool {
+	ok := true
+	for i := range occ {
+		rel := occ[i].Video.Rel
+		key := strings.ToLower(rel)
+		given, has := p.labels[key]
+		if has {
+			p.labelUsed[key] = true
+		}
+		needs := occ[i].Video.Version == "" && vs.occLabels[i].Incomplete
+		switch {
+		case has && !needs:
+			vs.addIssue(ev, "version", "not_needed", rel)
+			ok = false
+		case has:
+			if _, err := domain.CleanVersion(given); err != nil {
+				vs.addIssue(ev, "version", "invalid", rel)
+				ok = false
+				continue
+			}
+			occ[i].Label = given
+		case needs:
+			vs.addIssue(ev, "version", "incomplete", rel)
+			ok = false
+		}
+	}
+	return ok
+}
+
+// markLabels marks the labels that address these versions as read, without applying them.
+func (p *prepared) markLabels(occ []domain.Occupant) {
+	for _, o := range occ {
+		key := strings.ToLower(o.Video.Rel)
+		if _, ok := p.labels[key]; ok {
+			p.labelUsed[key] = true
+		}
+	}
+}
+
+// addIssue records an issue of the video, in the video and in the evaluation that reports it.
+func (vs *videoState) addIssue(ev *evaluation, field, code, target string) {
+	issue := FieldIssue{File: vs.rel, Field: field, Code: code, Target: target}
+	vs.issues = append(vs.issues, issue)
+	ev.issues = append(ev.issues, issue)
+}
+
 // decisionIssue names the field and the code of a decision that cannot be planned (RF-24).
 func decisionIssue(err error) (field, code string, ok bool) {
 	var nameErr *domain.NameError
@@ -623,6 +715,8 @@ func decisionIssue(err error) (field, code string, ok bool) {
 		return "version", "unknown", true
 	case errors.Is(err, domain.ErrIncompleteLabel):
 		return "version", "incomplete", true
+	case errors.Is(err, domain.ErrInvalidVersion):
+		return "version", "invalid", true
 	case errors.As(err, &nameErr):
 		return "version", "too_long", true
 	default:
@@ -749,10 +843,13 @@ func plannedVideo(vs *videoState) PlannedVideo {
 			pv.Proposal = domain.DecisionSkip
 		}
 	}
-	for _, o := range vs.occupants {
-		pv.Duplicates = append(pv.Duplicates, PlannedDuplicate{
-			Rel: o.Video.Rel, Size: o.Video.Size, Version: o.Video.Version,
-		})
+	for i, o := range vs.occupants {
+		d := PlannedDuplicate{Rel: o.Video.Rel, Size: o.Video.Size, Version: o.Video.Version}
+		if i < len(vs.occLabels) {
+			d.VersionProposal = vs.occLabels[i].Text
+			d.VersionNeeded = o.Video.Version == "" && vs.occLabels[i].Incomplete
+		}
+		pv.Duplicates = append(pv.Duplicates, d)
 	}
 	if vs.hasDups {
 		pv.VersionProposal = vs.labelProp

@@ -38,6 +38,11 @@ func requestOf(body *httpapi.AssignRequest) (application.Request, bool) {
 		}
 		out.Videos = append(out.Videos, c)
 	}
+	if body.Labels != nil {
+		for _, l := range *body.Labels {
+			out.Labels = append(out.Labels, application.LabelChoice{Rel: l.Rel, Version: l.Version})
+		}
+	}
 	for _, s := range body.Subtitles {
 		out.Subtitles = append(out.Subtitles, application.SubtitleChoice{
 			File:     s.File,
@@ -156,6 +161,14 @@ func planToAPI(p application.Plan) httpapi.AssignPlan {
 			if d.Version != "" {
 				dup.Version = &d.Version
 			}
+			if d.VersionProposal != "" {
+				proposal := d.VersionProposal
+				dup.VersionProposal = &proposal
+			}
+			if d.VersionNeeded {
+				needed := true
+				dup.VersionNeeded = &needed
+			}
 			item.Duplicates = append(item.Duplicates, dup)
 		}
 		for _, a := range v.Allowed {
@@ -196,6 +209,10 @@ func issuesToAPI(issues []application.FieldIssue) []httpapi.PlanIssue {
 	out := make([]httpapi.PlanIssue, 0, len(issues))
 	for _, i := range issues {
 		item := httpapi.PlanIssue{Field: i.Field, Code: i.Code}
+		if i.Target != "" {
+			target := i.Target
+			item.Target = &target
+		}
 		if i.File != "" {
 			file := i.File
 			item.File = &file

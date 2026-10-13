@@ -321,6 +321,15 @@ func (e TitleSource) Valid() bool {
 	}
 }
 
+// AssignLabel The label the user wrote for an old version, as the plan names it (RF-24).
+type AssignLabel struct {
+	// Rel The path of the old version inside the library, as the plan lists it in its duplicates.
+	Rel string `json:"rel"`
+
+	// Version The label. It is cleaned like the label of the new video; the new one takes " (2)" if they collide.
+	Version string `json:"version"`
+}
+
 // AssignLock The assignment lock of an entry (RF-26). The tab keeps `token` and sends it back in
 // `X-Assign-Lock`; the lock ends at `expiresAt` unless a plan renews it.
 type AssignLock struct {
@@ -360,6 +369,9 @@ type AssignProblemCode string
 
 // AssignRequest The choices of the form for an entry (RF-22, RF-23, RF-24). Every video and subtitle of the entry needs one.
 type AssignRequest struct {
+	// Labels The labels written for the versions that already hold the place of a video and have no
+	// readable label of their own (RF-24). Only with "keep both"; the plan says which need one.
+	Labels    *[]AssignLabel   `json:"labels,omitempty"`
 	Subtitles []AssignSubtitle `json:"subtitles"`
 	Videos    []AssignVideo    `json:"videos"`
 }
@@ -625,13 +637,20 @@ type PlanDuplicate struct {
 
 	// Version The label of the video, when it has one.
 	Version *string `json:"version,omitempty"`
+
+	// VersionNeeded True when the rule cannot name this version and the user must write its label (RF-24).
+	VersionNeeded *bool `json:"versionNeeded,omitempty"`
+
+	// VersionProposal The label the rule proposes for this version when both versions are kept (RF-24).
+	VersionProposal *string `json:"versionProposal,omitempty"`
 }
 
 // PlanIssue One thing that the choices get wrong (RF-22, RF-24, RF-25). The UI translates `code` with i18n keys.
 type PlanIssue struct {
 	// Code A stable reason, such as `missing`, `unknown`, `required`, `invalid`, `in_library`,
 	// `tmdb_unavailable`, `not_allowed`, `incomplete`, `duplicate_target`, `parts_and_whole`,
-	// `chapters_overlap` or `mismatch`.
+	// `chapters_overlap`, `mismatch`, `not_needed` (a label for a version that needs none), or
+	// `invalid` (a label with nothing usable in it).
 	Code string `json:"code"`
 
 	// Field The field of the choice, such as `title`, `season`, `duplicate`, `version`, `video` or `file`.
@@ -639,6 +658,9 @@ type PlanIssue struct {
 
 	// File The file the issue is about; omitted when it is about the entry.
 	File *string `json:"file,omitempty"`
+
+	// Target The path inside the library of the old version the issue is about, when it is about one.
+	Target *string `json:"target,omitempty"`
 }
 
 // PlanSubtitle A subtitle of the entry in the preview (RF-23).
