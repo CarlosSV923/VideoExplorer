@@ -111,7 +111,8 @@ func (d *DuplicateFinder) registered(ctx context.Context, folder string) ([]doma
 			continue
 		}
 		out = append(out, domain.Existing{
-			Rel: f.Rel, Place: f.Place, Size: f.Size, PartialHash: f.PartialHash, Trashed: !f.Live(),
+			Rel: f.Rel, ID: f.ID, Place: f.Place, Size: f.Size, PartialHash: f.PartialHash,
+			Version: f.Version, VersionKnown: true, Trashed: !f.Live(),
 		})
 	}
 	return out, nil
@@ -153,7 +154,8 @@ func (d *DuplicateFinder) onDisk(folder string, kind domain.TitleKind) ([]domain
 			if err != nil {
 				return nil, fmt.Errorf("catalog: size of %s: %w", rel, err)
 			}
-			out = append(out, domain.Existing{Rel: rel, Place: place, Size: size})
+			version, known := versionOnDisk(kind, folder, rel)
+			out = append(out, domain.Existing{Rel: rel, Place: place, Size: size, Version: version, VersionKnown: known})
 		}
 	}
 	return out, nil
