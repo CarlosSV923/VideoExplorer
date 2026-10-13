@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"path/filepath"
 	"slices"
@@ -35,6 +36,14 @@ type SectionDeps struct {
 	SubtitleExts []string
 	// Now may be nil (time.Now).
 	Now func() time.Time
+	// Log may be nil.
+	Log *slog.Logger
+}
+
+// Arrivals takes the settled copies of Samba as uploads (RF-27a). The ingestion's AdoptSamba is one. A
+// failure does not stop the reading of the section.
+type Arrivals interface {
+	Adopt(ctx context.Context) error
 }
 
 // Section reads No asignados as the disk holds it now (RF-27) and changes its entries through the
@@ -52,9 +61,24 @@ func NewSection(d SectionDeps) *Section {
 	if s.now == nil {
 		s.now = time.Now
 	}
+	if s.d.Log == nil {
+		s.d.Log = slog.New(slog.DiscardHandler)
+	}
 	s.videoExt = extSet(d.VideoExts)
 	s.subExt = extSet(d.SubtitleExts)
 	return s
+}
+
+// Sync is the reading that GET /api/unassigned and the scan of _unassigned/ share (RF-27, RF-27a, RF-28):
+// the settled copies of Samba are taken first, then No asignados is read as the disk holds it now. A copy
+// that cannot be taken yet does not fail the reading; the failure is logged. arrivals may be nil.
+func (s *Section) Sync(ctx context.Context, arrivals Arrivals) ([]SectionEntry, error) {
+	if arrivals != nil {
+		if err := arrivals.Adopt(ctx); err != nil {
+			s.d.Log.WarnContext(ctx, "copies of Samba not taken", "error", err)
+		}
+	}
+	return s.List(ctx)
 }
 
 // SectionEntry is an entry of No asignados as the section lists it (RF-27).

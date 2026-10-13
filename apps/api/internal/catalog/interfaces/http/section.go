@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -31,28 +30,21 @@ func (noArrivals) Jobs(context.Context) ([]httpapi.UploadJob, error) { return ni
 type SectionHandler struct {
 	svc      *application.Section
 	arrivals SectionArrivals
-	log      *slog.Logger
 }
 
-// NewSectionHandler builds the handler over the section. arrivals may be nil, and log too.
-func NewSectionHandler(svc *application.Section, arrivals SectionArrivals, log *slog.Logger) *SectionHandler {
-	if log == nil {
-		log = slog.New(slog.DiscardHandler)
-	}
+// NewSectionHandler builds the handler over the section. arrivals may be nil.
+func NewSectionHandler(svc *application.Section, arrivals SectionArrivals) *SectionHandler {
 	if arrivals == nil {
 		arrivals = noArrivals{}
 	}
-	return &SectionHandler{svc: svc, arrivals: arrivals, log: log}
+	return &SectionHandler{svc: svc, arrivals: arrivals}
 }
 
-// GetUnassigned implements httpapi.StrictServerInterface (RF-27, RF-27a): it takes the settled copies of
-// Samba, then reads the section now and lists the jobs of those copies. A copy that cannot be taken yet
-// does not fail the read.
+// GetUnassigned implements httpapi.StrictServerInterface (RF-27, RF-27a): it reads the section now (the
+// settled copies of Samba are taken first, see application.Section.Sync) and lists the jobs of those
+// copies. A copy that cannot be taken yet does not fail the read.
 func (h *SectionHandler) GetUnassigned(ctx context.Context, _ httpapi.GetUnassignedRequestObject) (httpapi.GetUnassignedResponseObject, error) {
-	if err := h.arrivals.Adopt(ctx); err != nil {
-		h.log.WarnContext(ctx, "copies of Samba not taken", "error", err)
-	}
-	entries, err := h.svc.List(ctx)
+	entries, err := h.svc.Sync(ctx, h.arrivals)
 	if err != nil {
 		return nil, err
 	}

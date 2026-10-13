@@ -50,7 +50,7 @@ func setupSection(t *testing.T) *sectionHTTP {
 		Unassigned: repo, Files: files, Engine: engine, VideoExts: []string{".mkv"}, SubtitleExts: []string{".srt"}, Now: clock,
 	})
 	env.svc = section
-	env.section = catalogshttp.NewSectionHandler(section, nil, nil)
+	env.section = catalogshttp.NewSectionHandler(section, nil)
 	env.assign = catalogshttp.NewHandler(application.NewAssignments(application.AssignDeps{
 		Unassigned: repo, Library: library, Files: files, Engine: engine,
 		Finder: application.NewDuplicateFinder(library, files, contentHash{}, []string{".mkv"}),
@@ -245,7 +245,7 @@ func TestTheSectionTakesTheSettledCopiesBeforeItReadsAndListsTheirJobs(t *testin
 
 	env := setupSection(t)
 	arrivals := &recordingArrivals{jobs: []httpapi.UploadJob{{Id: "job-samba-1", FileName: "movie.zip"}}, err: errors.New("disk busy")}
-	env.section = catalogshttp.NewSectionHandler(env.svc, arrivals, nil)
+	env.section = catalogshttp.NewSectionHandler(env.svc, arrivals)
 
 	resp, err := env.section.GetUnassigned(t.Context(), httpapi.GetUnassignedRequestObject{})
 	if err != nil {

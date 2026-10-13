@@ -102,7 +102,7 @@ func newSambaEnv(t *testing.T) *sambaEnv {
 
 	return &sambaEnv{
 		t: t, lib: lib, conn: conn, catalog: catalog, ingest: svc,
-		section: catalogshttp.NewSectionHandler(catalog.Section, arrivalsOf{ingest: svc}, log),
+		section: catalogshttp.NewSectionHandler(catalog.Section, arrivalsOf{ingest: svc}),
 	}
 }
 

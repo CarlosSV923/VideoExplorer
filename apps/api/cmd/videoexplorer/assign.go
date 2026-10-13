@@ -57,7 +57,7 @@ func newAssign(cfg config.Config, conn *sql.DB, catalog catalogWiring, meta meta
 	})
 	return assignWiring{
 		Handler: catalogshttp.NewHandler(svc, log),
-		Section: catalogshttp.NewSectionHandler(catalog.Section, arrivalsOf{ingest: ingest}, log),
+		Section: catalogshttp.NewSectionHandler(catalog.Section, arrivalsOf{ingest: ingest}),
 	}
 }
 
