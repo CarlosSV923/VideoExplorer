@@ -24,6 +24,15 @@ type AudioMedia struct {
 	Title    string
 }
 
+// VersionLabel is the proposed label of one version. Incomplete is true when the rule could not
+// name a part that is what tells the versions apart (an audio track with no language, a codec
+// without a short name, a frame without a class): the label then leaves that part out and the
+// user completes it in the preview (RF-24), it is never invented.
+type VersionLabel struct {
+	Text       string
+	Incomplete bool
+}
+
 // resolutionClass is a class of resolution: its label and the frame it stands for.
 type resolutionClass struct {
 	label         string
@@ -81,95 +90,105 @@ var castellanoTitles = []string{"castellano", "españa", "espana", "es-es"}
 //   - the codec, when some versions share the resolution and their codecs differ;
 //   - the audio, when some versions share the resolution and the codec and their audio differs:
 //     Latino for a Spanish track without more indication, Castellano when its title says so, the
-//     name of the language otherwise, and Dual for two or more languages;
+//     name in Spanish of another language, and Dual for two or more languages;
 //   - a label that is still equal to an earlier one gets " (2)", " (3)"… from the second on.
 //
-// A version that cannot be labelled with what the rule knows is refused with a NameError: "video"
-// (no frame size, or none of the classes), "codec" (a codec without a short name, when it must
-// tell the versions apart) or "audio" (no audio track, or a track whose language is unknown, when
-// the audio must tell the versions apart).
-func VersionLabels(versions []VersionMedia) ([]string, error) {
-	resolutions := make([]string, len(versions))
+// A part that the rule cannot name, and that is what tells the versions apart, is left out and
+// marks the label Incomplete: the frame with no class (or no frame size), a codec without a short
+// name, an audio with no track or with a track whose language has no name here.
+func VersionLabels(versions []VersionMedia) []VersionLabel {
+	n := len(versions)
+	text := make([]string, n)
+	incomplete := make([]bool, n)
+	resolutions := make([]string, n)
 	for i, v := range versions {
 		r, ok := resolutionOf(v.Width, v.Height)
 		if !ok {
-			return nil, &NameError{Field: "video"}
+			incomplete[i] = true
 		}
 		resolutions[i] = r
 	}
-	members := make([]int, len(versions))
+	members := make([]int, n)
 	for i := range members {
 		members[i] = i
 	}
-	labels := make([]string, len(versions))
-	if err := labelGroup(members, versions, resolutions, labels); err != nil {
-		return nil, err
-	}
-	return withSuffixes(labels), nil
+	labelGroup(members, versions, resolutions, text, incomplete)
+	return withSuffixes(text, incomplete)
 }
 
 // labelGroup labels the versions in members: by resolution, then by codec within a resolution,
-// then by audio within a codec.
-func labelGroup(members []int, versions []VersionMedia, resolutions, labels []string) error {
+// then by audio within a codec. It fills text, and marks incomplete the versions whose missing
+// part was needed.
+func labelGroup(members []int, versions []VersionMedia, resolutions, text []string, incomplete []bool) {
 	codecKey := func(i int) string { return versions[i].Codec }
 	for _, sameRes := range partition(members, func(i int) string { return resolutions[i] }) {
 		byCodec := partition(sameRes, codecKey)
 		codecsDiffer := len(byCodec) > 1
 		for _, sameCodec := range byCodec {
-			head := resolutions[sameCodec[0]]
+			first := sameCodec[0]
+			head := resolutions[first]
 			if codecsDiffer {
-				codec, err := codecLabel(versions[sameCodec[0]])
-				if err != nil {
-					return err
+				if codec, ok := codecLabels[versions[first].Codec]; ok {
+					head = joinParts(head, codec)
+				} else {
+					for _, i := range sameCodec {
+						incomplete[i] = true
+					}
 				}
-				head += " " + codec
 			}
 			if len(sameCodec) == 1 {
-				labels[sameCodec[0]] = head
+				text[first] = head
 				continue
 			}
-			tokens, differ, err := audioTokens(versions, sameCodec)
-			if err != nil {
-				return err
+			tokens := make([]string, len(sameCodec))
+			for k, i := range sameCodec {
+				token, ok := audioLabel(versions[i].Audio)
+				if !ok {
+					incomplete[i] = true
+				}
+				tokens[k] = token
+			}
+			differ := false
+			for _, t := range tokens {
+				if t != tokens[0] {
+					differ = true
+				}
 			}
 			for k, i := range sameCodec {
-				labels[i] = head
+				text[i] = head
 				if differ {
-					labels[i] += " " + tokens[k]
+					text[i] = joinParts(head, tokens[k])
 				}
 			}
 		}
 	}
-	return nil
 }
 
-// audioTokens returns the audio label of each version in members, and whether they differ.
-func audioTokens(versions []VersionMedia, members []int) (tokens []string, differ bool, err error) {
-	tokens = make([]string, len(members))
-	for k, i := range members {
-		tokens[k], err = audioLabel(versions[i].Audio)
-		if err != nil {
-			return nil, false, err
-		}
-		if tokens[k] != tokens[0] {
-			differ = true
-		}
+// joinParts joins the parts of a label that are present, with a space.
+func joinParts(head, token string) string {
+	switch {
+	case head == "":
+		return token
+	case token == "":
+		return head
+	default:
+		return head + " " + token
 	}
-	return tokens, differ, nil
 }
 
 // audioLabel names the audio of one version: the language of its tracks, or Dual when they are
-// two or more languages. The same language counts once, and Latino and Castellano are two.
-func audioLabel(tracks []AudioMedia) (string, error) {
+// two or more languages. The same language counts once, and Latino and Castellano are two. It
+// reports false when there is no track or a track whose language has no name here.
+func audioLabel(tracks []AudioMedia) (string, bool) {
 	if len(tracks) == 0 {
-		return "", &NameError{Field: "audio"}
+		return "", false
 	}
 	var names []string
 	seen := map[string]bool{}
 	for _, a := range tracks {
 		name, ok := languageOf(a)
 		if !ok {
-			return "", &NameError{Field: "audio"}
+			return "", false
 		}
 		if !seen[name] {
 			seen[name] = true
@@ -177,9 +196,9 @@ func audioLabel(tracks []AudioMedia) (string, error) {
 		}
 	}
 	if len(names) > 1 {
-		return "Dual", nil
+		return "Dual", true
 	}
-	return names[0], nil
+	return names[0], true
 }
 
 // languageOf names one audio track's language. A Spanish track is Castellano when its title says
@@ -197,15 +216,6 @@ func languageOf(a AudioMedia) (string, bool) {
 	}
 	name, ok := languageLabels[lang]
 	return name, ok
-}
-
-// codecLabel returns the short name of the codec of a version, or a NameError for "codec".
-func codecLabel(v VersionMedia) (string, error) {
-	label, ok := codecLabels[v.Codec]
-	if !ok {
-		return "", &NameError{Field: "codec"}
-	}
-	return label, nil
 }
 
 // resolutionOf returns the label of a frame of width × height, or false when it has no class.
@@ -240,14 +250,14 @@ func partition(members []int, key func(int) string) [][]int {
 }
 
 // withSuffixes makes equal labels distinct: the first keeps its label, the next ones get " (2)", " (3)"…
-func withSuffixes(labels []string) []string {
+func withSuffixes(text []string, incomplete []bool) []VersionLabel {
 	count := map[string]int{}
-	out := make([]string, len(labels))
-	for i, l := range labels {
+	out := make([]VersionLabel, len(text))
+	for i, l := range text {
 		count[l]++
-		out[i] = l
+		out[i] = VersionLabel{Text: l, Incomplete: incomplete[i]}
 		if n := count[l]; n > 1 {
-			out[i] = fmt.Sprintf("%s (%d)", l, n)
+			out[i].Text = fmt.Sprintf("%s (%d)", l, n)
 		}
 	}
 	return out

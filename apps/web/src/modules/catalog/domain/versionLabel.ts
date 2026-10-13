@@ -4,8 +4,6 @@
  * both pass the `versionLabel` section of contracts/version-labels.json.
  */
 
-import { NameError } from './errors'
-
 /** What a version label reads from a video: its main video track and its audio tracks (ffprobe). */
 export interface VersionMedia {
   width: number
@@ -19,6 +17,15 @@ export interface VersionMedia {
 export interface AudioMedia {
   language: string
   title: string
+}
+
+/**
+ * The proposed label of one version. `incomplete` is true when a part that tells the versions
+ * apart could not be named: the label leaves it out and the user completes it in the preview.
+ */
+export interface VersionLabel {
+  text: string
+  incomplete: boolean
 }
 
 interface ResolutionClass {
@@ -83,24 +90,22 @@ const CASTELLANO_TITLES = ['castellano', 'españa', 'espana', 'es-es']
 /**
  * Returns the label of each version of one place, in the order given (RF-24): the resolution;
  * the codec when some versions share the resolution and their codecs differ; the audio when some
- * share the resolution and the codec and their audio differs; and " (2)", " (3)"… for equal labels
- * from the second on. A version whose label needs what the rule does not decide throws a
- * NameError: "video", "codec" or "audio" (see version_label.go).
+ * share the resolution and the codec and their audio differs; " (2)", " (3)"… for equal labels
+ * from the second on. A part that cannot be named and tells the versions apart is left out and
+ * marks its version incomplete (see version_label.go).
  */
-export function versionLabels(versions: readonly VersionMedia[]): string[] {
-  const resolutions = versions.map((v) => {
-    const label = resolutionOf(v.width, v.height)
-    if (label === undefined) throw new NameError('video')
-    return label
-  })
-  const labels: string[] = versions.map(() => '')
+export function versionLabels(versions: readonly VersionMedia[]): VersionLabel[] {
+  const resolutions = versions.map((v) => resolutionOf(v.width, v.height))
+  const text: string[] = versions.map(() => '')
+  const incomplete: boolean[] = versions.map((_, i) => resolutionAt(resolutions, i) === '')
   labelGroup(
     versions.map((_, i) => i),
     versions,
     resolutions,
-    labels,
+    text,
+    incomplete,
   )
-  return withSuffixes(labels)
+  return withSuffixes(text, incomplete)
 }
 
 /** Labels the versions in members: by resolution, then by codec, then by audio. */
@@ -108,7 +113,8 @@ function labelGroup(
   members: readonly number[],
   versions: readonly VersionMedia[],
   resolutions: readonly string[],
-  labels: string[],
+  text: string[],
+  incomplete: boolean[],
 ): void {
   const codecOf = (i: number): string => versionAt(versions, i).codec
   for (const sameResolution of partition(members, (i) => resolutionAt(resolutions, i))) {
@@ -117,39 +123,48 @@ function labelGroup(
     for (const sameCodec of byCodec) {
       const first = sameCodec[0] ?? 0
       let head = resolutionAt(resolutions, first)
-      if (codecsDiffer) head += ` ${codecLabel(versionAt(versions, first))}`
+      if (codecsDiffer) {
+        const codec = CODEC_LABELS.get(versionAt(versions, first).codec)
+        if (codec === undefined) for (const i of sameCodec) incomplete[i] = true
+        else head = joinParts(head, codec)
+      }
       if (sameCodec.length === 1) {
-        labels[first] = head
+        text[first] = head
         continue
       }
-      const { tokens, differ } = audioTokens(versions, sameCodec)
+      const tokens = sameCodec.map((i) => {
+        const token = audioLabel(versionAt(versions, i).audio)
+        if (token === undefined) {
+          incomplete[i] = true
+          return ''
+        }
+        return token
+      })
+      const differ = tokens.some((t) => t !== tokens[0])
       sameCodec.forEach((i, k) => {
-        labels[i] = differ ? `${head} ${tokens[k] ?? ''}` : head
+        text[i] = differ ? joinParts(head, tokens[k] ?? '') : head
       })
     }
   }
 }
 
-/** The audio label of each version in members, and whether they differ. */
-function audioTokens(
-  versions: readonly VersionMedia[],
-  members: readonly number[],
-): { tokens: string[]; differ: boolean } {
-  const tokens = members.map((i) => audioLabel(versionAt(versions, i).audio))
-  const differ = tokens.some((t) => t !== tokens[0])
-  return { tokens, differ }
+/** Joins the parts of a label that are present, with a space. */
+function joinParts(head: string, token: string): string {
+  if (head === '') return token
+  if (token === '') return head
+  return `${head} ${token}`
 }
 
-/** The audio of one version: the language of its tracks, or Dual for two or more. */
-function audioLabel(tracks: readonly AudioMedia[]): string {
-  if (tracks.length === 0) throw new NameError('audio')
+/** The audio of one version: the language of its tracks, or Dual for two or more. Undefined when it has no name here. */
+function audioLabel(tracks: readonly AudioMedia[]): string | undefined {
+  if (tracks.length === 0) return undefined
   const names: string[] = []
   for (const track of tracks) {
     const name = languageOf(track)
-    if (name === undefined) throw new NameError('audio')
+    if (name === undefined) return undefined
     if (!names.includes(name)) names.push(name)
   }
-  return names.length > 1 ? 'Dual' : (names[0] ?? '')
+  return names.length > 1 ? 'Dual' : names[0]
 }
 
 /** The name of one audio track's language, or undefined for a language that has no name here. */
@@ -162,20 +177,13 @@ function languageOf(track: AudioMedia): string | undefined {
   return LANGUAGE_LABELS.get(lang)
 }
 
-/** The short name of a version's codec, or a NameError for "codec". */
-function codecLabel(version: VersionMedia): string {
-  const label = CODEC_LABELS.get(version.codec)
-  if (label === undefined) throw new NameError('codec')
-  return label
-}
-
-/** The label of a frame of width × height, or undefined when it has no class. */
-function resolutionOf(width: number, height: number): string | undefined {
-  if (width <= 0 || height <= 0) return undefined
+/** The label of a frame of width × height, or '' when it has no class. */
+function resolutionOf(width: number, height: number): string {
+  if (width <= 0 || height <= 0) return ''
   const reached = RESOLUTION_CLASSES.find(
     (c) => width * 100 >= c.width * RESOLUTION_REACH || height * 100 >= c.height * RESOLUTION_REACH,
   )
-  return reached?.label
+  return reached?.label ?? ''
 }
 
 /** Splits members into groups by key, in the order of their first member. */
@@ -191,12 +199,12 @@ function partition(members: readonly number[], key: (i: number) => string): numb
 }
 
 /** The first of equal labels keeps its label; the next ones get " (2)", " (3)"… */
-function withSuffixes(labels: readonly string[]): string[] {
+function withSuffixes(text: readonly string[], incomplete: readonly boolean[]): VersionLabel[] {
   const count = new Map<string, number>()
-  return labels.map((label) => {
+  return text.map((label, i) => {
     const n = (count.get(label) ?? 0) + 1
     count.set(label, n)
-    return n > 1 ? `${label} (${String(n)})` : label
+    return { text: n > 1 ? `${label} (${String(n)})` : label, incomplete: incomplete[i] ?? false }
   })
 }
 

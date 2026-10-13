@@ -1,6 +1,5 @@
 import vectors from '../../../../../../contracts/version-labels.json'
 
-import { NameError } from './errors'
 import { versionLabels, type VersionMedia } from './versionLabel'
 
 interface VersionCase {
@@ -13,7 +12,7 @@ interface VersionCase {
       audio: { language: string; title: string }[]
     }[]
   }
-  expected: string[] | { error: string }
+  expected: { labels: string[]; incomplete: boolean[] }
 }
 
 describe('version label vectors (contracts/version-labels.json)', () => {
@@ -30,18 +29,9 @@ describe('version label vectors (contracts/version-labels.json)', () => {
         codec: v.codec,
         audio: v.audio,
       }))
-      if (Array.isArray(c.expected)) {
-        expect(versionLabels(versions)).toEqual(c.expected)
-        return
-      }
-      let caught: unknown
-      try {
-        versionLabels(versions)
-      } catch (err) {
-        caught = err
-      }
-      expect(caught).toBeInstanceOf(NameError)
-      expect((caught as NameError).field).toBe(c.expected.error)
+      const got = versionLabels(versions)
+      expect(got.map((l) => l.text)).toEqual(c.expected.labels)
+      expect(got.map((l) => l.incomplete)).toEqual(c.expected.incomplete)
     },
   )
 })

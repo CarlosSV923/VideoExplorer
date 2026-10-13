@@ -2,9 +2,8 @@ package domain
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
-	"strings"
+	"slices"
 	"testing"
 )
 
@@ -24,8 +23,10 @@ type versionLabelVectors struct {
 					} `json:"audio"`
 				} `json:"versions"`
 			} `json:"input"`
-			// Expected is a JSON array of labels, or an object {"error": field}.
-			Expected json.RawMessage `json:"expected"`
+			Expected struct {
+				Labels     []string `json:"labels"`
+				Incomplete []bool   `json:"incomplete"`
+			} `json:"expected"`
 		} `json:"cases"`
 	} `json:"versionLabel"`
 }
@@ -57,34 +58,18 @@ func TestVersionLabelsFollowTheGoldenVectors(t *testing.T) {
 				versions = append(versions, m)
 			}
 
-			got, err := VersionLabels(versions)
-			if strings.HasPrefix(string(c.Expected), "{") {
-				var want struct {
-					Error string `json:"error"`
-				}
-				if err := json.Unmarshal(c.Expected, &want); err != nil {
-					t.Fatal(err)
-				}
-				var nameErr *NameError
-				if !errors.As(err, &nameErr) || nameErr.Field != want.Error {
-					t.Fatalf("VersionLabels error = %v, want a NameError for %q", err, want.Error)
-				}
-				return
+			got := VersionLabels(versions)
+			gotLabels := make([]string, len(got))
+			gotIncomplete := make([]bool, len(got))
+			for i, l := range got {
+				gotLabels[i] = l.Text
+				gotIncomplete[i] = l.Incomplete
 			}
-			var want []string
-			if err := json.Unmarshal(c.Expected, &want); err != nil {
-				t.Fatal(err)
+			if !slices.Equal(gotLabels, c.Expected.Labels) {
+				t.Errorf("labels = %q, want %q", gotLabels, c.Expected.Labels)
 			}
-			if err != nil {
-				t.Fatalf("VersionLabels: %v", err)
-			}
-			if len(got) != len(want) {
-				t.Fatalf("labels = %q, want %q", got, want)
-			}
-			for i := range want {
-				if got[i] != want[i] {
-					t.Errorf("label %d = %q, want %q (all: %q)", i, got[i], want[i], got)
-				}
+			if !slices.Equal(gotIncomplete, c.Expected.Incomplete) {
+				t.Errorf("incomplete = %v, want %v", gotIncomplete, c.Expected.Incomplete)
 			}
 		})
 	}

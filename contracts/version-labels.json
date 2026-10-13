@@ -1,7 +1,7 @@
 {
-  "description": "Version labels (spec RF-24, §5 <versión>): the label that tells apart the versions of one place (a movie, or a chapter), read from the main video track and the audio tracks with ffprobe. Input: versions, the versions in conflict in the order they were given. Each has width and height (the frame of the main video track), codec (ffprobe's codec name) and audio (its audio tracks, each with language and title, as ffprobe reports them; they may be empty). Output: one label per version, in the same order. Rules: (1) the resolution is the first part of the label: the first class, from 2160p down, that the frame reaches by its width or by its height within 2 % (a letterboxed 1920x800 is 1080p, a 1280x534 is 720p, a 720x576 is 576p, a 720x480 is 480p). The classes are 2160p, 1440p, 1080p, 720p, 576p and 480p; a frame that reaches none is refused with 'video'. (2) The codec follows, with its short name (HEVC, H.264, AV1, VP9, MPEG-2, VC-1), only when some versions share the resolution and their codecs differ. (3) The audio follows only when some versions share the resolution and the codec and their audio differs: Latino for a Spanish track (language spa, es, esp or es-<region>) with no further indication, Castellano when its title contains castellano, españa, espana or es-es, the name in Spanish of another language (Inglés, Japonés, Francés, Alemán, Italiano, Portugués, Coreano, Chino, Ruso), and Dual when the tracks name two or more different languages. (4) Equal labels are made distinct: the first keeps its label and the next ones get ' (2)', ' (3)'. A version whose label would need something this rule does not decide is refused with the missing field: 'video' (no frame size or no class), 'codec' (a codec without a short name, only when the codec must tell the versions apart), 'audio' (no audio track, or a track whose language has no name here, only when the audio must tell the versions apart). Such a refusal marks a case not decided yet; it is not a label.",
+  "description": "Version labels (spec RF-24, §5 <versión>): the label that tells apart the versions of one place (a movie, or a chapter), read from the main video track and the audio tracks with ffprobe. Input: versions, the versions in conflict in the order they were given. Each has width and height (the frame of the main video track), codec (ffprobe's codec name) and audio (its audio tracks, each with language and title, as ffprobe reports them; they may be empty). Output per case: labels, one label per version in the same order, and incomplete, one boolean per version. Rules: (1) the resolution is the first part of the label: the first class, from 2160p down, that the frame reaches by its width or by its height within 2 % (a letterboxed 1920x800 is 1080p, a 1280x534 is 720p, a 720x576 is 576p, a 720x480 is 480p). The classes are 2160p, 1440p, 1080p, 720p, 576p and 480p (the spec names some of them; the others are the usual classes between them). (2) The codec follows, with its short name (HEVC, H.264, AV1, VP9, MPEG-2, VC-1), only when some versions share the resolution and their codecs differ. (3) The audio follows only when some versions share the resolution and the codec and their audio differs: Latino for a Spanish track (language spa, es, esp or es-<region>) with no further indication, Castellano when its title contains castellano, españa, espana or es-es, the name in Spanish of another language (Inglés, Japonés, Francés, Alemán, Italiano, Portugués, Coreano, Chino, Ruso), and Dual when the tracks name two or more different languages. (4) Equal labels are made distinct: the first keeps its label and the next ones get ' (2)', ' (3)'. (5) A part that the rule cannot name and that is what tells the versions apart is left out, and that version is incomplete (spec RF-24: the user completes it in the preview; nothing is invented): a frame with no class or no frame size (resolution), a codec without a short name (only when the codecs differ), an audio with no track or with a track whose language has no name here (only when the audio is compared, that is, in a group of versions that share the resolution and the codec). A version that is incomplete is marked true in incomplete.",
   "versionLabel": {
-    "description": "Labels of the versions of one place (RF-24). Each case lists the versions in conflict; expected is the label of each one, in order, or an object {\"error\": field} for a version that cannot be labelled.",
+    "description": "Labels of the versions of one place (RF-24). Each case lists the versions in conflict; expected has the labels, in order, and the incomplete flag of each version.",
     "cases": [
       {
         "name": "a single version has only its resolution",
@@ -15,7 +15,7 @@
             }
           ]
         },
-        "expected": ["1080p"]
+        "expected": { "labels": ["1080p"], "incomplete": [false] }
       },
       {
         "name": "different resolutions need nothing more",
@@ -35,7 +35,7 @@
             }
           ]
         },
-        "expected": ["1080p", "720p"]
+        "expected": { "labels": ["1080p", "720p"], "incomplete": [false, false] }
       },
       {
         "name": "the same resolution with different codecs shows the codec",
@@ -55,7 +55,7 @@
             }
           ]
         },
-        "expected": ["1080p HEVC", "1080p H.264"]
+        "expected": { "labels": ["1080p HEVC", "1080p H.264"], "incomplete": [false, false] }
       },
       {
         "name": "the same resolution and codec with other audio shows the audio language",
@@ -75,7 +75,7 @@
             }
           ]
         },
-        "expected": ["1080p Latino", "1080p Inglés"]
+        "expected": { "labels": ["1080p Latino", "1080p Inglés"], "incomplete": [false, false] }
       },
       {
         "name": "a Spanish track whose title says Castellano is Castellano",
@@ -95,7 +95,7 @@
             }
           ]
         },
-        "expected": ["1080p Castellano", "1080p Latino"]
+        "expected": { "labels": ["1080p Castellano", "1080p Latino"], "incomplete": [false, false] }
       },
       {
         "name": "a Spanish track whose title says España or es-ES is Castellano, and two Castellano tracks are equal labels",
@@ -121,7 +121,10 @@
             }
           ]
         },
-        "expected": ["1080p Castellano", "1080p Castellano (2)", "1080p Latino"]
+        "expected": {
+          "labels": ["1080p Castellano", "1080p Castellano (2)", "1080p Latino"],
+          "incomplete": [false, false, false]
+        }
       },
       {
         "name": "a regional Spanish tag is Spanish: es-419 and es-MX are Latino",
@@ -147,7 +150,10 @@
             }
           ]
         },
-        "expected": ["1080p Latino", "1080p Latino (2)", "1080p Japonés"]
+        "expected": {
+          "labels": ["1080p Latino", "1080p Latino (2)", "1080p Japonés"],
+          "incomplete": [false, false, false]
+        }
       },
       {
         "name": "two languages in one version make it Dual, and the same language counts once",
@@ -179,7 +185,10 @@
             }
           ]
         },
-        "expected": ["1080p Dual", "1080p Inglés", "1080p Inglés (2)"]
+        "expected": {
+          "labels": ["1080p Dual", "1080p Inglés", "1080p Inglés (2)"],
+          "incomplete": [false, false, false]
+        }
       },
       {
         "name": "Latino and Castellano in one version are two languages, so Dual",
@@ -202,7 +211,7 @@
             }
           ]
         },
-        "expected": ["1080p Dual", "1080p Latino"]
+        "expected": { "labels": ["1080p Dual", "1080p Latino"], "incomplete": [false, false] }
       },
       {
         "name": "a letterboxed 1920x800 frame is 1080p and a 1280x534 frame is 720p",
@@ -222,7 +231,7 @@
             }
           ]
         },
-        "expected": ["1080p", "720p"]
+        "expected": { "labels": ["1080p", "720p"], "incomplete": [false, false] }
       },
       {
         "name": "a 4K frame, a 1440p frame and a 4:3 frame are 2160p, 1440p and 576p",
@@ -248,7 +257,7 @@
             }
           ]
         },
-        "expected": ["2160p", "1440p", "576p"]
+        "expected": { "labels": ["2160p", "1440p", "576p"], "incomplete": [false, false, false] }
       },
       {
         "name": "a 720x480 frame is 480p",
@@ -262,7 +271,7 @@
             }
           ]
         },
-        "expected": ["480p"]
+        "expected": { "labels": ["480p"], "incomplete": [false] }
       },
       {
         "name": "three versions mix the codec and the audio inside it",
@@ -288,7 +297,10 @@
             }
           ]
         },
-        "expected": ["1080p HEVC", "1080p H.264 Latino", "1080p H.264 Inglés"]
+        "expected": {
+          "labels": ["1080p HEVC", "1080p H.264 Latino", "1080p H.264 Inglés"],
+          "incomplete": [false, false, false]
+        }
       },
       {
         "name": "identical versions get the suffix from the second on",
@@ -314,10 +326,13 @@
             }
           ]
         },
-        "expected": ["1080p", "1080p (2)", "1080p (3)"]
+        "expected": {
+          "labels": ["1080p", "1080p (2)", "1080p (3)"],
+          "incomplete": [false, false, false]
+        }
       },
       {
-        "name": "a version without frame size is refused",
+        "name": "a version without frame size has no resolution and is incomplete",
         "input": {
           "versions": [
             {
@@ -328,10 +343,10 @@
             }
           ]
         },
-        "expected": { "error": "video" }
+        "expected": { "labels": [""], "incomplete": [true] }
       },
       {
-        "name": "a frame smaller than 480p has no class and is refused",
+        "name": "a frame smaller than 480p has no class and is incomplete",
         "input": {
           "versions": [
             {
@@ -342,10 +357,30 @@
             }
           ]
         },
-        "expected": { "error": "video" }
+        "expected": { "labels": [""], "incomplete": [true] }
       },
       {
-        "name": "a codec without a short name is refused when the codec must tell the versions apart",
+        "name": "a version with no class is labelled with what is left, next to a version that has one",
+        "input": {
+          "versions": [
+            {
+              "width": 320,
+              "height": 240,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "labels": ["", "1080p"], "incomplete": [true, false] }
+      },
+      {
+        "name": "a codec without a short name is incomplete when the codec must tell the versions apart",
         "input": {
           "versions": [
             {
@@ -362,7 +397,7 @@
             }
           ]
         },
-        "expected": { "error": "codec" }
+        "expected": { "labels": ["1080p", "1080p HEVC"], "incomplete": [true, false] }
       },
       {
         "name": "a codec without a short name is not read when the resolutions already tell the versions apart",
@@ -382,10 +417,10 @@
             }
           ]
         },
-        "expected": ["1080p", "720p"]
+        "expected": { "labels": ["1080p", "720p"], "incomplete": [false, false] }
       },
       {
-        "name": "an audio track with no language is refused when the audio must tell the versions apart",
+        "name": "an audio track with no language is left out and incomplete when the audio must tell the versions apart",
         "input": {
           "versions": [
             {
@@ -402,10 +437,59 @@
             }
           ]
         },
-        "expected": { "error": "audio" }
+        "expected": { "labels": ["1080p", "1080p Inglés"], "incomplete": [true, false] }
       },
       {
-        "name": "a language with no name here is refused when the audio must tell the versions apart",
+        "name": "two unknown audios among known ones are left out, and only they are incomplete",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "und", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "und", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "eng", "title": "" }]
+            }
+          ]
+        },
+        "expected": {
+          "labels": ["1080p", "1080p (2)", "1080p Inglés"],
+          "incomplete": [true, true, false]
+        }
+      },
+      {
+        "name": "two versions with no language that the audio cannot tell apart are equal and both incomplete",
+        "input": {
+          "versions": [
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "und", "title": "" }]
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "codec": "hevc",
+              "audio": [{ "language": "und", "title": "" }]
+            }
+          ]
+        },
+        "expected": { "labels": ["1080p", "1080p (2)"], "incomplete": [true, true] }
+      },
+      {
+        "name": "a language with no name here is left out and incomplete when the audio must tell the versions apart",
         "input": {
           "versions": [
             {
@@ -422,10 +506,10 @@
             }
           ]
         },
-        "expected": { "error": "audio" }
+        "expected": { "labels": ["1080p", "1080p Inglés"], "incomplete": [true, false] }
       },
       {
-        "name": "a version without any audio track is refused when the audio must tell the versions apart",
+        "name": "a version without any audio track is left out and incomplete when the audio must tell the versions apart",
         "input": {
           "versions": [
             { "width": 1920, "height": 1080, "codec": "hevc", "audio": [] },
@@ -437,7 +521,7 @@
             }
           ]
         },
-        "expected": { "error": "audio" }
+        "expected": { "labels": ["1080p", "1080p Inglés"], "incomplete": [true, false] }
       },
       {
         "name": "an unknown language is not read when the codec already tells the versions apart",
@@ -457,7 +541,7 @@
             }
           ]
         },
-        "expected": ["1080p HEVC", "1080p H.264"]
+        "expected": { "labels": ["1080p HEVC", "1080p H.264"], "incomplete": [false, false] }
       }
     ]
   }
