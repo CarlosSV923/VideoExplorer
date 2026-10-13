@@ -29,10 +29,16 @@ type Target struct {
 // on the disk of the title's folder (RF-24).
 type Existing struct {
 	Rel string
+	// ID is the registry's id of the file; 0 for a file only the disk has.
+	ID int64
 	// Place is the place of the video: its part for a movie, its chapters for a series.
 	Place       Place
 	Size        int64
 	PartialHash string
+	// Version is the <versión> of the file (RF-24). VersionKnown is false when it cannot be read:
+	// a file the disk has and the registry does not, whose name does not say its version.
+	Version      string
+	VersionKnown bool
 	// Trashed is true for a file in the trash: it does not count as a duplicate (RF-24).
 	Trashed bool
 }
