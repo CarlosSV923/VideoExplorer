@@ -86,7 +86,7 @@ func (s *Service) adoptUnit(ctx context.Context, u domain.SambaUnit) error {
 	jobs := make([]*domain.UploadJob, 0, len(u.Files))
 	moves := make([]SambaMove, 0, len(u.Files))
 	for _, f := range u.Files {
-		job, err := domain.NewSambaJob(domain.JobID(s.newID()), batch.ID, f.Name, f.Size, parts, now)
+		job, err := domain.NewSambaJob(domain.JobID(s.newID()), batch.ID, f.Name, f.SourcePath(), f.Size, parts, now)
 		if err != nil {
 			s.dropSamba(ctx, batch.ID, jobs)
 			return err
@@ -247,6 +247,10 @@ func (s *Service) DismissSamba(ctx context.Context, id domain.JobID) (domain.Job
 		if !j.Dismissable() {
 			return domain.JobView{}, fmt.Errorf("%w: %s (%q)", domain.ErrNotDismissable, j.Status, j.Error)
 		}
+		if s.copyOf(j) != "" {
+			// "Quitar" needs the copy in the trash: its move is retried at the start and at each purge (RF-27a).
+			return domain.JobView{}, fmt.Errorf("%w: its copy is not in the trash yet", domain.ErrNotDismissable)
+		}
 	}
 	for _, j := range unit {
 		if _, err := s.mutateChanged(ctx, j.ID, func(x *domain.UploadJob) (bool, error) {
@@ -259,4 +263,34 @@ func (s *Service) DismissSamba(ctx context.Context, id domain.JobID) (domain.Job
 		}
 	}
 	return s.reloaded(ctx, id)
+}
+
+// retryDiscards sends again to the trash the copies of failed Samba jobs whose move did not finish (RF-27a).
+// Only a unit that failed for a reason a retry cannot fix is looked at: the others keep their copy for
+// Reintentar. It runs at the start, before the server serves, and at each purge, so that a move that failed
+// is not left for good. A copy that is already in the trash is not moved twice.
+func (s *Service) retryDiscards(ctx context.Context) {
+	if s.work == nil {
+		return
+	}
+	open, err := s.jobs.OpenSamba(ctx)
+	if err != nil {
+		s.log.Warn("samba copies not checked for the trash", "error", err)
+		return
+	}
+	seen := map[domain.BatchID]bool{}
+	for _, job := range open {
+		if job.Status != domain.StatusFailed || job.Error.Retryable() || seen[job.BatchID] {
+			continue
+		}
+		seen[job.BatchID] = true
+		unit, err := s.jobs.ByBatch(ctx, job.BatchID)
+		if err != nil {
+			s.log.Warn("samba copy not checked for the trash", "batch", job.BatchID, "error", err)
+			continue
+		}
+		if err := s.discardCopies(ctx, unit); err != nil && ctx.Err() == nil {
+			s.log.Warn("samba copy still not in the trash", "batch", job.BatchID, "error", err)
+		}
+	}
 }

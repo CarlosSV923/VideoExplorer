@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,14 +20,13 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/workspace"
 )
 
-// sambaEntry is the id of the one entry of the fake section.
-const sambaEntry int64 = 7
-
 // fakeSamba is the section of No asignados for the tests of the adoption: its files are real files
 // on disk, and Take moves them with a rename, as the catalog does.
 type fakeSamba struct {
 	mu    sync.Mutex
 	files []domain.SambaFile
+	// ids gives each entry of the fake section its id.
+	ids map[string]int64
 	// takeErr makes Take fail before it moves anything.
 	takeErr error
 	// moveThenErr makes Take move the files and then fail, as a change whose answer got lost would.
@@ -59,6 +60,22 @@ func (f *fakeSamba) Take(_ context.Context, entry int64, moves []application.Sam
 
 // copy puts a file that Samba copied on disk and lists it in the section, as still being copied or
 // settled (copying).
+// entryID returns the id of the entry called name, making a new one the first time. The caller holds the lock.
+func (f *fakeSamba) entryID(name string) int64 {
+	if f.ids == nil {
+		f.ids = map[string]int64{}
+	}
+	if id, ok := f.ids[name]; ok {
+		return id
+	}
+	id := int64(len(f.ids) + 1)
+	f.ids[name] = id
+	return id
+}
+
+// copy puts a file that Samba copied on disk and lists it in the section, as still being copied or settled
+// (copying). rel is the file's place in the section: "" for a loose file, which is its own entry, or
+// "Folder/…" for a file in the folder Folder, which is the entry.
 func (f *fakeSamba) copy(t *testing.T, dir string, name, rel string, data []byte, copying bool) {
 	t.Helper()
 	path := filepath.Join(dir, filepath.FromSlash(name))
@@ -68,10 +85,19 @@ func (f *fakeSamba) copy(t *testing.T, dir string, name, rel string, data []byte
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	entryName, inside := filepath.Base(filepath.FromSlash(name)), ""
+	if rel != "" {
+		folder, rest, inFolder := strings.Cut(rel, "/")
+		if !inFolder {
+			t.Fatalf("copy %s: rel %q is neither loose nor inside a folder", name, rel)
+		}
+		entryName, inside = folder, rest
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.files = append(f.files, domain.SambaFile{
-		Entry: sambaEntry, Rel: rel, Name: filepath.Base(filepath.FromSlash(name)), Size: int64(len(data)), Source: path, Copying: copying,
+		Entry: f.entryID(entryName), EntryName: entryName, Rel: inside, Name: filepath.Base(filepath.FromSlash(name)),
+		Size: int64(len(data)), Source: path, Copying: copying,
 	})
 }
 
@@ -235,6 +261,9 @@ func TestASetWithAHoleFailsAsMissingParts(t *testing.T) {
 		if p.Origin != application.TrashOriginSamba || p.Reason != application.TrashReasonRemoved {
 			t.Fatalf("copy %s trashed as origin %q reason %q, want samba and removed", p.Name, p.Origin, p.Reason)
 		}
+		if !strings.HasPrefix(p.RelativePath, "Pack/") || path.Base(p.RelativePath) != p.Name {
+			t.Fatalf("copy %s keeps origin path %q, want its place in the folder Pack", p.Name, p.RelativePath)
+		}
 	}
 }
 
@@ -261,7 +290,7 @@ func TestALegacyVolumeOfSambaGoesToTheTrash(t *testing.T) {
 	r.waitFor(t, id, "the copy failed", func(j domain.UploadJob) bool { return j.Status == domain.StatusFailed })
 	r.waitTrashed(t, 1)
 	put := r.trash.puts()[0]
-	if put.Origin != application.TrashOriginSamba || put.Reason != application.TrashReasonRemoved || put.Name != "movie.r00" {
+	if put.Origin != application.TrashOriginSamba || put.Reason != application.TrashReasonRemoved || put.Name != "movie.r00" || put.RelativePath != "movie.r00" {
 		t.Fatalf("trashed %+v, want the copy with origin samba and reason removed", put)
 	}
 	if j, err := r.svc.Job(t.Context(), id); err != nil || j.Error != domain.FailureLegacyVolume {
@@ -375,7 +404,7 @@ func TestARestartForgetsACopyWhoseMoveWasUndone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	job, err := domain.NewSambaJob("crashed-job", batch.ID, "movie.zip", 100, 0, time.Now())
+	job, err := domain.NewSambaJob("crashed-job", batch.ID, "movie.zip", "movie.zip", 100, 0, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +439,7 @@ func TestAPurgeDoesNotAbandonACopyOfSamba(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	job, err := domain.NewSambaJob("old-job", batch.ID, "movie.zip", 100, 0, old)
+	job, err := domain.NewSambaJob("old-job", batch.ID, "movie.zip", "movie.zip", 100, 0, old)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +470,7 @@ func TestSambaJobsHidesWhatHasReachedTheSection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	job, err := domain.NewSambaJob("ended-job", batch.ID, "movie.zip", 100, 0, time.Now())
+	job, err := domain.NewSambaJob("ended-job", batch.ID, "movie.zip", "movie.zip", 100, 0, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -458,5 +487,43 @@ func TestSambaJobsHidesWhatHasReachedTheSection(t *testing.T) {
 
 	if views, err := r.svc.SambaJobs(t.Context()); err != nil || len(views) != 0 {
 		t.Fatalf("SambaJobs = %d, %v; a job that reached No asignados is listed by its entry, not here", len(views), err)
+	}
+}
+
+func TestASambaCopyNotInTheTrashIsNotDismissedUntilItIsRetried(t *testing.T) {
+	t.Parallel()
+
+	r, f, lib := sambaRig(t)
+	r.trash.setErr(errors.New("trash unavailable"))
+	for _, i := range []int{1, 2, 4} {
+		name := "Pack/movie.7z.00" + string(rune('0'+i))
+		f.copy(t, lib, name, name, sevenZipVolume(i), false)
+	}
+	if _, err := r.svc.AdoptSamba(t.Context()); err != nil {
+		t.Fatalf("AdoptSamba: %v", err)
+	}
+	views, err := r.svc.SambaJobs(t.Context())
+	if err != nil || len(views) != 1 || views[0].Job.Status != domain.StatusFailed {
+		t.Fatalf("SambaJobs = %v, %v; want the set failed", views, err)
+	}
+	id := views[0].Job.ID
+
+	if _, err := r.svc.DismissSamba(t.Context(), id); !errors.Is(err, domain.ErrNotDismissable) {
+		t.Fatalf("dismissing a copy still in staging = %v, want ErrNotDismissable", err)
+	}
+	if !r.staged(id) {
+		t.Fatal("the copy left staging although its move to the trash failed")
+	}
+
+	// The move is retried at the purge, and the copies are then in the trash with their origin path.
+	r.trash.setErr(nil)
+	if _, err := r.svc.Purge(t.Context()); err != nil {
+		t.Fatalf("Purge: %v", err)
+	}
+	if got := len(r.trash.puts()); got != 3 {
+		t.Fatalf("trash holds %d copies after the retry, want 3", got)
+	}
+	if _, err := r.svc.DismissSamba(t.Context(), id); err != nil {
+		t.Fatalf("DismissSamba after the retry: %v", err)
 	}
 }

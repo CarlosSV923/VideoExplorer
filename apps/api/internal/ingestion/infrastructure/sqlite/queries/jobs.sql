@@ -1,6 +1,6 @@
 -- name: CreateUploadJob :exec
-INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, origin, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, origin, source_path, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetUploadJob :one
 SELECT * FROM upload_jobs WHERE id = ?;
@@ -10,7 +10,7 @@ UPDATE upload_jobs SET status = ?, error = ?, received = ?, progress = ?, volume
 
 -- name: ListRecentUploadJobs :many
 SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.progress, j.status, j.error,
-       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.origin, j.created_at, j.updated_at,
+       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.origin, j.source_path, j.created_at, j.updated_at,
        b.name AS batch_name, b.relation AS batch_relation, b.origin AS batch_origin, b.created_at AS batch_created_at
 FROM upload_jobs j
 JOIN upload_batches b ON b.id = j.batch_id

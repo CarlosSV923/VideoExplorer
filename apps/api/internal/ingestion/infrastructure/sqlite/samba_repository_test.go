@@ -17,7 +17,7 @@ func sambaJob(t *testing.T, r *repos, batchID, jobID string, status domain.Statu
 	if err != nil {
 		t.Fatal(err)
 	}
-	job, err := domain.NewSambaJob(domain.JobID(jobID), batch.ID, "movie.zip", 1024, 0, now)
+	job, err := domain.NewSambaJob(domain.JobID(jobID), batch.ID, "movie.zip", "Pack/movie.zip", 1024, 0, now)
 	if err != nil {
 		t.Fatal(err)
 	}

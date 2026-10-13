@@ -325,6 +325,9 @@ func (s *Service) archivePath(job *domain.UploadJob) string {
 // originPath is where a dropped file was in the drop: its path in the folder
 // dropped in the browser, or its name when it was dropped on its own (RF-30).
 func originPath(job *domain.UploadJob) string {
+	if job.SourcePath != "" {
+		return job.SourcePath // a Samba copy: its place in _unassigned/ (RF-27a)
+	}
 	if job.RelativePath != "" {
 		return job.RelativePath
 	}

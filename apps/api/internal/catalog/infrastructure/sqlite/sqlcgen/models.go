@@ -145,4 +145,5 @@ type UploadJob struct {
 	FilterDone   int64
 	Origin       string
 	Dismissed    int64
+	SourcePath   string
 }

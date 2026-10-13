@@ -466,7 +466,7 @@ func TestARestartMidMoveNeitherLosesNorDuplicatesTheCopy(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		job, err := ingestiondomain.NewSambaJob("cut-job-1", batch.ID, "movie.zip", int64(len(data)), 0, time.Now())
+		job, err := ingestiondomain.NewSambaJob("cut-job-1", batch.ID, "movie.zip", "movie.zip", int64(len(data)), 0, time.Now())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -508,7 +508,7 @@ func TestARestartMidMoveNeitherLosesNorDuplicatesTheCopy(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		job, err := ingestiondomain.NewSambaJob("cut-job-2", batch.ID, "movie.zip", int64(len(data)), 0, time.Now())
+		job, err := ingestiondomain.NewSambaJob("cut-job-2", batch.ID, "movie.zip", "movie.zip", int64(len(data)), 0, time.Now())
 		if err != nil {
 			t.Fatal(err)
 		}

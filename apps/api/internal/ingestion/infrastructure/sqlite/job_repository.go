@@ -37,6 +37,7 @@ func (r *JobRepository) Create(ctx context.Context, j *domain.UploadJob) error {
 		VolumeSet:    j.VolumeSet,
 		VolumeIndex:  int64(j.VolumeIndex),
 		Origin:       originOrUpload(j.Origin),
+		SourcePath:   j.SourcePath,
 		CreatedAt:    formatTime(j.CreatedAt),
 		UpdatedAt:    formatTime(j.UpdatedAt),
 	})
@@ -59,7 +60,7 @@ func (r *JobRepository) Get(ctx context.Context, id domain.JobID) (*domain.Uploa
 		ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 		Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
 		PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0, Dismissed: row.Dismissed != 0,
-		Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Origin: row.Origin, SourcePath: row.SourcePath, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 }
 
@@ -93,7 +94,7 @@ func (r *JobRepository) Recent(ctx context.Context, limit int) ([]domain.JobView
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
 			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0,
-			Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+			Origin: row.Origin, SourcePath: row.SourcePath, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -207,6 +208,7 @@ type jobRow struct {
 	FilterDone                          bool
 	Dismissed                           bool
 	Origin                              string
+	SourcePath                          string
 	CreatedAt, UpdatedAt                string
 }
 
@@ -217,7 +219,7 @@ func toDomainAll(rows []sqlcgen.UploadJob) ([]*domain.UploadJob, error) {
 			ID: row.ID, BatchID: row.BatchID, FileName: row.FileName, RelativePath: row.RelativePath,
 			Size: row.Size, Received: row.Received, Progress: row.Progress, Status: row.Status, Error: row.Error,
 			PartsTotal: row.PartsTotal, VolumeSet: row.VolumeSet, VolumeIndex: row.VolumeIndex, VolumeGroup: row.VolumeGroup, FilterDone: row.FilterDone != 0, Dismissed: row.Dismissed != 0,
-			Origin: row.Origin, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+			Origin: row.Origin, SourcePath: row.SourcePath, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		})
 		if err != nil {
 			return nil, err
@@ -249,9 +251,10 @@ func toDomain(row jobRow) (*domain.UploadJob, error) {
 		VolumeIndex:  int(row.VolumeIndex),
 		VolumeGroup:  row.VolumeGroup,
 		FilterDone:   row.FilterDone, Dismissed: row.Dismissed,
-		Origin:    domain.BatchOrigin(row.Origin),
-		CreatedAt: created,
-		UpdatedAt: updated,
+		Origin:     domain.BatchOrigin(row.Origin),
+		SourcePath: row.SourcePath,
+		CreatedAt:  created,
+		UpdatedAt:  updated,
 	}, nil
 }
 

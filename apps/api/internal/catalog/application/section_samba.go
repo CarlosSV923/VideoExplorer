@@ -18,6 +18,8 @@ var ErrNotSamba = errors.New("the entry is not a copy of Samba")
 type SambaFile struct {
 	// Entry is the id of the entry that holds the file.
 	Entry int64
+	// EntryName is the name of that entry in _unassigned/.
+	EntryName string
 	// Rel is the file's place inside the entry, with "/" separators; "" for a loose entry's own file.
 	Rel string
 	// Name is the file's name, without folders.
@@ -58,7 +60,7 @@ func (s *Section) SambaFiles(ctx context.Context) ([]SambaFile, error) {
 					name = e.Name
 				}
 				out = append(out, SambaFile{
-					Entry: e.ID, Rel: f.Rel, Name: name, Size: f.Size,
+					Entry: e.ID, EntryName: e.Name, Rel: f.Rel, Name: name, Size: f.Size,
 					Source: s.pathOf(e, f.Rel), Copying: held || e.copying[f.Rel],
 				})
 			}

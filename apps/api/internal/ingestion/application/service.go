@@ -220,6 +220,7 @@ func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
 	err := s.reconcile(ctx, s.now(), &res)
 	s.recoverSamba(ctx)   // the copies of Samba a cut left half taken are finished or forgotten (RF-27a)
+	s.retryDiscards(ctx)  // the copies of Samba whose move to the trash did not finish are moved again (RF-27a)
 	s.trashLeftovers(ctx) // the originals a cut left in staging go to the trash before any batch settles (RF-06)
 	return res, err
 }
@@ -234,6 +235,7 @@ func (s *Service) Purge(ctx context.Context) (PurgeResult, error) {
 	if err := s.reconcile(ctx, now.Add(-missingGrace), &res); err != nil {
 		return res, err
 	}
+	s.retryDiscards(ctx) // the copies of Samba whose move to the trash did not finish are moved again (RF-27a)
 
 	cutoff := now.Add(-AbandonedAfter)
 	stale, err := s.jobs.Stale(ctx, domain.StatusUploading, cutoff)

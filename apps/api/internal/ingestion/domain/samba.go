@@ -16,6 +16,8 @@ type SambaFile struct {
 	Rel string
 	// Name is the file's name, without folders.
 	Name string
+	// EntryName is the name of the entry in _unassigned/: a folder, or the loose file itself (RF-27).
+	EntryName string
 	// Size is its size in bytes.
 	Size int64
 	// Source is where the file is now. It is built by the server and never leaves it.
@@ -196,4 +198,13 @@ func pick(files []SambaFile, idx []int) []SambaFile {
 		out = append(out, files[i])
 	}
 	return out
+}
+
+// SourcePath is the file's place in _unassigned/, folders included, with "/" separators: the entry's
+// name, then the place inside it (RF-27a). A loose file is its own entry.
+func (f SambaFile) SourcePath() string {
+	if f.Rel == "" {
+		return f.EntryName
+	}
+	return path.Join(f.EntryName, f.Rel)
 }

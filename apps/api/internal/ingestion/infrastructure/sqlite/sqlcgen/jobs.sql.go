@@ -32,8 +32,8 @@ func (q *Queries) BatchHasOpenUploadJobs(ctx context.Context, batchID string) (b
 }
 
 const createUploadJob = `-- name: CreateUploadJob :exec
-INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, origin, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, origin, source_path, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateUploadJobParams struct {
@@ -48,6 +48,7 @@ type CreateUploadJobParams struct {
 	VolumeSet    string
 	VolumeIndex  int64
 	Origin       string
+	SourcePath   string
 	CreatedAt    string
 	UpdatedAt    string
 }
@@ -65,6 +66,7 @@ func (q *Queries) CreateUploadJob(ctx context.Context, arg CreateUploadJobParams
 		arg.VolumeSet,
 		arg.VolumeIndex,
 		arg.Origin,
+		arg.SourcePath,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -81,7 +83,7 @@ func (q *Queries) DeleteUploadJob(ctx context.Context, id string) error {
 }
 
 const getUploadJob = `-- name: GetUploadJob :one
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed FROM upload_jobs WHERE id = ?
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed, source_path FROM upload_jobs WHERE id = ?
 `
 
 func (q *Queries) GetUploadJob(ctx context.Context, id string) (UploadJob, error) {
@@ -106,12 +108,13 @@ func (q *Queries) GetUploadJob(ctx context.Context, id string) (UploadJob, error
 		&i.FilterDone,
 		&i.Origin,
 		&i.Dismissed,
+		&i.SourcePath,
 	)
 	return i, err
 }
 
 const listOpenSambaUploadJobs = `-- name: ListOpenSambaUploadJobs :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed FROM upload_jobs WHERE origin = 'samba' AND status NOT IN ('done', 'discarded', 'cancelled') AND dismissed = 0 ORDER BY created_at, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed, source_path FROM upload_jobs WHERE origin = 'samba' AND status NOT IN ('done', 'discarded', 'cancelled') AND dismissed = 0 ORDER BY created_at, rowid
 `
 
 func (q *Queries) ListOpenSambaUploadJobs(ctx context.Context) ([]UploadJob, error) {
@@ -142,6 +145,7 @@ func (q *Queries) ListOpenSambaUploadJobs(ctx context.Context) ([]UploadJob, err
 			&i.FilterDone,
 			&i.Origin,
 			&i.Dismissed,
+			&i.SourcePath,
 		); err != nil {
 			return nil, err
 		}
@@ -158,7 +162,7 @@ func (q *Queries) ListOpenSambaUploadJobs(ctx context.Context) ([]UploadJob, err
 
 const listRecentUploadJobs = `-- name: ListRecentUploadJobs :many
 SELECT j.id, j.batch_id, j.file_name, j.relative_path, j.size, j.received, j.progress, j.status, j.error,
-       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.origin, j.created_at, j.updated_at,
+       j.parts_total, j.volume_set, j.volume_index, j.volume_group, j.filter_done, j.origin, j.source_path, j.created_at, j.updated_at,
        b.name AS batch_name, b.relation AS batch_relation, b.origin AS batch_origin, b.created_at AS batch_created_at
 FROM upload_jobs j
 JOIN upload_batches b ON b.id = j.batch_id
@@ -182,6 +186,7 @@ type ListRecentUploadJobsRow struct {
 	VolumeGroup    string
 	FilterDone     int64
 	Origin         string
+	SourcePath     string
 	CreatedAt      string
 	UpdatedAt      string
 	BatchName      string
@@ -215,6 +220,7 @@ func (q *Queries) ListRecentUploadJobs(ctx context.Context, limit int64) ([]List
 			&i.VolumeGroup,
 			&i.FilterDone,
 			&i.Origin,
+			&i.SourcePath,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BatchName,
@@ -236,7 +242,7 @@ func (q *Queries) ListRecentUploadJobs(ctx context.Context, limit int64) ([]List
 }
 
 const listStaleUploadJobs = `-- name: ListStaleUploadJobs :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed FROM upload_jobs WHERE status = ? AND updated_at < ? ORDER BY updated_at, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed, source_path FROM upload_jobs WHERE status = ? AND updated_at < ? ORDER BY updated_at, rowid
 `
 
 type ListStaleUploadJobsParams struct {
@@ -272,6 +278,7 @@ func (q *Queries) ListStaleUploadJobs(ctx context.Context, arg ListStaleUploadJo
 			&i.FilterDone,
 			&i.Origin,
 			&i.Dismissed,
+			&i.SourcePath,
 		); err != nil {
 			return nil, err
 		}
@@ -287,7 +294,7 @@ func (q *Queries) ListStaleUploadJobs(ctx context.Context, arg ListStaleUploadJo
 }
 
 const listUploadJobsByBatch = `-- name: ListUploadJobsByBatch :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed, source_path FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid
 `
 
 func (q *Queries) ListUploadJobsByBatch(ctx context.Context, batchID string) ([]UploadJob, error) {
@@ -318,6 +325,7 @@ func (q *Queries) ListUploadJobsByBatch(ctx context.Context, batchID string) ([]
 			&i.FilterDone,
 			&i.Origin,
 			&i.Dismissed,
+			&i.SourcePath,
 		); err != nil {
 			return nil, err
 		}
@@ -333,7 +341,7 @@ func (q *Queries) ListUploadJobsByBatch(ctx context.Context, batchID string) ([]
 }
 
 const listUploadJobsByStatus = `-- name: ListUploadJobsByStatus :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed FROM upload_jobs WHERE status = ? ORDER BY created_at, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed, source_path FROM upload_jobs WHERE status = ? ORDER BY created_at, rowid
 `
 
 func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]UploadJob, error) {
@@ -364,6 +372,7 @@ func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]
 			&i.FilterDone,
 			&i.Origin,
 			&i.Dismissed,
+			&i.SourcePath,
 		); err != nil {
 			return nil, err
 		}
@@ -379,7 +388,7 @@ func (q *Queries) ListUploadJobsByStatus(ctx context.Context, status string) ([]
 }
 
 const listUploadJobsByVolumeGroup = `-- name: ListUploadJobsByVolumeGroup :many
-SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed FROM upload_jobs WHERE volume_group = ? ORDER BY volume_index, rowid
+SELECT id, batch_id, file_name, relative_path, size, status, error, created_at, updated_at, received, progress, parts_total, volume_set, volume_index, volume_group, filter_done, origin, dismissed, source_path FROM upload_jobs WHERE volume_group = ? ORDER BY volume_index, rowid
 `
 
 func (q *Queries) ListUploadJobsByVolumeGroup(ctx context.Context, volumeGroup string) ([]UploadJob, error) {
@@ -410,6 +419,7 @@ func (q *Queries) ListUploadJobsByVolumeGroup(ctx context.Context, volumeGroup s
 			&i.FilterDone,
 			&i.Origin,
 			&i.Dismissed,
+			&i.SourcePath,
 		); err != nil {
 			return nil, err
 		}

@@ -194,6 +194,10 @@ type UploadJob struct {
 	// Dismissed says a failed Samba copy was taken off No asignados with "Quitar" (RF-27a). The job
 	// stays in the history of the jobs.
 	Dismissed bool
+	// SourcePath is where a Samba copy was in _unassigned/, folders included, with "/" separators (RF-27a).
+	// It is the origin of the copy when it goes to the trash, so that a restore puts it back in its folder.
+	// Empty for an upload.
+	SourcePath string
 	// FilterDone marks a job whose content the filter has been through (RF-07): what
 	// it keeps is in the filter's records and the job waits for the step that moves
 	// it to No asignados. It is internal: the API does not show it.
@@ -246,8 +250,13 @@ func NewUploadJob(id JobID, meta UploadMeta, size int64, now time.Time) (*Upload
 // NewSambaBatch made for it. It goes through the same checks as an upload, and starts
 // uploading: that is the state in which the file reaches its staging folder, which the
 // adoption does in one change of the library. partsTotal is the number of volumes of its set,
-// which is required for a volume and zero for any other file.
-func NewSambaJob(id JobID, batch BatchID, fileName string, size int64, partsTotal int, now time.Time) (*UploadJob, error) {
+// which is required for a volume and zero for any other file. sourcePath is the copy's place in
+// _unassigned/ (folders included), and it must end with fileName.
+func NewSambaJob(id JobID, batch BatchID, fileName, sourcePath string, size int64, partsTotal int, now time.Time) (*UploadJob, error) {
+	source, err := cleanRelativePath(sourcePath, fileName)
+	if err != nil {
+		return nil, fmt.Errorf("%w: sourcePath %w", ErrInvalidMetadata, err)
+	}
 	parts := ""
 	if _, isVolume := ParseVolume(fileName); isVolume && partsTotal > 0 {
 		parts = strconv.Itoa(partsTotal)
@@ -261,6 +270,7 @@ func NewSambaJob(id JobID, batch BatchID, fileName string, size int64, partsTota
 		return nil, err
 	}
 	job.Origin = OriginSamba
+	job.SourcePath = source
 	return job, nil
 }
 

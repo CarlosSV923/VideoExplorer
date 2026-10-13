@@ -166,7 +166,7 @@ func TestSambaBatchAndJobKeepTheirOrigin(t *testing.T) {
 			if batch.Origin != domain.OriginSamba || batch.Relation != domain.RelationNone {
 				t.Fatalf("batch = origin %q relation %q, want samba and none", batch.Origin, batch.Relation)
 			}
-			job, err := domain.NewSambaJob("job-1", batch.ID, tt.fileName, 10, tt.partsTotal, now)
+			job, err := domain.NewSambaJob("job-1", batch.ID, tt.fileName, tt.fileName, 10, tt.partsTotal, now)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("NewSambaJob accepted an unusable copy")
@@ -218,6 +218,38 @@ func TestOnlyAFailedSambaCopyThatARetryCannotFixIsDismissable(t *testing.T) {
 			}
 			if err == nil && !j.Dismissed {
 				t.Fatal("Dismiss did not mark the job")
+			}
+		})
+	}
+}
+
+func TestASambaCopyKeepsItsPlaceInUnassigned(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 13, 9, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name       string
+		entry      string
+		rel        string
+		fileName   string
+		sourcePath string
+		wantErr    bool
+	}{
+		{name: "a loose archive is its own entry", entry: "movie.zip", fileName: "movie.zip", sourcePath: "movie.zip"},
+		{name: "an archive in a folder keeps the folder", entry: "Pack", rel: "movie.zip", fileName: "movie.zip", sourcePath: "Pack/movie.zip"},
+		{name: "a source path that ends with another name is refused", entry: "Pack", rel: "movie.zip", fileName: "movie.zip", sourcePath: "Pack/other.zip", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := domain.SambaFile{EntryName: tt.entry, Rel: tt.rel, Name: tt.fileName}
+			if got := f.SourcePath(); !tt.wantErr && got != tt.sourcePath {
+				t.Fatalf("SourcePath = %q, want %q", got, tt.sourcePath)
+			}
+			_, err := domain.NewSambaJob("job-2", "batch-2", tt.fileName, tt.sourcePath, 10, 0, now)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewSambaJob err = %v, want refused=%v", err, tt.wantErr)
 			}
 		})
 	}

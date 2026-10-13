@@ -29,7 +29,7 @@ func (s sambaOf) Files(ctx context.Context) ([]ingestiondomain.SambaFile, error)
 	out := make([]ingestiondomain.SambaFile, 0, len(files))
 	for _, f := range files {
 		out = append(out, ingestiondomain.SambaFile{
-			Entry: f.Entry, Rel: f.Rel, Name: f.Name, Size: f.Size, Source: f.Source, Copying: f.Copying,
+			Entry: f.Entry, EntryName: f.EntryName, Rel: f.Rel, Name: f.Name, Size: f.Size, Source: f.Source, Copying: f.Copying,
 		})
 	}
 	return out, nil
