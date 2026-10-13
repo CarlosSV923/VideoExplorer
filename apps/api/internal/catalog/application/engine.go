@@ -67,6 +67,10 @@ type Files interface {
 	Names(dir string) ([]string, error)
 	// Exists reports whether anything (a file or a folder) is at path inside the library.
 	Exists(path string) (bool, error)
+	// LibraryPath is the path of an element of the library, given its elements from the root.
+	LibraryPath(elem ...string) string
+	// Size returns the size of the regular file at path inside the library (RNF-02: no link).
+	Size(path string) (int64, error)
 }
 
 // Journal stores the operations of the library until their change is committed.

@@ -297,3 +297,67 @@ func TestCopyFileCopiesOnceAndOnlyRegularFiles(t *testing.T) {
 		t.Error("copyFile copied a folder")
 	}
 }
+
+func TestSizeReadsOnlyRegularFilesOfTheLibrary(t *testing.T) {
+	t.Parallel()
+
+	fs, root := fixture(t)
+	outside := t.TempDir()
+	file := filepath.Join(root, "Movies", "a.mkv")
+	if err := os.MkdirAll(filepath.Dir(file), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("12345"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "secret.mkv"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(root, "Movies", "link.mkv")
+	if err := os.Symlink(filepath.Join(outside, "secret.mkv"), linked); err != nil {
+		t.Skipf("symbolic links are not available here: %v", err)
+	}
+	linkedFolder := filepath.Join(root, "Linked")
+	if err := os.Symlink(outside, linkedFolder); err != nil {
+		t.Skipf("symbolic links are not available here: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		want    int64
+		wantErr bool
+	}{
+		{name: "a regular file of the library", path: file, want: 5},
+		{name: "a folder", path: filepath.Dir(file), wantErr: true},
+		{name: "a symbolic link to a file", path: linked, wantErr: true},
+		{name: "a file below a symbolic link", path: filepath.Join(linkedFolder, "secret.mkv"), wantErr: true},
+		{name: "a file that does not exist", path: filepath.Join(root, "Movies", "none.mkv"), wantErr: true},
+		{name: "a file outside the library", path: filepath.Join(outside, "secret.mkv"), wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := fs.Size(tt.path)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Size = %d; want an error", got)
+				}
+				return
+			}
+			if err != nil || got != tt.want {
+				t.Fatalf("Size = %d, %v; want %d", got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestLibraryPathIsInsideTheRoot(t *testing.T) {
+	t.Parallel()
+
+	fs, root := fixture(t)
+	if got, want := fs.LibraryPath("Movies", "a.mkv"), filepath.Join(root, "Movies", "a.mkv"); got != want {
+		t.Errorf("LibraryPath = %q, want %q", got, want)
+	}
+}

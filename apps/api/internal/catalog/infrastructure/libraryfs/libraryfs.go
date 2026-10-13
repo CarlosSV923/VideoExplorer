@@ -53,6 +53,26 @@ func (f *FS) TrashPath(elem ...string) string {
 	return filepath.Join(append([]string{f.trash}, elem...)...)
 }
 
+// LibraryPath implements application.Files.
+func (f *FS) LibraryPath(elem ...string) string {
+	return filepath.Join(append([]string{f.root}, elem...)...)
+}
+
+// Size implements application.Files: the size of a regular file, refused when it goes through a link.
+func (f *FS) Size(p string) (int64, error) {
+	if err := f.readable(p); err != nil {
+		return 0, err
+	}
+	info, err := os.Lstat(p)
+	if err != nil {
+		return 0, err
+	}
+	if !info.Mode().IsRegular() {
+		return 0, fmt.Errorf("libraryfs: %s is not a regular file", p)
+	}
+	return info.Size(), nil
+}
+
 // UnassignedPath implements application.Files.
 func (f *FS) UnassignedPath(elem ...string) string {
 	return filepath.Join(append([]string{f.root, domain.UnassignedDir}, elem...)...)
