@@ -60,7 +60,7 @@ Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 - [x] Motor de operaciones con journal (de GameExplorer); la papelera mínima ya existe desde la Fase 4; el paso a No asignados (`catalog.Unassigned.Put`) y la papelera pasan por el motor
 - [x] Robustez de la ingesta: asentar los lotes en segundo plano tras arrancar (hoy un lote de 3000 archivos retrasa el arranque ~2 min 40 s); nunca borrar un comprimido que siga en staging porque falló su traslado a la papelera (el trabajo falla con motivo y Reintentar)
 - [x] Rendimiento del asentamiento: coalescer las peticiones de `settleAll` (un solo pase pendiente) para evitar el coste O(n²) con lotes grandes (hoy filtrar y asentar 3000 archivos tarda ~26 min) y que un DELETE de subida no espere minutos al cerrojo
-- [ ] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»; etiqueta automática con resolución, códec e idioma del audio (RF-24) + vectores `contracts/version-labels.json`; el hash bajo demanda de archivos de la biblioteca rechaza enlaces simbólicos (RNF-02)
+- [~] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta»; etiqueta automática con resolución, códec e idioma del audio (RF-24) + vectores `contracts/version-labels.json`; el hash bajo demanda de archivos de la biblioteca rechaza enlaces simbólicos (RNF-02)
 - [ ] `plan` (vista previa) y `commit` de una entrada de No asignados
 
 ## Fase 6 — No asignados, escaneo e importación
