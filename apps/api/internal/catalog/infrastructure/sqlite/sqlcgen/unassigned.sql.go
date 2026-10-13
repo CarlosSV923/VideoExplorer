@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"database/sql"
 )
 
 const clearUnassignedLock = `-- name: ClearUnassignedLock :exec
@@ -115,7 +116,7 @@ func (q *Queries) InsertUnassignedEntry(ctx context.Context, arg InsertUnassigne
 }
 
 const insertUnassignedFile = `-- name: InsertUnassignedFile :exec
-INSERT INTO unassigned_files (entry_id, source, rel, size) VALUES (?, ?, ?, ?)
+INSERT INTO unassigned_files (entry_id, source, rel, size, mtime_ms) VALUES (?, ?, ?, ?, ?)
 `
 
 type InsertUnassignedFileParams struct {
@@ -123,6 +124,7 @@ type InsertUnassignedFileParams struct {
 	Source  string
 	Rel     string
 	Size    int64
+	MtimeMs sql.NullInt64
 }
 
 func (q *Queries) InsertUnassignedFile(ctx context.Context, arg InsertUnassignedFileParams) error {
@@ -131,18 +133,58 @@ func (q *Queries) InsertUnassignedFile(ctx context.Context, arg InsertUnassigned
 		arg.Source,
 		arg.Rel,
 		arg.Size,
+		arg.MtimeMs,
 	)
 	return err
 }
 
+const listAllUnassignedEntries = `-- name: ListAllUnassignedEntries :many
+SELECT id, source, name, loose, batch_id, relation, origin, created_at, lock_token, lock_until FROM unassigned_entries ORDER BY id
+`
+
+func (q *Queries) ListAllUnassignedEntries(ctx context.Context) ([]UnassignedEntry, error) {
+	rows, err := q.db.QueryContext(ctx, listAllUnassignedEntries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UnassignedEntry
+	for rows.Next() {
+		var i UnassignedEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.Name,
+			&i.Loose,
+			&i.BatchID,
+			&i.Relation,
+			&i.Origin,
+			&i.CreatedAt,
+			&i.LockToken,
+			&i.LockUntil,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnassignedFiles = `-- name: ListUnassignedFiles :many
-SELECT source, rel, size FROM unassigned_files WHERE entry_id = ? ORDER BY rowid
+SELECT source, rel, size, mtime_ms FROM unassigned_files WHERE entry_id = ? ORDER BY rowid
 `
 
 type ListUnassignedFilesRow struct {
-	Source string
-	Rel    string
-	Size   int64
+	Source  string
+	Rel     string
+	Size    int64
+	MtimeMs sql.NullInt64
 }
 
 func (q *Queries) ListUnassignedFiles(ctx context.Context, entryID int64) ([]ListUnassignedFilesRow, error) {
@@ -154,7 +196,12 @@ func (q *Queries) ListUnassignedFiles(ctx context.Context, entryID int64) ([]Lis
 	var items []ListUnassignedFilesRow
 	for rows.Next() {
 		var i ListUnassignedFilesRow
-		if err := rows.Scan(&i.Source, &i.Rel, &i.Size); err != nil {
+		if err := rows.Scan(
+			&i.Source,
+			&i.Rel,
+			&i.Size,
+			&i.MtimeMs,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -233,4 +280,27 @@ func (q *Queries) TakeUnassignedLock(ctx context.Context, arg TakeUnassignedLock
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const updateUnassignedFile = `-- name: UpdateUnassignedFile :exec
+UPDATE unassigned_files SET rel = ?, size = ?, mtime_ms = ? WHERE entry_id = ? AND source = ?
+`
+
+type UpdateUnassignedFileParams struct {
+	Rel     string
+	Size    int64
+	MtimeMs sql.NullInt64
+	EntryID int64
+	Source  string
+}
+
+func (q *Queries) UpdateUnassignedFile(ctx context.Context, arg UpdateUnassignedFileParams) error {
+	_, err := q.db.ExecContext(ctx, updateUnassignedFile,
+		arg.Rel,
+		arg.Size,
+		arg.MtimeMs,
+		arg.EntryID,
+		arg.Source,
+	)
+	return err
 }

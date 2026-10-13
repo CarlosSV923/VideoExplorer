@@ -115,6 +115,7 @@ type UnassignedFile struct {
 	Source  string
 	Rel     string
 	Size    int64
+	MtimeMs sql.NullInt64
 }
 
 type UploadBatch struct {

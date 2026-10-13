@@ -25,6 +25,9 @@ func TestNewTrashEntry(t *testing.T) {
 	}{
 		{name: "the archive of an upload", origin: domain.TrashOriginUpload, reason: domain.TrashReasonExtracted, dir: "a1b2", from: from, file: file},
 		{name: "a file the filter discarded", origin: domain.TrashOriginUpload, reason: domain.TrashReasonFiltered, dir: "a1b2", from: from, file: file},
+		{name: "a file the user sent from No asignados", origin: domain.TrashOriginUpload, reason: domain.TrashReasonRemoved, dir: "a1b2", from: from, file: file},
+		{name: "a file copied by Samba", origin: domain.TrashOriginSamba, reason: domain.TrashReasonRemoved, dir: "a1b2", from: domain.Provenance{RelativePath: "Show/S01/x.mkv"}, file: file},
+		{name: "a Samba file with a batch", origin: domain.TrashOriginSamba, reason: domain.TrashReasonRemoved, dir: "a1b2", from: domain.Provenance{BatchID: "b1", RelativePath: "x.mkv"}, file: file, wantErr: true},
 		{name: "an unknown origin", origin: "book", reason: domain.TrashReasonExtracted, dir: "a1b2", from: from, file: file, wantErr: true},
 		{name: "an unknown reason", origin: domain.TrashOriginUpload, reason: "deleted", dir: "a1b2", from: from, file: file, wantErr: true},
 		{name: "a folder that is a path", origin: domain.TrashOriginUpload, reason: domain.TrashReasonExtracted, dir: "../a1b2", from: from, file: file, wantErr: true},
@@ -79,6 +82,7 @@ func TestNewTrashEntryOfAReplacedLibraryFile(t *testing.T) {
 		{name: "a replaced video with its subtitle", origin: domain.TrashOriginLibrary, reason: domain.TrashReasonReplaced, from: libraryFrom, files: []domain.TrashFile{video, subtitle}},
 		{name: "a replaced file with no subtitle", origin: domain.TrashOriginLibrary, reason: domain.TrashReasonReplaced, from: libraryFrom, files: []domain.TrashFile{video}},
 		{name: "a library file that was not replaced", origin: domain.TrashOriginLibrary, reason: domain.TrashReasonFiltered, from: libraryFrom, files: []domain.TrashFile{video}, wantErr: true},
+		{name: "a library file removed from No asignados", origin: domain.TrashOriginLibrary, reason: domain.TrashReasonRemoved, from: libraryFrom, files: []domain.TrashFile{video}, wantErr: true},
 		{name: "a replaced upload is not a library file", origin: domain.TrashOriginUpload, reason: domain.TrashReasonReplaced, from: domain.Provenance{BatchID: "b1", RelativePath: "M/a.mkv"}, files: []domain.TrashFile{video}, wantErr: true},
 		{name: "a library file with a batch", origin: domain.TrashOriginLibrary, reason: domain.TrashReasonReplaced, from: domain.Provenance{BatchID: "b1", RelativePath: "M/a.mkv"}, files: []domain.TrashFile{video}, wantErr: true},
 		{name: "a library file with no relative path", origin: domain.TrashOriginLibrary, reason: domain.TrashReasonReplaced, from: domain.Provenance{}, files: []domain.TrashFile{video}, wantErr: true},

@@ -23,8 +23,12 @@ const (
 	RelationNone     = "none"
 )
 
-// OriginUpload is the origin of an entry that came from an upload (spec RF-08).
-const OriginUpload = "upload"
+// The origins of an entry: an upload that the ingestion moved in (spec RF-08), or a file or folder that
+// Samba copied into _unassigned/ (spec RF-27).
+const (
+	OriginUpload = "upload"
+	OriginSamba  = "samba"
+)
 
 // ErrInvalidEntry is returned for an unassigned entry whose values are not usable.
 var ErrInvalidEntry = errors.New("invalid unassigned entry")
@@ -55,11 +59,26 @@ type UnassignedEntry struct {
 
 // UnassignedFile is one file of an unassigned entry, already in its place in _unassigned/.
 type UnassignedFile struct {
-	// Source is where the file was before it moved (its staging path).
+	// Source is where the file was before it moved (its staging path), or its place in _unassigned/
+	// when Samba copied it there. It is the key of the file inside its entry.
 	Source string
 	// Rel is its place inside the entry, with "/" separators. Empty for a loose entry.
 	Rel  string
 	Size int64
+	// Mtime is the modification time of its last reading, in Unix milliseconds (RF-27); 0 when it was
+	// never read. The section compares it with the next reading to tell a file still being copied.
+	Mtime int64
+}
+
+// NewSambaEntry checks the values of an entry that Samba copied into _unassigned/ (RF-27): it has no
+// batch and no relation, and its files are found on disk, so it has none yet.
+func NewSambaEntry(name string, loose bool, now time.Time) (UnassignedEntry, error) {
+	if !safeComponent(name) || len(name) > MaxNameBytes {
+		return UnassignedEntry{}, fmt.Errorf("%w: name %q", ErrInvalidEntry, name)
+	}
+	return UnassignedEntry{
+		Source: "samba:" + name, Name: name, Loose: loose, Relation: RelationNone, Origin: OriginSamba, CreatedAt: now,
+	}, nil
 }
 
 // NewUnassignedEntry checks the values of a new entry, which has no files yet.

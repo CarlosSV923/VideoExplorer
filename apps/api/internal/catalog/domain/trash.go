@@ -19,6 +19,8 @@ const (
 	TrashOriginUpload TrashOrigin = "upload"
 	// TrashOriginLibrary: a file of the library that a new file replaced (RF-24).
 	TrashOriginLibrary TrashOrigin = "library"
+	// TrashOriginSamba: a file or folder that Samba copied into _unassigned/ (RF-27). It has no batch.
+	TrashOriginSamba TrashOrigin = "samba"
 )
 
 // TrashReason says why the files went to the trash.
@@ -32,6 +34,8 @@ const (
 	TrashReasonFiltered TrashReason = "filtered"
 	// TrashReasonReplaced: a new file took the place of this library file, which goes with its subtitles (RF-24).
 	TrashReasonReplaced TrashReason = "replaced"
+	// TrashReasonRemoved: the user sent it to the trash from No asignados (RF-27).
+	TrashReasonRemoved TrashReason = "removed"
 )
 
 // ErrInvalidTrash is returned for a trash entry whose values are not usable.
@@ -80,12 +84,12 @@ func NewTrashEntry(origin TrashOrigin, reason TrashReason, dir string, from Prov
 // file replaced (reason replaced), and the replaced reason is only for library files.
 func NewTrashEntryOf(origin TrashOrigin, reason TrashReason, dir string, from Provenance, files []TrashFile, now time.Time) (TrashEntry, error) {
 	switch origin {
-	case TrashOriginUpload, TrashOriginLibrary:
+	case TrashOriginUpload, TrashOriginLibrary, TrashOriginSamba:
 	default:
 		return TrashEntry{}, fmt.Errorf("%w: origin %q", ErrInvalidTrash, origin)
 	}
 	switch reason {
-	case TrashReasonExtracted, TrashReasonFiltered, TrashReasonReplaced:
+	case TrashReasonExtracted, TrashReasonFiltered, TrashReasonReplaced, TrashReasonRemoved:
 	default:
 		return TrashEntry{}, fmt.Errorf("%w: reason %q", ErrInvalidTrash, reason)
 	}
@@ -112,9 +116,9 @@ func NewTrashEntryOf(origin TrashOrigin, reason TrashReason, dir string, from Pr
 			return TrashEntry{}, fmt.Errorf("%w: negative size", ErrInvalidTrash)
 		}
 	}
-	if origin == TrashOriginLibrary {
+	if origin == TrashOriginLibrary || origin == TrashOriginSamba {
 		if from.BatchID != "" {
-			return TrashEntry{}, fmt.Errorf("%w: a library file has no batch, got %q", ErrInvalidTrash, from.BatchID)
+			return TrashEntry{}, fmt.Errorf("%w: a %s file has no batch, got %q", ErrInvalidTrash, origin, from.BatchID)
 		}
 	} else if !safeComponent(from.BatchID) {
 		return TrashEntry{}, fmt.Errorf("%w: batch %q", ErrInvalidTrash, from.BatchID)
