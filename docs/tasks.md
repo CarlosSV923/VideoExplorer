@@ -65,7 +65,7 @@ Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 
 ## Fase 6 — No asignados, escaneo e importación
 Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
-- [~] Lectura en vivo de `_unassigned/` al abrir la sección (`GET` de la sección con entradas de subida y de Samba, «Copiando…», mandar a la papelera y borrar definitivamente por entrada y por archivo), estado «Copiando…»; archivos basura del sistema (`Thumbs.db`, `desktop.ini`, `.DS_Store`) no impiden vaciar una entrada al asignar
+- [x] Lectura en vivo de `_unassigned/` al abrir la sección (`GET` de la sección con entradas de subida y de Samba, «Copiando…», mandar a la papelera y borrar definitivamente por entrada y por archivo), estado «Copiando…»; archivos basura del sistema (`Thumbs.db`, `desktop.ini`, `.DS_Store`) no impiden vaciar una entrada al asignar
 - [ ] Comprimidos en `_unassigned/` procesados como subidas (RF-27a)
 - [ ] Escaneo periódico (dos intervalos) y «Escanear ahora»
 - [ ] Importación de `Movies/` y `TV Shows/` existentes; lo que no sigue el formato va a No asignados (el análisis de nombres debe extraer `[tmdbid-N]` de la carpeta, RF-29)
@@ -94,7 +94,7 @@ Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
 ## Fase 10 — Frontend con adaptadores HTTP
 Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 - [ ] Puertos y adaptadores `http/` por módulo; router y TanStack Query
-- [ ] Pantallas completas; subidas con `tus-js-client` y pregunta de relación (envía `partsTotal` por conjunto multiparte, RF-03); decidir cómo se cancela desde la UI un trabajo ya extraído (tus DELETE ya no encuentra el comprimido)
+- [ ] Pantallas completas; subidas con `tus-js-client` y pregunta de relación (envía `partsTotal` por conjunto multiparte, RF-03); decidir cómo se cancela desde la UI un trabajo ya extraído (tus DELETE ya no encuentra el comprimido); en No asignados, explicar una entrada que se ve vacía porque solo guarda contenido dentro de carpetas ocultas o del sistema (RF-27)
 - [ ] Prueba real contra la API con archivos reales
 - [ ] README EN/ES: estado del proyecto al día (fases cerradas)
 
