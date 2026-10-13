@@ -158,9 +158,23 @@ func TestTheLockIsReleasedWhenTheTabLetsGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The entry is on the disk too: the section reads it before each assignment (RF-27).
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, domain.UnassignedDir), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	heat := filepath.Join(root, domain.UnassignedDir, "Heat.mkv")
+	if err := os.WriteFile(heat, []byte("heat"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(heat, now.Add(-2*time.Minute), now.Add(-2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	files := libraryfs.New(root)
 	assign := application.NewAssignments(application.AssignDeps{
-		Unassigned: repo, Library: catalogsqlite.NewLibraryRepository(conn), Files: libraryfs.New(t.TempDir()),
-		TMDB: oneMovieTMDB{}, Names: noNames{}, Now: func() time.Time { return now },
+		Unassigned: repo, Library: catalogsqlite.NewLibraryRepository(conn), Files: files,
+		Engine: application.NewEngine(files, catalogsqlite.NewJournal(conn), func() time.Time { return now }, nil),
+		TMDB:   oneMovieTMDB{}, Names: noNames{}, Now: func() time.Time { return now },
 		NewToken: func() string { return "tab-a" },
 	})
 	lock, err := assign.Take(ctx, entryID, "")

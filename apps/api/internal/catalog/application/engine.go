@@ -65,6 +65,9 @@ type Files interface {
 	RemoveAll(path string) error
 	// Names lists the names in a folder inside the library; none when the folder is missing.
 	Names(dir string) ([]string, error)
+	// Tree lists what is inside a folder of the library, recursively, with paths relative to it and "/"
+	// separators (RF-27). Links are not listed (RNF-02); a missing folder lists nothing.
+	Tree(dir string) ([]domain.Item, error)
 	// Exists reports whether anything (a file or a folder) is at path inside the library.
 	Exists(path string) (bool, error)
 	// LibraryPath is the path of an element of the library, given its elements from the root.
@@ -96,6 +99,9 @@ type Records interface {
 	InsertUnassigned(ctx context.Context, entry domain.UnassignedEntry) (int64, error)
 	// AddUnassignedFiles adds files to an entry of No asignados that exists.
 	AddUnassignedFiles(ctx context.Context, entryID int64, files []domain.UnassignedFile) error
+	// UpdateUnassignedFile stores the place, size and reading of a file of an entry of No asignados,
+	// found by its source (RF-27).
+	UpdateUnassignedFile(ctx context.Context, entryID int64, file domain.UnassignedFile) error
 	// InsertLibraryTitle stores a title of the library and returns its id (RF-21).
 	InsertLibraryTitle(ctx context.Context, title domain.LibraryTitle) (int64, error)
 	// InsertLibraryFiles stores files of a title, in order. A subtitle's video must be stored
@@ -246,6 +252,25 @@ func (b *Builder) exists(path string) (bool, error) {
 		return false, nil
 	}
 	return b.files.Exists(path)
+}
+
+// Locked runs fn while no change of the library runs, so that a read of the library and of its
+// records sees both as they are (RNF-04). fn must not call Do or Locked.
+func (e *Engine) Locked(fn func() error) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return fn()
+}
+
+// scratchPath returns a path inside the operation's scratch folder, with its parent folders planned. The
+// scratch folder is deleted when the change is committed, and undone with it otherwise: what a change
+// deletes without the trash goes there first (RF-27).
+func (b *Builder) scratchPath(elem ...string) (string, error) {
+	dst := b.files.OpsPath(append([]string{b.opID}, elem...)...)
+	if err := b.Mkdir(filepath.Dir(dst)); err != nil {
+		return "", err
+	}
+	return dst, nil
 }
 
 // Do plans a change with build, performs it and records it. build runs under the engine's

@@ -54,6 +54,9 @@ type Assignments struct {
 	now      func() time.Time
 	newToken func() string
 	log      *slog.Logger
+	// section reads No asignados as the disk holds it, so that an entry still being copied is refused
+	// (RF-27) and the files that the commit moves are the ones on disk.
+	section *Section
 }
 
 // NewAssignments builds the assignment use cases from their ports.
@@ -70,6 +73,10 @@ func NewAssignments(d AssignDeps) *Assignments {
 	}
 	a.videoExt = extSet(d.VideoExts)
 	a.subExt = extSet(d.SubtitleExts)
+	a.section = NewSection(SectionDeps{
+		Unassigned: d.Unassigned, Files: d.Files, Engine: d.Engine,
+		VideoExts: d.VideoExts, SubtitleExts: d.SubtitleExts, Now: a.now,
+	})
 	return a
 }
 
@@ -85,27 +92,48 @@ func extSet(exts []string) map[string]bool {
 // Take opens an assignment of the entry for the tab that sends token (RF-26). An empty token makes
 // a new one. It answers ErrAssigning when another tab holds the entry, and renews the lock of the
 // tab that holds it.
+// It answers ErrCopying when a file of the entry is still being copied (RF-27): nothing is assigned
+// then. The reading of the section runs under the engine's lock, with the lock taken.
 func (a *Assignments) Take(ctx context.Context, entryID int64, token string) (domain.AssignLock, error) {
-	entry, err := a.entry(ctx, entryID)
+	var lock domain.AssignLock
+	err := a.d.Engine.Locked(func() error {
+		entries, err := a.section.read(ctx)
+		if err != nil {
+			return err
+		}
+		e := findEntry(entries, entryID)
+		if e == nil {
+			return ErrEntryNotFound
+		}
+		if e.isCopying() {
+			return ErrCopying
+		}
+		entry, err := a.entry(ctx, entryID)
+		if err != nil {
+			return err
+		}
+		now := a.now()
+		if entry.Lock.Held(now) && entry.Lock.Token != token {
+			return ErrAssigning
+		}
+		if token == "" {
+			token = a.newToken()
+		}
+		until := now.Add(domain.AssignLockTTL)
+		ok, err := a.d.Unassigned.Lock(ctx, entryID, token, now, until)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrAssigning
+		}
+		lock = domain.AssignLock{Token: token, Until: until}
+		return nil
+	})
 	if err != nil {
 		return domain.AssignLock{}, err
 	}
-	now := a.now()
-	if entry.Lock.Held(now) && entry.Lock.Token != token {
-		return domain.AssignLock{}, ErrAssigning
-	}
-	if token == "" {
-		token = a.newToken()
-	}
-	until := now.Add(domain.AssignLockTTL)
-	ok, err := a.d.Unassigned.Lock(ctx, entryID, token, now, until)
-	if err != nil {
-		return domain.AssignLock{}, err
-	}
-	if !ok {
-		return domain.AssignLock{}, ErrAssigning
-	}
-	return domain.AssignLock{Token: token, Until: until}, nil
+	return lock, nil
 }
 
 // Release frees the lock of the entry when token holds it (RF-26: cancelling the form). Another

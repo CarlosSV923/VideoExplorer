@@ -2,7 +2,7 @@ package application
 
 import (
 	"context"
-	"path"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -44,6 +44,19 @@ func (a *Assignments) Commit(ctx context.Context, entryID int64, token string, r
 	}
 	var result Result
 	err = a.d.Engine.Do(ctx, "assign", entry.Source, func(b *Builder) error {
+		// The entry is read from the disk first: a file that arrived since the form was opened is
+		// part of the entry (RF-27), and one still being copied stops the commit.
+		entries, err := a.section.read(ctx)
+		if err != nil {
+			return err
+		}
+		e := findEntry(entries, entryID)
+		if e == nil {
+			return ErrEntryNotFound
+		}
+		if e.isCopying() {
+			return ErrCopying
+		}
 		fresh, ok, err := a.d.Unassigned.ByID(ctx, entryID)
 		if err != nil {
 			return err
@@ -167,29 +180,14 @@ func (a *Assignments) bookkeeping(ctx context.Context, b *Builder, entry domain.
 	out.EntryRemoved = gone
 
 	if !entry.Loose && len(sources) > 0 {
-		keep := map[string]bool{}
-		for _, f := range remaining {
-			for d := path.Dir(f.Rel); d != "." && d != "/" && d != ""; d = path.Dir(d) {
-				keep[d] = true
-			}
+		// What is inside the entry now, junk included: the folders the moves empty go, and the junk
+		// goes too when nothing is left in the entry (RF-27).
+		items, err := a.d.Files.Tree(a.d.Files.UnassignedPath(entry.Name))
+		if err != nil {
+			return fmt.Errorf("catalog: read entry %s: %w", entry.Name, err)
 		}
-		var dirs []string
-		seen := map[string]bool{}
-		for rel := range moved {
-			for d := path.Dir(rel); d != "." && d != "/" && d != ""; d = path.Dir(d) {
-				if !keep[d] && !seen[d] {
-					seen[d] = true
-					dirs = append(dirs, d)
-				}
-			}
-		}
-		// The deepest folders first: a folder is removed after the ones inside it.
-		slices.SortFunc(dirs, func(x, y string) int { return strings.Count(y, "/") - strings.Count(x, "/") })
-		for _, d := range dirs {
-			b.RemoveDir(b.files.LibraryPath(domain.UnassignedDir, entry.Name, d))
-		}
-		if gone {
-			b.RemoveDir(b.files.LibraryPath(domain.UnassignedDir, entry.Name))
+		if err := a.section.leaveFolders(b, entry.Name, items, moved, gone); err != nil {
+			return err
 		}
 	}
 

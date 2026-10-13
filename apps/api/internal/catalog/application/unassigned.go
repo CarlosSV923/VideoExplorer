@@ -27,6 +27,10 @@ type UnassignedRepository interface {
 	Unlock(ctx context.Context, id int64, token string) error
 	// Names returns the names of every recorded entry.
 	Names(ctx context.Context) ([]string, error)
+	// List returns every recorded entry, with its files, oldest first (RF-27).
+	List(ctx context.Context) ([]domain.UnassignedEntry, error)
+	// Apply runs fn, which writes records, in one transaction: either all of them are stored or none.
+	Apply(ctx context.Context, fn func(Records) error) error
 }
 
 // Unassigned moves what the ingestion keeps into No asignados (spec RF-08, RF-08a). It is

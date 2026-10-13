@@ -102,6 +102,53 @@ func (f *FS) Names(dir string) ([]string, error) {
 	return names, nil
 }
 
+// Tree implements application.Files: everything inside the folder, recursively, except the links
+// (RNF-02). An entry that vanishes while the walk goes on is skipped, as the disk no longer holds it.
+func (f *FS) Tree(dir string) ([]domain.Item, error) {
+	if err := f.readable(dir); err != nil {
+		return nil, err
+	}
+	info, err := os.Lstat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("libraryfs: %s is not a folder", dir)
+	}
+	var out []domain.Item
+	err = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		if p == dir {
+			return nil
+		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, p)
+		if err != nil {
+			return err
+		}
+		fi, err := d.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		out = append(out, domain.Item{Rel: filepath.ToSlash(rel), IsDir: d.IsDir(), Size: fi.Size(), ModTime: fi.ModTime()})
+		return nil
+	})
+	return out, err
+}
+
 // Exists implements application.Files.
 func (f *FS) Exists(p string) (bool, error) {
 	if err := f.readable(p); err != nil {

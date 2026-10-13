@@ -67,10 +67,20 @@ func (r records) AddUnassignedFiles(ctx context.Context, entryID int64, files []
 func insertFiles(ctx context.Context, q *sqlcgen.Queries, entryID int64, files []domain.UnassignedFile) error {
 	for _, f := range files {
 		if err := q.InsertUnassignedFile(ctx, sqlcgen.InsertUnassignedFileParams{
-			EntryID: entryID, Source: f.Source, Rel: f.Rel, Size: f.Size,
+			EntryID: entryID, Source: f.Source, Rel: f.Rel, Size: f.Size, MtimeMs: nullInt(f.Mtime),
 		}); err != nil {
 			return fmt.Errorf("catalog: insert unassigned file: %w", err)
 		}
+	}
+	return nil
+}
+
+// UpdateUnassignedFile implements application.Records: the place, size and reading of a file of an entry.
+func (r records) UpdateUnassignedFile(ctx context.Context, entryID int64, f domain.UnassignedFile) error {
+	if err := r.q.UpdateUnassignedFile(ctx, sqlcgen.UpdateUnassignedFileParams{
+		Rel: f.Rel, Size: f.Size, MtimeMs: nullInt(f.Mtime), EntryID: entryID, Source: f.Source,
+	}); err != nil {
+		return fmt.Errorf("catalog: update unassigned file: %w", err)
 	}
 	return nil
 }

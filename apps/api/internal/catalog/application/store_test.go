@@ -512,3 +512,35 @@ func (m *memStore) TrashLibraryFiles(_ context.Context, ids []int64, entryID int
 	}
 	return nil
 }
+
+// List implements the section's repository: the entries that were not deleted, oldest first.
+func (m *memStore) List(context.Context) ([]domain.UnassignedEntry, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []domain.UnassignedEntry
+	for i, e := range m.entries {
+		if !m.removed[int64(i+1)] {
+			out = append(out, cloneEntry(e))
+		}
+	}
+	return out, nil
+}
+
+// Apply implements the section's repository: fn writes its records straight into the store.
+func (m *memStore) Apply(_ context.Context, fn func(application.Records) error) error {
+	return fn(m)
+}
+
+// UpdateUnassignedFile implements Records: the place, size and reading of a file of the entry.
+func (m *memStore) UpdateUnassignedFile(_ context.Context, entryID int64, f domain.UnassignedFile) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e := m.entry(entryID)
+	for i := range e.Files {
+		if e.Files[i].Source == f.Source {
+			e.Files[i] = f
+			return nil
+		}
+	}
+	return errors.New("no such file in the entry")
+}

@@ -16,14 +16,52 @@ import (
 // by the commit of the change that moves them in (see records); the lock of an assignment is
 // written by Lock and Unlock, outside any change.
 type UnassignedRepository struct {
-	q *sqlcgen.Queries
+	db *sql.DB
+	q  *sqlcgen.Queries
 }
 
 var _ application.UnassignedRepository = (*UnassignedRepository)(nil)
 
 // NewUnassignedRepository builds the repository over an open database.
 func NewUnassignedRepository(db *sql.DB) *UnassignedRepository {
-	return &UnassignedRepository{q: sqlcgen.New(db)}
+	return &UnassignedRepository{db: db, q: sqlcgen.New(db)}
+}
+
+// List implements application.UnassignedRepository: every entry with its files, oldest first.
+func (r *UnassignedRepository) List(ctx context.Context) ([]domain.UnassignedEntry, error) {
+	rows, err := r.q.ListAllUnassignedEntries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: list unassigned entries: %w", err)
+	}
+	out := make([]domain.UnassignedEntry, 0, len(rows))
+	for _, row := range rows {
+		entry, _, err := r.withFiles(ctx, entryFields{
+			id: row.ID, source: row.Source, name: row.Name, loose: row.Loose, batchID: row.BatchID,
+			relation: row.Relation, origin: row.Origin, createdAt: row.CreatedAt,
+			lockToken: row.LockToken, lockUntil: row.LockUntil,
+		})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, entry)
+	}
+	return out, nil
+}
+
+// Apply implements application.UnassignedRepository: fn writes its records in one transaction.
+func (r *UnassignedRepository) Apply(ctx context.Context, fn func(application.Records) error) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("catalog: begin unassigned transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := fn(records{q: r.q.WithTx(tx)}); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("catalog: commit unassigned transaction: %w", err)
+	}
+	return nil
 }
 
 // BySource implements application.UnassignedRepository.
@@ -85,7 +123,11 @@ func (r *UnassignedRepository) withFiles(ctx context.Context, f entryFields) (do
 		return domain.UnassignedEntry{}, false, fmt.Errorf("catalog: list unassigned files: %w", err)
 	}
 	for _, file := range files {
-		entry.Files = append(entry.Files, domain.UnassignedFile{Source: file.Source, Rel: file.Rel, Size: file.Size})
+		f := domain.UnassignedFile{Source: file.Source, Rel: file.Rel, Size: file.Size}
+		if file.MtimeMs.Valid {
+			f.Mtime = file.MtimeMs.Int64
+		}
+		entry.Files = append(entry.Files, f)
 	}
 	return entry, true, nil
 }
