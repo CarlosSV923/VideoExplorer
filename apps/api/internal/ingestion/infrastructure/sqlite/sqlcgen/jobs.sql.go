@@ -9,6 +9,28 @@ import (
 	"context"
 )
 
+const batchHasFilteringUploadJobs = `-- name: BatchHasFilteringUploadJobs :one
+SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE batch_id = ? AND status = 'filtering' AND filter_done = 0)
+`
+
+func (q *Queries) BatchHasFilteringUploadJobs(ctx context.Context, batchID string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, batchHasFilteringUploadJobs, batchID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const batchHasOpenUploadJobs = `-- name: BatchHasOpenUploadJobs :one
+SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE batch_id = ? AND status IN ('uploading', 'uploaded', 'waiting_parts', 'extracting', 'needs_password'))
+`
+
+func (q *Queries) BatchHasOpenUploadJobs(ctx context.Context, batchID string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, batchHasOpenUploadJobs, batchID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createUploadJob = `-- name: CreateUploadJob :exec
 INSERT INTO upload_jobs (id, batch_id, file_name, relative_path, size, status, error, parts_total, volume_set, volume_index, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

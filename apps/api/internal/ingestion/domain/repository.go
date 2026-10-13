@@ -29,6 +29,11 @@ type JobRepository interface {
 	ByVolumeGroup(ctx context.Context, group string) ([]*UploadJob, error)
 	// ByBatch returns every job of a batch, in the order they were admitted (RF-03).
 	ByBatch(ctx context.Context, batch BatchID) ([]*UploadJob, error)
+	// Unsettled reports whether a job of the batch is still on its way (uploading, waiting for
+	// its parts or its password, extracting, or filtering without its filter done): the batch is
+	// then not complete and cannot be decided (RF-07, RF-08a). It reads no job but the batch's
+	// own, by index, whatever the size of the batch.
+	Unsettled(ctx context.Context, batch BatchID) (bool, error)
 	// Exists reports whether a job has the id.
 	Exists(ctx context.Context, id JobID) (bool, error)
 }

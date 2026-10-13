@@ -31,3 +31,9 @@ SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE id = ?);
 
 -- name: ListUploadJobsByBatch :many
 SELECT * FROM upload_jobs WHERE batch_id = ? ORDER BY created_at, rowid;
+
+-- name: BatchHasOpenUploadJobs :one
+SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE batch_id = ? AND status IN ('uploading', 'uploaded', 'waiting_parts', 'extracting', 'needs_password'));
+
+-- name: BatchHasFilteringUploadJobs :one
+SELECT EXISTS(SELECT 1 FROM upload_jobs WHERE batch_id = ? AND status = 'filtering' AND filter_done = 0);

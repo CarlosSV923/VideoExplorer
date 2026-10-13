@@ -144,6 +144,22 @@ func (r *JobRepository) ByVolumeGroup(ctx context.Context, group string) ([]*dom
 	return toDomainAll(rows)
 }
 
+// Unsettled implements domain.JobRepository.
+func (r *JobRepository) Unsettled(ctx context.Context, batch domain.BatchID) (bool, error) {
+	open, err := r.q.BatchHasOpenUploadJobs(ctx, string(batch))
+	if err != nil {
+		return false, fmt.Errorf("ingestion: check batch: %w", err)
+	}
+	if open {
+		return true, nil
+	}
+	filtering, err := r.q.BatchHasFilteringUploadJobs(ctx, string(batch))
+	if err != nil {
+		return false, fmt.Errorf("ingestion: check batch filtering: %w", err)
+	}
+	return filtering, nil
+}
+
 // ByBatch implements domain.JobRepository.
 func (r *JobRepository) ByBatch(ctx context.Context, batch domain.BatchID) ([]*domain.UploadJob, error) {
 	rows, err := r.q.ListUploadJobsByBatch(ctx, string(batch))
