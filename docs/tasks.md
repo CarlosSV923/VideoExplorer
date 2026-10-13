@@ -61,11 +61,11 @@ Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 - [x] Robustez de la ingesta: asentar los lotes en segundo plano tras arrancar (hoy un lote de 3000 archivos retrasa el arranque ~2 min 40 s); nunca borrar un comprimido que siga en staging porque falló su traslado a la papelera (el trabajo falla con motivo y Reintentar)
 - [x] Rendimiento del asentamiento: coalescer las peticiones de `settleAll` (un solo pase pendiente) para evitar el coste O(n²) con lotes grandes (hoy filtrar y asentar 3000 archivos tarda ~26 min) y que un DELETE de subida no espere minutos al cerrojo
 - [x] Duplicados (Reemplazar / Conservar ambos con etiqueta de versión / Omitir) y «Copia exacta» (registro de la biblioteca, detección, copia exacta, enlaces, etiqueta de versión, planes por el motor); etiqueta automática con resolución, códec e idioma del audio (RF-24) + vectores `contracts/version-labels.json`; el hash bajo demanda de archivos de la biblioteca rechaza enlaces simbólicos (RNF-02)
-- [~] API de Asignar sobre una entrada de No asignados: bloqueo «Asignándose» (RF-26), sugerencias por video (RF-20: análisis del nombre + mejor coincidencia de TMDB), búsqueda de títulos con los de la biblioteca primero (RF-21), `plan` (vista previa con rutas finales, duplicados, copia exacta y decisiones, RF-24/RF-25) y `commit` por el motor (crea o amplía el título en el registro, RF-25)
+- [~] API de Asignar sobre una entrada de No asignados: bloqueo «Asignándose» (RF-26), sugerencias por video (RF-20: análisis del nombre + mejor coincidencia de TMDB), búsqueda de títulos con los de la biblioteca primero (RF-21), `plan` (vista previa con rutas finales, duplicados, copia exacta y decisiones, RF-24/RF-25) y `commit` por el motor (crea o amplía el título en el registro, RF-25); etiquetas escritas por el usuario para versiones existentes sin etiqueta legible (RF-24)
 
 ## Fase 6 — No asignados, escaneo e importación
 Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
-- [ ] Lectura en vivo de `_unassigned/` al abrir la sección, estado «Copiando…»
+- [ ] Lectura en vivo de `_unassigned/` al abrir la sección, estado «Copiando…»; archivos basura del sistema (`Thumbs.db`, `desktop.ini`, `.DS_Store`) no impiden vaciar una entrada al asignar
 - [ ] Comprimidos en `_unassigned/` procesados como subidas (RF-27a)
 - [ ] Escaneo periódico (dos intervalos) y «Escanear ahora»
 - [ ] Importación de `Movies/` y `TV Shows/` existentes; lo que no sigue el formato va a No asignados (el análisis de nombres debe extraer `[tmdbid-N]` de la carpeta, RF-29)
