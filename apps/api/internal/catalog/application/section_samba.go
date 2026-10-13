@@ -25,6 +25,8 @@ type SambaFile struct {
 	// Name is the file's name, without folders.
 	Name string
 	Size int64
+	// Mtime is its modification time in Unix milliseconds, as the reading of the section keeps it (RF-27a).
+	Mtime int64
 	// Source is the file's current path inside the library, built by the server.
 	Source string
 	// Copying says the file is not taken yet: it is still being copied (RF-27), or its entry is held by
@@ -60,7 +62,7 @@ func (s *Section) SambaFiles(ctx context.Context) ([]SambaFile, error) {
 					name = e.Name
 				}
 				out = append(out, SambaFile{
-					Entry: e.ID, EntryName: e.Name, Rel: f.Rel, Name: name, Size: f.Size,
+					Entry: e.ID, EntryName: e.Name, Rel: f.Rel, Name: name, Size: f.Size, Mtime: f.Mtime,
 					Source: s.pathOf(e, f.Rel), Copying: held || e.copying[f.Rel],
 				})
 			}

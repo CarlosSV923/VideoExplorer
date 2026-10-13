@@ -49,6 +49,8 @@ type Service struct {
 	settle *settler
 	// samba is the section the copies of Samba come from; nil until WithSamba (RF-27a).
 	samba SambaSection
+	// sambaProbes remembers which copies of Samba are archives; nil until WithArchiveProbes (RF-27a).
+	sambaProbes ArchiveProbes
 	// adopting serializes AdoptSamba: two readings of the section never take the same copy.
 	adopting sync.Mutex
 }

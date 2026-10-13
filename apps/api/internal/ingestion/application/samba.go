@@ -39,14 +39,14 @@ func (s *Service) AdoptSamba(ctx context.Context) (int, error) {
 		if files[i].Copying || files[i].Size <= 0 {
 			continue
 		}
-		header, err := s.work.workspace.ReadHeader(files[i].Source, 8)
+		archive, err := s.archiveOf(ctx, files[i])
 		if err != nil {
 			// Gone or unreadable: it is not taken now, and the next reading decides again.
 			s.log.Warn("samba copy not read", "file", files[i].Name, "error", err)
 			files[i].Copying = true
 			continue
 		}
-		_, files[i].Archive = domain.DetectArchive(header)
+		files[i].Archive = archive
 	}
 
 	adopted := 0
@@ -64,6 +64,39 @@ func (s *Service) AdoptSamba(ctx context.Context) (int, error) {
 		adopted++
 	}
 	return adopted, nil
+}
+
+// archiveOf tells whether a settled copy of Samba is an archive (RF-27a). The reading the probes kept is used
+// while the file keeps its size and modification time; otherwise the header is read and kept. A probe that
+// fails is only logged: the header decides, as without probes.
+func (s *Service) archiveOf(ctx context.Context, f domain.SambaFile) (bool, error) {
+	if s.sambaProbes != nil {
+		archive, ok, err := s.sambaProbes.Lookup(ctx, f.Source, f.Size, f.Mtime)
+		switch {
+		case err != nil:
+			s.log.Warn("samba copy probe not read", "file", f.Name, "error", err)
+		case ok:
+			return archive, nil
+		}
+	}
+	header, err := s.work.workspace.ReadHeader(f.Source, 8)
+	if err != nil {
+		return false, err
+	}
+	_, archive := domain.DetectArchive(header)
+	if s.sambaProbes != nil {
+		if err := s.sambaProbes.Store(ctx, f.Source, f.Size, f.Mtime, archive); err != nil {
+			s.log.Warn("samba copy probe not saved", "file", f.Name, "error", err)
+		}
+	}
+	return archive, nil
+}
+
+// WithArchiveProbes sets where the reading of the copies of Samba is remembered (RF-27a). Until it is set,
+// every reading opens the headers of the settled copies.
+func (s *Service) WithArchiveProbes(probes ArchiveProbes) *Service {
+	s.sambaProbes = probes
+	return s
 }
 
 // adoptUnit takes one unit of Samba copies (RF-27a). The journal of the change is what makes the move

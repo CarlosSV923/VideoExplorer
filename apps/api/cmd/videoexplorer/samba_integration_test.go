@@ -94,6 +94,7 @@ func newSambaEnv(t *testing.T) *sambaEnv {
 	withFiltering(svc, conn, cfg)
 	svc.WithLibrary(unassignedForIngestion{unassigned: catalog.Unassigned}).
 		WithSamba(sambaOf{section: catalog.Section})
+	withArchiveProbes(svc, conn)
 	if _, err := svc.Recover(ctx); err != nil {
 		t.Fatalf("Recover: %v", err)
 	}

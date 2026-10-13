@@ -20,6 +20,9 @@ type SambaFile struct {
 	EntryName string
 	// Size is its size in bytes.
 	Size int64
+	// Mtime is its modification time in Unix milliseconds, as the section reads it (RF-27a). With Size it
+	// tells whether a reading of the file is still valid.
+	Mtime int64
 	// Source is where the file is now. It is built by the server and never leaves it.
 	Source string
 	// Copying says the file is still being copied (RF-27): it is not taken until it settles.

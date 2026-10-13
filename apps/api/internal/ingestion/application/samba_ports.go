@@ -29,3 +29,14 @@ type SambaMove struct {
 	// Dst is the staging path the file goes to, built by the server.
 	Dst string
 }
+
+// ArchiveProbes remembers, for a copy of Samba, whether it is an archive, with the size and modification
+// time it had when it was read (RF-27a). A reading that still matches is used, so that the header of a
+// settled copy is not read again at every reading of the section; a file that changed is read again.
+type ArchiveProbes interface {
+	// Lookup returns what the file at path was when it was read with this size and modification time, and
+	// whether such a reading exists. A reading with another size or time is not used (ok is false).
+	Lookup(ctx context.Context, path string, size, mtime int64) (archive, ok bool, err error)
+	// Store records what the file at path is, with the size and modification time it has now.
+	Store(ctx context.Context, path string, size, mtime int64, archive bool) error
+}

@@ -134,6 +134,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 		withFiltering(ingest.Service, conn, cfg)
 		ingest.Service.WithLibrary(unassignedForIngestion{unassigned: catalog.Unassigned}) // the filtered content moves to No asignados (RF-08a)
 		ingest.Service.WithSamba(sambaOf{section: catalog.Section})                        // the compressed copies of Samba are taken as uploads (RF-27a)
+		withArchiveProbes(ingest.Service, conn)
 		withProbing(ingest.Service, conn, cfg.LibraryPath, log)
 		// Reconciled before the upload endpoint serves anything, so no upload is in flight (RF-10b).
 		if res, err := ingest.Service.Recover(ctx); err != nil {

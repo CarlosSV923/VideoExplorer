@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
 	catalogapplication "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
 	ingestionapplication "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/application"
 	ingestiondomain "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/domain"
+	ingestionsqlite "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/sqlite"
 	ingestionhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
 )
@@ -29,7 +31,7 @@ func (s sambaOf) Files(ctx context.Context) ([]ingestiondomain.SambaFile, error)
 	out := make([]ingestiondomain.SambaFile, 0, len(files))
 	for _, f := range files {
 		out = append(out, ingestiondomain.SambaFile{
-			Entry: f.Entry, EntryName: f.EntryName, Rel: f.Rel, Name: f.Name, Size: f.Size, Source: f.Source, Copying: f.Copying,
+			Entry: f.Entry, EntryName: f.EntryName, Rel: f.Rel, Name: f.Name, Size: f.Size, Mtime: f.Mtime, Source: f.Source, Copying: f.Copying,
 		})
 	}
 	return out, nil
@@ -77,4 +79,10 @@ func (a arrivalsOf) Jobs(ctx context.Context) ([]httpapi.UploadJob, error) {
 		out = append(out, ingestionhttp.JobToAPI(v))
 	}
 	return out, nil
+}
+
+// withArchiveProbes keeps which copies of Samba are archives, so that a reading of the section does not open
+// the headers of the settled ones again (RF-27a).
+func withArchiveProbes(svc *ingestionapplication.Service, conn *sql.DB) {
+	svc.WithArchiveProbes(ingestionsqlite.NewArchiveProbeRepository(conn))
 }

@@ -8,6 +8,13 @@ import (
 	"database/sql"
 )
 
+type ArchiveProbe struct {
+	Path    string
+	Size    int64
+	MtimeMs int64
+	Archive int64
+}
+
 type FilterFile struct {
 	JobID   string
 	Path    string
