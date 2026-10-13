@@ -81,7 +81,7 @@ func TestTrashRejectsWhatTheSchemaDoes(t *testing.T) {
 	}
 	unknownOrigin := base
 	unknownOrigin.Dir = "dd"
-	unknownOrigin.Origin = "library"
+	unknownOrigin.Origin = "book"
 	if _, err := insertTrash(t.Context(), conn, unknownOrigin); err == nil {
 		t.Error("an origin the schema does not know was stored")
 	}

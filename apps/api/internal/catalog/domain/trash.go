@@ -17,6 +17,8 @@ type TrashOrigin string
 const (
 	// TrashOriginUpload: the original of an archive that was extracted (RF-06).
 	TrashOriginUpload TrashOrigin = "upload"
+	// TrashOriginLibrary: a file of the library that a new file replaced (RF-24).
+	TrashOriginLibrary TrashOrigin = "library"
 )
 
 // TrashReason says why the files went to the trash.
@@ -28,6 +30,8 @@ const (
 	TrashReasonExtracted TrashReason = "extracted"
 	// TrashReasonFiltered: the filter discarded the file, a sample or something that is not video or subtitle (RF-07).
 	TrashReasonFiltered TrashReason = "filtered"
+	// TrashReasonReplaced: a new file took the place of this library file, which goes with its subtitles (RF-24).
+	TrashReasonReplaced TrashReason = "replaced"
 )
 
 // ErrInvalidTrash is returned for a trash entry whose values are not usable.
@@ -67,26 +71,52 @@ type TrashFile struct {
 
 // NewTrashEntry checks the values of a new trash entry with one file.
 func NewTrashEntry(origin TrashOrigin, reason TrashReason, dir string, from Provenance, file TrashFile, now time.Time) (TrashEntry, error) {
+	return NewTrashEntryOf(origin, reason, dir, from, []TrashFile{file}, now)
+}
+
+// NewTrashEntryOf checks the values of a new trash entry with its files (RF-24: a replaced file and
+// its subtitles go together). The file names are distinct in any letter case. A library file has no
+// batch, and its origin and its reason go together: the library origin is only for files that a new
+// file replaced (reason replaced), and the replaced reason is only for library files.
+func NewTrashEntryOf(origin TrashOrigin, reason TrashReason, dir string, from Provenance, files []TrashFile, now time.Time) (TrashEntry, error) {
 	switch origin {
-	case TrashOriginUpload:
+	case TrashOriginUpload, TrashOriginLibrary:
 	default:
 		return TrashEntry{}, fmt.Errorf("%w: origin %q", ErrInvalidTrash, origin)
 	}
 	switch reason {
-	case TrashReasonExtracted, TrashReasonFiltered:
+	case TrashReasonExtracted, TrashReasonFiltered, TrashReasonReplaced:
 	default:
 		return TrashEntry{}, fmt.Errorf("%w: reason %q", ErrInvalidTrash, reason)
+	}
+	if (origin == TrashOriginLibrary) != (reason == TrashReasonReplaced) {
+		return TrashEntry{}, fmt.Errorf("%w: origin %q with reason %q", ErrInvalidTrash, origin, reason)
 	}
 	if !safeComponent(dir) {
 		return TrashEntry{}, fmt.Errorf("%w: folder %q", ErrInvalidTrash, dir)
 	}
-	if !safeComponent(file.Name) {
-		return TrashEntry{}, fmt.Errorf("%w: file name %q", ErrInvalidTrash, file.Name)
+	if len(files) == 0 {
+		return TrashEntry{}, fmt.Errorf("%w: no file", ErrInvalidTrash)
 	}
-	if file.Size < 0 {
-		return TrashEntry{}, fmt.Errorf("%w: negative size", ErrInvalidTrash)
+	seen := map[string]bool{}
+	for _, file := range files {
+		if !safeComponent(file.Name) {
+			return TrashEntry{}, fmt.Errorf("%w: file name %q", ErrInvalidTrash, file.Name)
+		}
+		key := strings.ToLower(file.Name)
+		if seen[key] {
+			return TrashEntry{}, fmt.Errorf("%w: file name %q twice", ErrInvalidTrash, file.Name)
+		}
+		seen[key] = true
+		if file.Size < 0 {
+			return TrashEntry{}, fmt.Errorf("%w: negative size", ErrInvalidTrash)
+		}
 	}
-	if !safeComponent(from.BatchID) {
+	if origin == TrashOriginLibrary {
+		if from.BatchID != "" {
+			return TrashEntry{}, fmt.Errorf("%w: a library file has no batch, got %q", ErrInvalidTrash, from.BatchID)
+		}
+	} else if !safeComponent(from.BatchID) {
 		return TrashEntry{}, fmt.Errorf("%w: batch %q", ErrInvalidTrash, from.BatchID)
 	}
 	if !safeRelativePath(from.RelativePath) {
@@ -94,7 +124,7 @@ func NewTrashEntry(origin TrashOrigin, reason TrashReason, dir string, from Prov
 	}
 	return TrashEntry{
 		Origin: origin, Reason: reason, Dir: dir, TrashedAt: now,
-		BatchID: from.BatchID, RelativePath: from.RelativePath, Files: []TrashFile{file},
+		BatchID: from.BatchID, RelativePath: from.RelativePath, Files: append([]TrashFile(nil), files...),
 	}, nil
 }
 
