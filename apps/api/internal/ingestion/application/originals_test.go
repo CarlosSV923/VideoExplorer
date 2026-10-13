@@ -214,7 +214,7 @@ func TestTheStartDoesNotWaitForTheSettlement(t *testing.T) {
 		t.Fatalf("the library was asked for the batch during Recover: %d calls", n)
 	}
 
-	go restarted.SettleRecovered(t.Context())
+	go restarted.RunSettler(t.Context())
 	select {
 	case <-lib.entered:
 	case <-time.After(extractionGuard):
@@ -248,7 +248,7 @@ func TestShuttingDownStopsTheSettlementAndTheNextStartDecidesTheBatch(t *testing
 	defer cancel()
 	settled := make(chan struct{})
 	go func() {
-		restarted.SettleRecovered(ctx)
+		restarted.RunSettler(ctx)
 		close(settled)
 	}()
 	select {
@@ -268,7 +268,12 @@ func TestShuttingDownStopsTheSettlementAndTheNextStartDecidesTheBatch(t *testing
 	}
 	next := r.service(ingestionsqlite.NewFilterRepository(r.conn), r.trash).WithLibrary(newFakeLibrary(t))
 	r.svc = next
-	next.SettleRecovered(t.Context())
+	settling, stop := context.WithCancel(t.Context())
+	defer stop()
+	go next.RunSettler(settling)
+	if err := next.WaitSettled(t.Context()); err != nil {
+		t.Fatalf("WaitSettled: %v", err)
+	}
 	r.waitDone(t, id)
 }
 

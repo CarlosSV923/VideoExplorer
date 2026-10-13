@@ -98,6 +98,7 @@ func (r *rig) restart(t *testing.T, extractor application.Extractor) {
 		WithExtraction(workspace.New(r.staging, func(string) (uint64, error) { return 1 << 40, nil }), extractor, r.trash)
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	go svc.RunSettler(ctx)
 	go svc.RunExtraction(ctx, 1)
 	r.svc = svc
 }

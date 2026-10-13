@@ -219,7 +219,7 @@ func (s *Service) extract(ctx context.Context, r extractionRequest) error {
 		return err
 	}
 	if r.settle {
-		s.settleAll(ctx)
+		s.settle.mark(job.BatchID)
 		return nil
 	}
 	if r.trash {
@@ -357,7 +357,7 @@ func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
 			return nil // stopped, not failed: the restart moves what is left (trashLeftovers)
 		}
 		err = s.failTrash(ctx, unit, err)
-		s.settleAll(ctx) // the failed unit ends, which may let its batch be decided (RF-07)
+		s.settle.mark(unit[0].BatchID) // the failed unit ends, which may let its batch be decided (RF-07)
 		return s.abortedOr(ctx, err)
 	}
 	// The extracted content goes on to the filter (RF-07), in the same worker.
@@ -481,7 +481,7 @@ func (s *Service) fail(ctx context.Context, unit []*domain.UploadJob, reason dom
 	err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.Fail(reason, now)
 	})
-	s.settleAll(ctx) // the empty jobs of its batch may now be decided (RF-07)
+	s.settle.mark(unit[0].BatchID) // the empty jobs of its batch may now be decided (RF-07)
 	return s.abortedOr(ctx, err)
 }
 

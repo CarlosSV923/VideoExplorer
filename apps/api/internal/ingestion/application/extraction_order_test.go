@@ -152,6 +152,7 @@ func TestAnOriginalCutBeforeItsMoveIsTrashedByTheRestart(t *testing.T) {
 	first := r.service(ingestionsqlite.NewFilterRepository(r.conn), cut)
 	stopped := make(chan struct{})
 	go func() {
+		runSettler(t, first)
 		first.RunExtraction(ctx, 1)
 		close(stopped)
 	}()
@@ -176,6 +177,7 @@ func TestAnOriginalCutBeforeItsMoveIsTrashedByTheRestart(t *testing.T) {
 	r.svc = restarted
 	resumeCtx, resumeCancel := context.WithCancel(t.Context())
 	t.Cleanup(resumeCancel)
+	go restarted.RunSettler(resumeCtx)
 	go restarted.RunExtraction(resumeCtx, 1)
 
 	job := r.reachedFilter(t, id)

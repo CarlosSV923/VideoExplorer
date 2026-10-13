@@ -45,8 +45,8 @@ type Service struct {
 	hashes *hashing
 	// library moves the content of a batch into No asignados (RF-08a); nil until WithLibrary.
 	library Library
-	// settleMu serializes the decisions on the batches of the filter (RF-07).
-	settleMu sync.Mutex
+	// settle decides the batches of the filter, in the background, as one worker (RF-07, RF-08a).
+	settle *settler
 }
 
 var _ Uploads = (*Service)(nil)
@@ -61,7 +61,7 @@ func NewService(batches domain.BatchRepository, jobs domain.JobRepository, pub P
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{batches: batches, jobs: jobs, pub: pub, staging: noStaging{}, log: log, now: now, newID: randomID}
+	return &Service{batches: batches, jobs: jobs, pub: pub, staging: noStaging{}, log: log, now: now, newID: randomID, settle: newSettler()}
 }
 
 // WithLibrary sets the unassigned section the filtered content moves into (RF-08a). Until it
@@ -160,9 +160,9 @@ func (s *Service) Completed(ctx context.Context, id domain.JobID) error {
 // browser deleting a finished upload cancels its work too (RF-09a): an extraction
 // in progress stops and what it extracted is removed.
 func (s *Service) Terminated(ctx context.Context, id domain.JobID) error {
-	group := ""
+	group, batch := "", domain.BatchID("")
 	if job, err := s.jobs.Get(ctx, id); err == nil {
-		group = job.VolumeGroup
+		group, batch = job.VolumeGroup, job.BatchID
 	}
 	changed, err := s.mutateChanged(ctx, id, func(j *domain.UploadJob) (bool, error) {
 		if j.Status.Terminal() {
@@ -178,7 +178,7 @@ func (s *Service) Terminated(ctx context.Context, id domain.JobID) error {
 			s.cancelSet(ctx, group, id) // a claimed set is one work (RF-03)
 		}
 		s.abandonExtraction(id)
-		s.settleAll(ctx) // a job that ends may decide its batch (RF-07)
+		s.requestSettle(batch) // a job that ends may decide its batch (RF-07); the request does not wait
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ type PurgeResult struct {
 // Recover reconciles the jobs a previous run left behind (RF-10b) and finishes the moves of
 // the originals a cut left in staging (RF-06). It runs once at start, before the upload
 // endpoint accepts anything, so no upload is in flight and no grace is needed. It does not
-// decide the batches a previous run left complete: SettleRecovered does, in the background,
+// decide the batches a previous run left complete: RunSettler does, in the background,
 // once the server listens (RF-08a).
 func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
@@ -224,7 +224,7 @@ func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 // RF-10b). Deleting a partial file releases the bytes it reserved (RF-09a).
 func (s *Service) Purge(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
-	defer s.settleAll(ctx) // the purge may have ended jobs of some batch (RF-07)
+	defer s.settle.markAll() // the purge may have ended jobs of some batch (RF-07)
 	now := s.now()
 	if err := s.reconcile(ctx, now.Add(-missingGrace), &res); err != nil {
 		return res, err

@@ -69,7 +69,7 @@ func (s *Service) filterUnit(ctx context.Context, unit []*domain.UploadJob, extr
 	}); ferr != nil && ctx.Err() == nil {
 		s.log.Warn("filter failure not recorded", "unit", leaderOf(unit[0]), "error", ferr)
 	}
-	s.settleAll(ctx) // the failed unit ends, which may let its batch be decided (RF-07)
+	s.settle.mark(unit[0].BatchID) // the failed unit ends, which may let its batch be decided (RF-07)
 	return nil
 }
 
@@ -108,7 +108,7 @@ func (s *Service) filterContent(ctx context.Context, unit []*domain.UploadJob, e
 		return err
 	}
 	s.queueKeptVideos(unit, extracted, entries) // read in the background; the job does not wait (RF-24)
-	s.settleAll(ctx)
+	s.settle.mark(unit[0].BatchID)              // the filtered unit may decide its batch (RF-07)
 	return nil
 }
 
@@ -200,7 +200,7 @@ func (s *Service) resumeFiltering(ctx context.Context) {
 	if s.filter == nil {
 		return
 	}
-	defer s.settleAll(ctx) // the batches a restart left waiting are decided (RF-07)
+	defer s.settle.markAll() // the batches a restart left waiting are decided (RF-07)
 	filtering, err := s.jobs.ByStatus(ctx, domain.StatusFiltering)
 	if err != nil {
 		s.log.Warn("filtering not resumed", "error", err)

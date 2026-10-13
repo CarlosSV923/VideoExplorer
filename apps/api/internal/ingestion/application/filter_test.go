@@ -380,6 +380,7 @@ func TestAFilterInterruptedByARestartDoesNotTrashAFileTwice(t *testing.T) {
 			before := r.service(entries, trash)
 			ctx, cancel := context.WithCancel(t.Context())
 			t.Cleanup(cancel)
+			go before.RunSettler(ctx)
 			go before.RunExtraction(ctx, 1)
 			r.svc = before
 
@@ -406,6 +407,7 @@ func TestAFilterInterruptedByARestartDoesNotTrashAFileTwice(t *testing.T) {
 			after := r.service(ingestionsqlite.NewFilterRepository(r.conn), r.trash)
 			resumeCtx, resumeCancel := context.WithCancel(t.Context())
 			t.Cleanup(resumeCancel)
+			go after.RunSettler(resumeCtx)
 			go after.RunExtraction(resumeCtx, 1)
 			r.svc = after
 			if _, err := after.Retry(t.Context(), id); err != nil {
@@ -532,6 +534,7 @@ func TestAnEmptyJobWaitsForItsBatchAcrossARestart(t *testing.T) {
 	before := r.svc
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	go before.RunSettler(ctx)
 	go before.RunExtraction(ctx, 1)
 	waiting := r.waitFor(t, readme, "filtered and waiting", func(j domain.UploadJob) bool { return j.FilterDone })
 	if waiting.Status != domain.StatusFiltering {
@@ -543,6 +546,7 @@ func TestAnEmptyJobWaitsForItsBatchAcrossARestart(t *testing.T) {
 	after := r.service(ingestionsqlite.NewFilterRepository(r.conn), r.trash)
 	resumeCtx, resumeCancel := context.WithCancel(t.Context())
 	t.Cleanup(resumeCancel)
+	go after.RunSettler(resumeCtx)
 	go after.RunExtraction(resumeCtx, 1)
 	r.svc = after
 

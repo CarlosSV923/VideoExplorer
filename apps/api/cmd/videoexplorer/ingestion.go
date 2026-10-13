@@ -42,7 +42,7 @@ func settleInBackground(ctx context.Context, svc *application.Service, log *slog
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		svc.SettleRecovered(settleCtx)
+		svc.RunSettler(settleCtx)
 	}()
 	return func() {
 		cancel()

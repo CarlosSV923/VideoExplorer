@@ -7,34 +7,93 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/domain"
 )
 
-// settleAll decides the batches that hold a job the filter emptied (RF-07). A batch is
-// settled only when none of its jobs is still on its way; the decisions are serialized,
-// so the last worker that finishes a batch decides for all of it.
-func (s *Service) settleAll(ctx context.Context) {
+// RunSettler is the worker that decides the batches of the filter (RF-07, RF-08a). It runs
+// until ctx ends, in the background: a restart decides the batches that a previous run left
+// complete once the server listens, and no request waits for a decision. One worker only: the
+// decisions are serialized by it. A pass that ctx stops leaves what it did not reach for the next
+// start (the first pass of every start is over all the batches).
+func (s *Service) RunSettler(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.settle.wake:
+		}
+		covers, all, batches := s.settle.take()
+		s.settlePass(ctx, all, batches)
+		if ctx.Err() != nil {
+			return
+		}
+		s.settle.finish(covers)
+	}
+}
+
+// WaitSettled returns once every decision requested before the call is made, or when ctx ends.
+// The requests never wait for it: it is a barrier for the tests and for whoever needs the
+// decisions made at a given point.
+func (s *Service) WaitSettled(ctx context.Context) error {
+	return s.settle.wait(ctx)
+}
+
+// requestSettle asks for the decision of the batch of a job that ended (RF-07), or of every
+// batch when the batch is not known. It never waits.
+func (s *Service) requestSettle(batch domain.BatchID) {
+	if batch == "" {
+		s.settle.markAll()
+		return
+	}
+	s.settle.mark(batch)
+}
+
+// settlePass decides the marked batches and, when all is set, every batch that has a job
+// being filtered. A batch that fails stays for the next request.
+func (s *Service) settlePass(ctx context.Context, all bool, marked []domain.BatchID) {
 	if s.filter == nil {
 		return
 	}
-	s.settleMu.Lock()
-	defer s.settleMu.Unlock()
-
-	waiting, err := s.jobs.ByStatus(ctx, domain.StatusFiltering)
-	if err != nil {
-		s.log.Warn("batches not settled", "error", err)
-		return
+	batches := marked
+	if all {
+		every, err := s.filteringBatches(ctx)
+		if err != nil {
+			s.log.Warn("batches not settled", "error", err)
+			s.settle.retryAll()
+			return
+		}
+		batches = append(batches, every...)
 	}
-	seen := map[domain.BatchID]bool{}
-	for _, job := range waiting {
+	seen := make(map[domain.BatchID]bool, len(batches))
+	for _, batch := range batches {
+		if seen[batch] {
+			continue
+		}
+		seen[batch] = true
 		if ctx.Err() != nil {
 			return // stopped: the batches not decided yet are decided at the next start
 		}
+		if err := s.settleBatch(ctx, batch); err != nil && ctx.Err() == nil {
+			s.log.Warn("batch not settled", "batch", batch, "error", err)
+			s.settle.retry(batch)
+		}
+	}
+}
+
+// filteringBatches returns each batch that has a job whose filter is done and that is still
+// filtering, in the order of their first job.
+func (s *Service) filteringBatches(ctx context.Context) ([]domain.BatchID, error) {
+	waiting, err := s.jobs.ByStatus(ctx, domain.StatusFiltering)
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.BatchID
+	seen := map[domain.BatchID]bool{}
+	for _, job := range waiting {
 		if !job.FilterDone || seen[job.BatchID] {
 			continue
 		}
 		seen[job.BatchID] = true
-		if err := s.settleBatch(ctx, job.BatchID); err != nil && ctx.Err() == nil {
-			s.log.Warn("batch not settled", "batch", job.BatchID, "error", err)
-		}
+		out = append(out, job.BatchID)
 	}
+	return out, nil
 }
 
 // settleBatch decides the jobs of a batch that the filter left with nothing to keep
@@ -47,6 +106,13 @@ func (s *Service) settleAll(ctx context.Context) {
 // placeBatch. A job that failed or was cancelled on the way counts as ended: it does not
 // move, and Reintentar moves it later.
 func (s *Service) settleBatch(ctx context.Context, batch domain.BatchID) error {
+	open, err := s.jobs.Unsettled(ctx, batch)
+	if err != nil {
+		return err
+	}
+	if open {
+		return nil // still on its way: the job that ends last asks for the batch again
+	}
 	jobs, err := s.jobs.ByBatch(ctx, batch)
 	if err != nil {
 		return err

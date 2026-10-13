@@ -84,6 +84,7 @@ func TestAPlainRARWithItsOldVolumesInTheBatchFailsAsLegacyVolume(t *testing.T) {
 			setup: func(t *testing.T, r *rig) domain.JobID {
 				r.uploadTo(t, r.batch, "Movie.r00", oldVolumeBytes)
 				rar := r.uploadTo(t, r.batch, "Movie.rar", rarBytes)
+				runSettler(t, r.svc)
 				go r.svc.RunExtraction(t.Context(), 1)
 				return rar
 			},

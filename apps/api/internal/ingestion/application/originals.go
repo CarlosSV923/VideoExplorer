@@ -67,11 +67,11 @@ func (s *Service) trashAgain(ctx context.Context, job *domain.UploadJob) error {
 			return nil
 		}
 		err = s.failTrash(ctx, unit, err)
-		s.settleAll(ctx) // the failed unit ends again, which may let its batch be decided (RF-07)
+		s.settle.mark(unit[0].BatchID) // the failed unit ends again, which may let its batch be decided (RF-07)
 		return s.abortedOr(ctx, err)
 	}
 	if job.FilterDone {
-		s.settleAll(ctx)
+		s.settle.mark(unit[0].BatchID)
 		return nil
 	}
 	return s.filterUnit(ctx, unit, true)
@@ -125,12 +125,4 @@ func (s *Service) Terminating(ctx context.Context, id domain.JobID) error {
 		}
 	}
 	return nil
-}
-
-// SettleRecovered decides the batches that a previous run left complete (RF-07, RF-08a). The
-// process calls it in the background once the server listens: a large batch can take minutes,
-// and the start must not wait for it. It shares the settlement lock with every other decision,
-// and it stops with its context.
-func (s *Service) SettleRecovered(ctx context.Context) {
-	s.settleAll(ctx)
 }

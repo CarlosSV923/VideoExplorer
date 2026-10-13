@@ -140,6 +140,7 @@ func placingRig(t *testing.T, lib application.Library) *rig {
 	r.svc.WithLibrary(lib)
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	go r.svc.RunSettler(ctx)
 	go r.svc.RunExtraction(ctx, 2)
 	return r
 }
@@ -389,6 +390,7 @@ func TestAMoveInterruptedByARestartGoesOnAfterIt(t *testing.T) {
 	defer cancel()
 	lib.cancel = cancel
 	lib.interruptAfter = 1
+	go r.svc.RunSettler(ctx)
 	go r.svc.RunExtraction(ctx, 1)
 
 	batch := r.newBatch(t, "Movie", domain.RelationParts)
@@ -402,6 +404,7 @@ func TestAMoveInterruptedByARestartGoesOnAfterIt(t *testing.T) {
 	after := r.service(ingestionsqlite.NewFilterRepository(r.conn), r.trash).WithLibrary(lib)
 	resumeCtx, resumeCancel := context.WithCancel(t.Context())
 	t.Cleanup(resumeCancel)
+	go after.RunSettler(resumeCtx)
 	go after.RunExtraction(resumeCtx, 1)
 	r.svc = after
 
@@ -471,6 +474,7 @@ func TestAVideoMovedIntoUnassignedIsReadAgainFromItsCache(t *testing.T) {
 	r.svc.WithProbing(application.NewCachedProber(counting, fileid.Identifier{}, store, nil))
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	go r.svc.RunSettler(ctx)
 	go r.svc.RunExtraction(ctx, 1)
 	go r.svc.RunProbing(ctx)
 
@@ -534,6 +538,7 @@ func TestAVideoMovedIntoUnassignedIsHashedFromItsCache(t *testing.T) {
 	r.svc.WithPartialHashing(application.NewCachedPartialHasher(hasher, fileid.Identifier{}, store, nil), filepath.Dir(r.staging))
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	go r.svc.RunSettler(ctx)
 	go r.svc.RunExtraction(ctx, 1)
 	go r.svc.RunProbing(ctx)
 

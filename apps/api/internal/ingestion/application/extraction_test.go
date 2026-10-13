@@ -120,6 +120,15 @@ func (x tamperingExtractor) List(ctx context.Context, archive, password string) 
 	return l, err
 }
 
+// runSettler runs the settler of svc until the test ends: the batches are decided in the
+// background, as in the process. A test that needs a decision waits for it with WaitSettled.
+func runSettler(t *testing.T, svc *application.Service) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	go svc.RunSettler(ctx)
+}
+
 // rig is a service with the extraction wired to disk, a real database and a
 // trash that records what it gets. Its workers run until the test ends.
 type rig struct {
@@ -175,6 +184,7 @@ func newRig(t *testing.T, extractor application.Extractor, free uint64, run bool
 	if run {
 		ctx, cancel := context.WithCancel(t.Context())
 		t.Cleanup(cancel)
+		go svc.RunSettler(ctx)
 		go svc.RunExtraction(ctx, 2)
 	}
 	return r
@@ -595,6 +605,7 @@ func TestAnInterruptedExtractionIsExtractedAgainAfterARestart(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	go r.svc.RunSettler(ctx)
 	go r.svc.RunExtraction(ctx, 1)
 	r.waitFor(t, id, "resumed and extracted", func(j domain.UploadJob) bool { return j.Status == domain.StatusFiltering })
 }
