@@ -20,5 +20,5 @@ func withProbing(svc *application.Service, conn *sql.DB, library string, log *sl
 	prober := application.NewCachedProber(ffprobe.New(""), ids, sqlite.NewMediaProbeRepository(conn), log)
 	svc.WithProbing(prober)
 	hasher := application.NewCachedPartialHasher(partialhash.Hasher{}, ids, sqlite.NewPartialHashRepository(conn), log)
-	svc.WithPartialHashing(hasher, library)
+	svc.WithPartialHashing(hasher, fileid.Links{}, library)
 }

@@ -50,6 +50,13 @@ func (f *fakeHasher) set(hash string, err error) {
 	f.hash, f.err = hash, err
 }
 
+// fakeLinks answers the link check with err: nil when no link is on the way.
+type fakeLinks struct {
+	err error
+}
+
+func (f fakeLinks) NoLinks(_, _ string) error { return f.err }
+
 // fakeHashStore keeps one hash per device and inode, and can be made to fail.
 type fakeHashStore struct {
 	entries  map[[2]uint64]storedHash
@@ -372,7 +379,7 @@ func newHashingRig(t *testing.T, hasher application.PartialHasher) (*rig, applic
 
 	r := newRig(t, realExtractor(), 1<<40, true, nil)
 	store := ingestionsqlite.NewPartialHashRepository(r.conn)
-	r.svc.WithPartialHashing(application.NewCachedPartialHasher(hasher, fileid.Identifier{}, store, nil), filepath.Dir(r.staging))
+	r.svc.WithPartialHashing(application.NewCachedPartialHasher(hasher, fileid.Identifier{}, store, nil), fileid.Links{}, filepath.Dir(r.staging))
 
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
@@ -433,8 +440,10 @@ func TestPartialHashOfOnlyHashesFilesUnderTheLibrary(t *testing.T) {
 		name    string
 		path    string
 		wired   bool
+		links   fakeLinks
 		wantErr error
 	}{
+		{name: "a file behind a symbolic link is not read", path: filepath.Join(library, "Movies", "Link", "Movie.mkv"), wired: true, links: fakeLinks{err: application.ErrSymbolicLink}, wantErr: application.ErrSymbolicLink},
 		{name: "a file of the library is hashed", path: filepath.Join(library, "Movies", "Movie.mkv"), wired: true},
 		{name: "a file of the staging area is hashed", path: filepath.Join(library, ".videoexplorer", "staging", "id"), wired: true},
 		{name: "a file next to the library is refused", path: library + "-other/Movie.mkv", wired: true, wantErr: application.ErrOutsideLibrary},
@@ -449,7 +458,7 @@ func TestPartialHashOfOnlyHashesFilesUnderTheLibrary(t *testing.T) {
 			svc := application.NewService(nil, nil, nil, nil, time.Now)
 			hasher := &fakeHasher{hash: "ph1:x"}
 			if tt.wired {
-				svc.WithPartialHashing(hasher, library)
+				svc.WithPartialHashing(hasher, tt.links, library)
 			}
 			hash, err := svc.PartialHashOf(t.Context(), tt.path)
 			if tt.wantErr != nil {

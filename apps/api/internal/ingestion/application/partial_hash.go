@@ -63,14 +63,15 @@ func (c *CachedPartialHasher) PartialHash(ctx context.Context, path string) (str
 // under (RF-24). It is nil until WithPartialHashing.
 type hashing struct {
 	hasher  PartialHasher
+	links   LinkChecker
 	library string
 }
 
 // WithPartialHashing enables the partial hash of RF-24. The kept videos are hashed in the
 // background, after their reading and without changing their jobs; PartialHashOf hashes any
-// file under library on demand. It must be set before RunProbing.
-func (s *Service) WithPartialHashing(hasher PartialHasher, library string) *Service {
-	s.hashes = &hashing{hasher: hasher, library: library}
+// file under library on demand, through links (RNF-02). It must be set before RunProbing.
+func (s *Service) WithPartialHashing(hasher PartialHasher, links LinkChecker, library string) *Service {
+	s.hashes = &hashing{hasher: hasher, links: links, library: library}
 	s.probeQueue() // the kept videos are queued for this reading too
 	return s
 }
@@ -84,6 +85,9 @@ func (s *Service) PartialHashOf(ctx context.Context, path string) (string, error
 	}
 	if !within(s.hashes.library, path) {
 		return "", ErrOutsideLibrary
+	}
+	if err := s.hashes.links.NoLinks(s.hashes.library, path); err != nil {
+		return "", err
 	}
 	return s.hashes.hasher.PartialHash(ctx, path)
 }

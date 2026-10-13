@@ -535,7 +535,7 @@ func TestAVideoMovedIntoUnassignedIsHashedFromItsCache(t *testing.T) {
 	r.svc.WithLibrary(lib)
 	hasher := &counting{inner: partialhash.Hasher{}}
 	store := &countingHashStore{HashStore: ingestionsqlite.NewPartialHashRepository(r.conn)}
-	r.svc.WithPartialHashing(application.NewCachedPartialHasher(hasher, fileid.Identifier{}, store, nil), filepath.Dir(r.staging))
+	r.svc.WithPartialHashing(application.NewCachedPartialHasher(hasher, fileid.Identifier{}, store, nil), fileid.Links{}, filepath.Dir(r.staging))
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	go r.svc.RunSettler(ctx)

@@ -13,6 +13,9 @@ var (
 	ErrHashingDisabled = errors.New("partial hashing is disabled")
 	// ErrOutsideLibrary means the file to hash is not under the library.
 	ErrOutsideLibrary = errors.New("the file is not under the library")
+	// ErrSymbolicLink means the file to hash, or a folder between the library and it, is a
+	// symbolic link: nothing is read through it (RNF-02).
+	ErrSymbolicLink = errors.New("the path goes through a symbolic link")
 )
 
 // PartialHasher computes the partial hash of the file at path (RF-24). It reads only the
@@ -33,4 +36,13 @@ type HashStore interface {
 	// Store keeps the hash read from the file with identity id, replacing the one of the same
 	// device and inode.
 	Store(ctx context.Context, id domain.FileIdentity, hash string) error
+}
+
+// LinkChecker tells whether a path goes through a symbolic link (RNF-02). The adapter reads
+// the file system; the application only asks.
+type LinkChecker interface {
+	// NoLinks returns ErrSymbolicLink when a folder between root and path, or path itself, is a
+	// symbolic link. root itself is the library and is not checked. A part that does not exist
+	// yet is not a link, and nil is returned for it.
+	NoLinks(root, path string) error
 }
