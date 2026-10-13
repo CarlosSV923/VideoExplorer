@@ -22,6 +22,7 @@ func TestFilterAndMoveFailuresRetryWithTheFilter(t *testing.T) {
 		{name: "filter_failed retries with the filter", reason: domain.FailureFilterFailed, retryable: true, wantFilterAfter: true},
 		{name: "move_failed retries with the filter", reason: domain.FailureMoveFailed, retryable: true, wantFilterAfter: true},
 		{name: "no_space retries the extraction", reason: domain.FailureNoSpace, retryable: true, retriesExtract: true},
+		{name: "trash_failed retries the trash move, not the filter", reason: domain.FailureTrashFailed, retryable: true},
 		{name: "no_video cannot be retried", reason: domain.FailureNoVideo},
 	}
 	for _, tt := range tests {
@@ -69,6 +70,47 @@ func TestFilteredJobIsDoneOnlyFromFiltering(t *testing.T) {
 	}
 	if job.Status != domain.StatusDone {
 		t.Errorf("status = %s, want done", job.Status)
+	}
+}
+
+func TestTrashFailureIsRetriedOnlyByTheTrashMove(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.October, 13, 9, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		reason domain.FailureReason
+		want   error
+	}{
+		{name: "trash_failed goes back to filtering", reason: domain.FailureTrashFailed},
+		{name: "move_failed cannot be retried by the trash move", reason: domain.FailureMoveFailed, want: domain.ErrInvalidTransition},
+		{name: "no_space cannot be retried by the trash move", reason: domain.FailureNoSpace, want: domain.ErrInvalidTransition},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			job := &domain.UploadJob{ID: "j1", FileName: "a.zip", Status: domain.StatusFiltering, FilterDone: true}
+			if err := job.Fail(tt.reason, now); err != nil {
+				t.Fatalf("Fail: %v", err)
+			}
+			err := job.RetryTrash(now)
+			if tt.want != nil {
+				if !errors.Is(err, tt.want) {
+					t.Errorf("RetryTrash = %v, want %v", err, tt.want)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("RetryTrash: %v", err)
+			}
+			if job.Status != domain.StatusFiltering || job.Error != "" {
+				t.Errorf("status %s, reason %q; want filtering with no reason", job.Status, job.Error)
+			}
+			if !job.FilterDone {
+				t.Error("the filter's mark was cleared: the content was filtered already")
+			}
+		})
 	}
 }
 

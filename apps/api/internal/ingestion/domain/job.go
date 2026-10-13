@@ -112,6 +112,9 @@ const (
 	FailureFilterFailed FailureReason = "filter_failed"
 	// FailureMoveFailed: reading or writing the library failed while moving the content to No asignados (RF-08a).
 	FailureMoveFailed FailureReason = "move_failed"
+	// FailureTrashFailed: the original of an extracted archive (or of a set's volume) could not be moved to
+	// the trash. It stays in staging, untouched, until Reintentar moves it (RF-08a).
+	FailureTrashFailed FailureReason = "trash_failed"
 )
 
 // Valid reports whether r is one of the reasons above.
@@ -119,7 +122,8 @@ func (r FailureReason) Valid() bool {
 	switch r {
 	case FailureUploadAbandoned, FailureUploadMissing, FailureNoSpace, FailureArchiveCorrupt,
 		FailureCRCMismatch, FailureArchiveUnsafe, FailureWrongPassword, FailurePartsMismatch,
-		FailurePartsMissing, FailureLegacyVolume, FailureNoVideo, FailureFilterFailed, FailureMoveFailed:
+		FailurePartsMissing, FailureLegacyVolume, FailureNoVideo, FailureFilterFailed, FailureMoveFailed,
+		FailureTrashFailed:
 		return true
 	default:
 		return false
@@ -128,9 +132,9 @@ func (r FailureReason) Valid() bool {
 
 // Retryable reports whether a failed job may be retried (RF-10c, RF-08a): the reasons that
 // a change outside the job can fix. RetriesExtraction says which of them go back to the
-// extraction, and the others back to the filter.
+// extraction, and the others back to the filter (or, for trash_failed, to the trash move).
 func (r FailureReason) Retryable() bool {
-	return r.RetriesExtraction() || r == FailureFilterFailed || r == FailureMoveFailed
+	return r.RetriesExtraction() || r == FailureFilterFailed || r == FailureMoveFailed || r == FailureTrashFailed
 }
 
 // RetriesExtraction reports whether a failed extraction may be retried from its archive
@@ -375,6 +379,18 @@ func (j *UploadJob) RetryExtraction(now time.Time) error {
 func (j *UploadJob) RetryFiltering(now time.Time) error {
 	if j.Status != StatusFailed || (j.Error != FailureFilterFailed && j.Error != FailureMoveFailed) {
 		return fmt.Errorf("%w: %s (%q) cannot be retried by filtering", ErrInvalidTransition, j.Status, j.Error)
+	}
+	j.Status, j.Error, j.UpdatedAt = StatusFiltering, "", now
+	return nil
+}
+
+// RetryTrash sends a job that failed with trash_failed back to filtering (RF-08a): its
+// original is moved to the trash again, and then the filter goes on from what it recorded.
+// The move is the first step of filtering, so a restart that finds the original still in
+// staging of a job being filtered finishes it the same way (trashLeftovers).
+func (j *UploadJob) RetryTrash(now time.Time) error {
+	if j.Status != StatusFailed || j.Error != FailureTrashFailed {
+		return fmt.Errorf("%w: %s (%q) cannot be retried by the trash move", ErrInvalidTransition, j.Status, j.Error)
 	}
 	j.Status, j.Error, j.UpdatedAt = StatusFiltering, "", now
 	return nil
