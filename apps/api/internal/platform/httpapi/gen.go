@@ -116,6 +116,7 @@ const (
 	NoVideo         JobFailure = "no_video"
 	PartsMismatch   JobFailure = "parts_mismatch"
 	PartsMissing    JobFailure = "parts_missing"
+	TrashFailed     JobFailure = "trash_failed"
 	UploadAbandoned JobFailure = "upload_abandoned"
 	UploadMissing   JobFailure = "upload_missing"
 	WrongPassword   JobFailure = "wrong_password"
@@ -143,6 +144,8 @@ func (e JobFailure) Valid() bool {
 	case PartsMismatch:
 		return true
 	case PartsMissing:
+		return true
+	case TrashFailed:
 		return true
 	case UploadAbandoned:
 		return true
@@ -311,8 +314,10 @@ type ImageKind string
 // `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
 // `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
 // `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
-// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
-// others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
+// `trash_failed`: the original of the archive did not reach the trash after its extraction; it stays in staging
+// and nothing is deleted (RF-08a).
+// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed`, `move_failed` and
+// `trash_failed`; the others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
 // the password it was sent did not open the archive.
 type JobFailure string
 
@@ -376,8 +381,10 @@ type UploadJob struct {
 	// `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
 	// `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
 	// `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
-	// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
-	// others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
+	// `trash_failed`: the original of the archive did not reach the trash after its extraction; it stays in staging
+	// and nothing is deleted (RF-08a).
+	// `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed`, `move_failed` and
+	// `trash_failed`; the others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
 	// the password it was sent did not open the archive.
 	Error *JobFailure `json:"error,omitempty"`
 

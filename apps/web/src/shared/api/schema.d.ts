@@ -209,8 +209,11 @@ export interface paths {
          *     `filtering` and is filtered again from what was recorded (RF-07). A job
          *     that failed with `move_failed` goes back to `filtering` and its batch
          *     moves to No asignados again from where it stopped; the jobs of the same
-         *     batch that failed the same way retry with it (RF-08a). Answers 409 for
-         *     any other job, or when the archive or the files it needs are no longer there.
+         *     batch that failed the same way retry with it (RF-08a). A job that failed
+         *     with `trash_failed` goes back to `filtering`: only the original that did
+         *     not reach the trash is moved again, and then the job goes on (RF-08a).
+         *     Answers 409 for any other job, or when the archive or the files it needs
+         *     are no longer there.
          */
         post: operations["retryJob"];
         delete?: never;
@@ -372,12 +375,14 @@ export interface components {
          *     `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
          *     `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
          *     `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
-         *     `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
-         *     others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
+         *     `trash_failed`: the original of the archive did not reach the trash after its extraction; it stays in staging
+         *     and nothing is deleted (RF-08a).
+         *     `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed`, `move_failed` and
+         *     `trash_failed`; the others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
          *     the password it was sent did not open the archive.
          * @enum {string}
          */
-        JobFailure: "upload_abandoned" | "upload_missing" | "no_space" | "archive_corrupt" | "crc_mismatch" | "archive_unsafe" | "parts_mismatch" | "parts_missing" | "legacy_volume" | "no_video" | "filter_failed" | "move_failed" | "wrong_password";
+        JobFailure: "upload_abandoned" | "upload_missing" | "no_space" | "archive_corrupt" | "crc_mismatch" | "archive_unsafe" | "parts_mismatch" | "parts_missing" | "legacy_volume" | "no_video" | "filter_failed" | "move_failed" | "trash_failed" | "wrong_password";
         PasswordRequest: {
             /**
              * Format: password

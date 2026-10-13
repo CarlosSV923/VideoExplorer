@@ -33,7 +33,10 @@ info:
     plus 1 GiB, counting the bytes still to arrive from uploads in progress
     (`ERR_INSUFFICIENT_STORAGE`, RF-05, RF-09a); 503 when the library is not
     writable (RFC 9457 problem). The upload id given in `Location` is the id of
-    its job (`GET /jobs`, RF-10a).
+    its job (`GET /jobs`, RF-10a). A DELETE of an upload whose archive is extracted
+    and whose original waits for its move to the trash (its job is filtering, or
+    failed with `trash_failed`) answers 409 (`ERR_ORIGINAL_PENDING`): nothing is
+    deleted, and the job is retried first (RF-08a).
   license:
     name: MIT
     url: https://opensource.org/license/mit
@@ -267,8 +270,11 @@ paths:
         `filtering` and is filtered again from what was recorded (RF-07). A job
         that failed with `move_failed` goes back to `filtering` and its batch
         moves to No asignados again from where it stopped; the jobs of the same
-        batch that failed the same way retry with it (RF-08a). Answers 409 for
-        any other job, or when the archive or the files it needs are no longer there.
+        batch that failed the same way retry with it (RF-08a). A job that failed
+        with `trash_failed` goes back to `filtering`: only the original that did
+        not reach the trash is moved again, and then the job goes on (RF-08a).
+        Answers 409 for any other job, or when the archive or the files it needs
+        are no longer there.
       parameters:
         - $ref: '#/components/parameters/JobId'
       responses:
@@ -556,8 +562,10 @@ components:
         `no_video`: after filtering nothing is left to keep, neither a video nor a subtitle (RF-07).
         `filter_failed`: reading or writing the staging area failed while filtering (RF-07, RF-08a).
         `move_failed`: reading or writing the library failed while moving the content to No asignados (RF-08a).
-        `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed` and `move_failed`; the
-        others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
+        `trash_failed`: the original of the archive did not reach the trash after its extraction; it stays in staging
+        and nothing is deleted (RF-08a).
+        `no_space`, `archive_corrupt` and `crc_mismatch` can be retried, and so can `filter_failed`, `move_failed` and
+        `trash_failed`; the others cannot (`legacy_volume` and `no_video` among them). A job in `needs_password` gives `wrong_password` here when
         the password it was sent did not open the archive.
       enum:
         [
@@ -573,6 +581,7 @@ components:
           no_video,
           filter_failed,
           move_failed,
+          trash_failed,
           wrong_password,
         ]
     PasswordRequest:
