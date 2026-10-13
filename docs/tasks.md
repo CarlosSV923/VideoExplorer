@@ -67,8 +67,9 @@ Depende de: 2, 4 · Cubre: RF-21 a RF-26, §5
 Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
 - [x] Lectura en vivo de `_unassigned/` al abrir la sección (`GET` de la sección con entradas de subida y de Samba, «Copiando…», mandar a la papelera y borrar definitivamente por entrada y por archivo), estado «Copiando…»; archivos basura del sistema (`Thumbs.db`, `desktop.ini`, `.DS_Store`) no impiden vaciar una entrada al asignar
 - [x] Comprimidos en `_unassigned/` procesados como subidas (RF-27a): detección al leer la sección, traslado a staging, trabajo de un lote `samba`, conjuntos multiparte por carpeta, progreso en la sección
-- [~] Escaneo periódico (dos intervalos) y «Escanear ahora»; el escaneo de `_unassigned/` llama a `ingestion.Service.AdoptSamba` (RF-27a); valorar cachear la detección de comprimidos por (ruta, tamaño, mtime)
+- [x] Escaneo periódico (dos intervalos) y «Escanear ahora»; el escaneo de `_unassigned/` llama a `ingestion.Service.AdoptSamba` (RF-27a); valorar cachear la detección de comprimidos por (ruta, tamaño, mtime)
 - [ ] Importación de `Movies/` y `TV Shows/` existentes; lo que no sigue el formato va a No asignados (el análisis de nombres debe extraer `[tmdbid-N]` de la carpeta, RF-29)
+- [ ] Zips creados en Windows con `` como separador (p. ej. `Compress-Archive` de PowerShell 5.1) se extraen con su estructura en vez de fallar como `archive_corrupt`; podar `archive_probes` de copias que ya no están en `_unassigned/`
 
 ## Fase 7 — Edición, papelera, etiquetas de ID y descargas
 Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
