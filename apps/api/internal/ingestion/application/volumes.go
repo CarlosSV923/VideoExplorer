@@ -176,6 +176,13 @@ func (s *Service) cancelSet(ctx context.Context, group string, except domain.Job
 		return
 	}
 	for _, m := range members {
+		if s.awaitingTrash(m) {
+			// A volume whose move to the trash is pending is not deleted with its set (RF-08a).
+			s.log.Error("set kept: a volume waits for its move to the trash", "group", group, "job", m.ID)
+			return
+		}
+	}
+	for _, m := range members {
 		if m.ID == except || m.Status.Terminal() {
 			continue
 		}

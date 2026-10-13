@@ -64,6 +64,8 @@ type extractionRequest struct {
 	// settle decides the batches of the filter again, so that a job that failed with move_failed
 	// moves its content again (RF-08a).
 	settle bool
+	// trash moves again the originals of a job that failed with trash_failed, and goes on (RF-08a).
+	trash bool
 }
 
 // WithExtraction enables the extraction of archives: where they wait and are
@@ -185,7 +187,9 @@ func (s *Service) process(parent context.Context, r extractionRequest) {
 	x.running[r.id] = cancel
 	x.mu.Unlock()
 	defer func() {
-		if ctx.Err() != nil {
+		// A stopped worker leaves nothing half-extracted, but a job past its extraction keeps its
+		// folder: the filter and the trash move read it again after the restart (RF-07, RF-08a).
+		if ctx.Err() != nil && !s.keepsExtraction(r.id) {
 			_ = x.workspace.RemoveExtraction(r.id)
 		}
 		cancel()
@@ -217,6 +221,9 @@ func (s *Service) extract(ctx context.Context, r extractionRequest) error {
 	if r.settle {
 		s.settleAll(ctx)
 		return nil
+	}
+	if r.trash {
+		return s.trashAgain(ctx, job)
 	}
 	if r.refilter {
 		return s.refilter(ctx, job)
@@ -337,25 +344,34 @@ func leaderOf(job *domain.UploadJob) domain.JobID {
 // filters the extracted content (RF-07). The state is saved before the originals move: a
 // restart that finds an original still in staging of a job past its extraction moves it to
 // the trash then (trashLeftovers), so no cut leaves a job waiting for a file that is already
-// in the trash. If a move fails, the original stays where it is, known to its job, and the
-// job goes on.
+// in the trash. An original that does not move fails the unit with trash_failed (RF-08a): it
+// stays in staging, and the filter waits for Reintentar.
 func (s *Service) finish(ctx context.Context, unit []*domain.UploadJob) error {
 	if err := s.applyAll(ctx, unit, func(j *domain.UploadJob, now time.Time) error {
 		return j.FinishExtraction(now)
 	}); err != nil {
 		return s.abortedOr(ctx, err)
 	}
-	s.trashArchives(ctx, unit)
+	if err := s.trashOriginals(ctx, unit); err != nil {
+		if ctx.Err() != nil {
+			return nil // stopped, not failed: the restart moves what is left (trashLeftovers)
+		}
+		err = s.failTrash(ctx, unit, err)
+		s.settleAll(ctx) // the failed unit ends, which may let its batch be decided (RF-07)
+		return s.abortedOr(ctx, err)
+	}
 	// The extracted content goes on to the filter (RF-07), in the same worker.
 	return s.abortedOr(ctx, s.filterUnit(ctx, unit, true))
 }
 
-// trashArchives moves the originals of a unit to the trash (RF-06), one entry per file. An
+// trashOriginals moves the originals of a unit to the trash (RF-06), one entry per file. An
 // original that is no longer in staging is already there, so a repeated call moves nothing
-// twice. A failed move is logged and its original stays in staging, for the next start.
-func (s *Service) trashArchives(ctx context.Context, unit []*domain.UploadJob) {
+// twice. Every original is tried; the error joins the moves that failed, and each of those
+// originals stays in staging, known to its job, for Reintentar (RF-08a). A set's folder goes
+// once none of its volumes is left.
+func (s *Service) trashOriginals(ctx context.Context, unit []*domain.UploadJob) error {
 	x := s.work
-	allMoved := true
+	var failed []error
 	for _, m := range unit {
 		if !x.workspace.FileExists(s.archivePath(m)) {
 			continue
@@ -365,8 +381,7 @@ func (s *Service) trashArchives(ctx context.Context, unit []*domain.UploadJob) {
 			Name: m.FileName, BatchID: string(m.BatchID), RelativePath: originPath(m),
 			Source: s.archivePath(m), Size: m.Size,
 		}); err != nil {
-			allMoved = false
-			s.log.Error("archive not sent to the trash", "job", m.ID, "error", err)
+			failed = append(failed, fmt.Errorf("original %s: %w", m.FileName, err))
 			continue
 		}
 		if !m.IsVolume() {
@@ -375,11 +390,15 @@ func (s *Service) trashArchives(ctx context.Context, unit []*domain.UploadJob) {
 			}
 		}
 	}
-	if unit[0].IsVolume() && allMoved {
+	if len(failed) > 0 {
+		return errors.Join(failed...)
+	}
+	if unit[0].IsVolume() {
 		if err := x.workspace.RemoveVolumes(unit[0].VolumeGroup); err != nil {
 			s.log.Warn("set folder not removed", "group", unit[0].VolumeGroup, "error", err)
 		}
 	}
+	return nil
 }
 
 // trashLeftovers moves to the trash the originals that a restart found still in staging,
@@ -403,7 +422,7 @@ func (s *Service) trashLeftovers(ctx context.Context) {
 			continue
 		}
 		seen[leader] = true
-		if !job.IsVolume() && !s.work.workspace.ExtractionExists(leader) {
+		if !s.extracted(job) {
 			continue // a file uploaded on its own: it is kept, not extracted
 		}
 		unit, err := s.unitOf(ctx, job)
@@ -411,7 +430,11 @@ func (s *Service) trashLeftovers(ctx context.Context) {
 			s.log.Warn("originals not trashed", "job", job.ID, "error", err)
 			continue
 		}
-		s.trashArchives(ctx, unit)
+		if err := s.trashOriginals(ctx, unit); err != nil && ctx.Err() == nil {
+			if ferr := s.failTrash(ctx, unit, err); ferr != nil && ctx.Err() == nil {
+				s.log.Warn("trash failure not recorded", "job", job.ID, "error", ferr)
+			}
+		}
 	}
 }
 
@@ -462,7 +485,9 @@ func (s *Service) fail(ctx context.Context, unit []*domain.UploadJob, reason dom
 	return s.abortedOr(ctx, err)
 }
 
-// removeArchives deletes what is staged of a job, or of its set.
+// removeArchives deletes what is staged of a job, or of its set. It is called only where the
+// originals are not waiting for the trash: a failure before the extraction ended (fail), or
+// after the originals reached the trash (endEmpty, which trashes them first).
 func (s *Service) removeArchives(ctx context.Context, unit []*domain.UploadJob) {
 	if unit[0].IsVolume() {
 		if err := s.work.workspace.RemoveVolumes(unit[0].VolumeGroup); err != nil {
@@ -584,6 +609,8 @@ func (s *Service) Retry(ctx context.Context, id domain.JobID) (domain.JobView, e
 		return s.retryFiltering(ctx, job, false)
 	case domain.FailureMoveFailed:
 		return s.retryFiltering(ctx, job, true)
+	case domain.FailureTrashFailed:
+		return s.retryTrash(ctx, job)
 	}
 	if !job.Error.RetriesExtraction() {
 		return domain.JobView{}, ErrCannotRetry

@@ -24,6 +24,9 @@ func (s *Service) settleAll(ctx context.Context) {
 	}
 	seen := map[domain.BatchID]bool{}
 	for _, job := range waiting {
+		if ctx.Err() != nil {
+			return // stopped: the batches not decided yet are decided at the next start
+		}
 		if !job.FilterDone || seen[job.BatchID] {
 			continue
 		}
@@ -127,8 +130,20 @@ func groupByUnit(jobs []*domain.UploadJob) [][]*domain.UploadJob {
 
 // endEmpty ends the jobs of one unit that the filter emptied (RF-07): discarded when the
 // batch keeps something, failed with no_video when nothing is left in the batch. What
-// was extracted or staged is removed: the discarded files are in the trash already.
+// was extracted or staged is removed: the discarded files are in the trash already. An
+// original of an archive is removed only once its move to the trash is done: if that move
+// fails now, the unit fails with trash_failed and keeps everything (RF-08a).
 func (s *Service) endEmpty(ctx context.Context, unit []*domain.UploadJob, keeps bool) {
+	if s.extracted(unit[0]) {
+		if err := s.trashOriginals(ctx, unit); err != nil {
+			if ctx.Err() == nil {
+				if ferr := s.failTrash(ctx, unit, err); ferr != nil && ctx.Err() == nil {
+					s.log.Warn("trash failure not recorded", "job", unit[0].ID, "error", ferr)
+				}
+			}
+			return
+		}
+	}
 	s.removeExtraction(leaderOf(unit[0]))
 	s.removeArchives(ctx, unit)
 	var err error

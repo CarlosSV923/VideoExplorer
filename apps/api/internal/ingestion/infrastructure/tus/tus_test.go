@@ -3,8 +3,10 @@ package tus_test
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -36,6 +38,8 @@ type fakeUploads struct {
 	admissions []application.Admission
 	progress   []int64
 	err        error
+	// refuse is what Terminating answers.
+	refuse     error
 	completed  chan domain.JobID
 	terminated chan domain.JobID
 }
@@ -77,6 +81,13 @@ func (f *fakeUploads) received() []int64 {
 func (f *fakeUploads) Terminated(_ context.Context, id domain.JobID) error {
 	f.terminated <- id
 	return nil
+}
+
+// Terminating answers refuse, when set, for the deletions it is asked about.
+func (f *fakeUploads) Terminating(_ context.Context, _ domain.JobID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.refuse
 }
 
 // fixture is a tus endpoint mounted as the production routes mount it.
@@ -299,6 +310,44 @@ func TestDeletedUploadIsReportedWithItsJob(t *testing.T) {
 	}
 	if id := f.awaitTerminated(t); string(id) != idOf(location) {
 		t.Errorf("terminated job = %q, want %q", id, idOf(location))
+	}
+}
+
+func TestDeletionOfAnOriginalWaitingForItsTrashIsRefusedAndNothingIsDeleted(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		refuse  error
+		want    int
+		deleted bool
+	}{
+		{name: "an upload whose original waits for the trash is kept", refuse: application.ErrOriginalPending, want: http.StatusConflict},
+		{name: "an upload that may go is deleted", want: http.StatusNoContent, deleted: true},
+		{name: "a failed check keeps the upload", refuse: errors.New("database is busy"), want: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := newFixture(t, 50<<30)
+			f.uploads.mu.Lock()
+			f.uploads.refuse = tt.refuse
+			f.uploads.mu.Unlock()
+			location := f.create(t, 10, metadata("filename", "a.zip", "batchId", testBatch)).Header.Get("Location")
+			staged := filepath.Join(f.dir, idOf(location))
+			if _, err := os.Stat(staged); err != nil {
+				t.Fatalf("the staged file is missing before the deletion: %v", err)
+			}
+
+			if res := f.remove(t, location); res.StatusCode != tt.want {
+				t.Fatalf("delete = %d, want %d", res.StatusCode, tt.want)
+			}
+			_, err := os.Stat(staged)
+			if tt.deleted != errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("staged file deleted = %v, want %v", errors.Is(err, fs.ErrNotExist), tt.deleted)
+			}
+		})
 	}
 }
 

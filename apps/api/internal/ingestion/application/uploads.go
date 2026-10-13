@@ -26,6 +26,9 @@ type Uploads interface {
 	UploadProgress(ctx context.Context, id domain.JobID, received int64) error
 	// Completed records that every byte of the upload arrived (uploaded).
 	Completed(ctx context.Context, id domain.JobID) error
+	// Terminating is asked before the browser's deletion of the upload is carried out. It returns
+	// ErrOriginalPending while the original of its archive waits for its move to the trash (RF-08a).
+	Terminating(ctx context.Context, id domain.JobID) error
 	// Terminated records that the browser deleted the upload (cancelled).
 	Terminated(ctx context.Context, id domain.JobID) error
 }

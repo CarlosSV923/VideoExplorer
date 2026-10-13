@@ -155,6 +155,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 		return fmt.Errorf("listen on %s: %w", srv.Addr, err)
 	}
 	log.Info("listening", "addr", ln.Addr().String())
+	// The batches that a previous run left complete are decided once the server listens (RF-08a):
+	// a large batch takes minutes, and the start does not wait for it. Stopped before the database closes.
+	defer settleInBackground(ctx, ingest.Service, log)()
 
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- httpserver.Serve(ctx, srv, ln, shutdownTimeout) }()

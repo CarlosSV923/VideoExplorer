@@ -94,6 +94,19 @@ func New(dir, basePath string, log *slog.Logger, freeSpace FreeSpaceFunc, upload
 			}
 			return tusd.HTTPResponse{}, nil
 		},
+		// The deletion is checked before tusd removes the staged file: an original waiting for its
+		// move to the trash is never deleted (RF-08a). The browser retries once the job is retried.
+		PreUploadTerminateCallback: func(ev tusd.HookEvent) (tusd.HTTPResponse, error) {
+			err := uploads.Terminating(ev.Context, domain.JobID(ev.Upload.ID))
+			switch {
+			case errors.Is(err, application.ErrOriginalPending):
+				return tusd.HTTPResponse{}, tusd.NewError("ERR_ORIGINAL_PENDING",
+					"the original of this upload waits for its move to the trash: retry its job first", http.StatusConflict)
+			case err != nil:
+				return tusd.HTTPResponse{}, fmt.Errorf("tus: check the deletion: %w", err)
+			}
+			return tusd.HTTPResponse{}, nil
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("tus: %w", err)

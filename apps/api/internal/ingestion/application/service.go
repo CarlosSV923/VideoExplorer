@@ -207,12 +207,13 @@ type PurgeResult struct {
 	PartsMissing int
 }
 
-// Recover reconciles the jobs a previous run left behind (RF-10b). It runs once
-// at start, before the upload endpoint accepts anything, so no upload is in
-// flight and no grace is needed.
+// Recover reconciles the jobs a previous run left behind (RF-10b) and finishes the moves of
+// the originals a cut left in staging (RF-06). It runs once at start, before the upload
+// endpoint accepts anything, so no upload is in flight and no grace is needed. It does not
+// decide the batches a previous run left complete: SettleRecovered does, in the background,
+// once the server listens (RF-08a).
 func (s *Service) Recover(ctx context.Context) (PurgeResult, error) {
 	var res PurgeResult
-	defer s.settleAll(ctx)
 	err := s.reconcile(ctx, s.now(), &res)
 	s.trashLeftovers(ctx) // the originals a cut left in staging go to the trash before any batch settles (RF-06)
 	return res, err

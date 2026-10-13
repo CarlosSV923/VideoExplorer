@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"time"
@@ -31,6 +32,26 @@ func newIngestion(conn *sql.DB, log *slog.Logger, shutdown <-chan struct{}) inge
 	events := broker.New(time.Now)
 	svc := application.NewService(sqlite.NewBatchRepository(conn), sqlite.NewJobRepository(conn), events, log, time.Now)
 	return ingestionWiring{Service: svc, Handler: ingestionhttp.NewHandler(svc, events, shutdown, log)}
+}
+
+// settleInBackground decides, in a goroutine, the batches that a previous run left complete
+// (RF-08a). The function it returns stops that work and waits for it, for at most
+// shutdownTimeout, so that the database is not closed under a decision.
+func settleInBackground(ctx context.Context, svc *application.Service, log *slog.Logger) func() {
+	settleCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.SettleRecovered(settleCtx)
+	}()
+	return func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(shutdownTimeout):
+			log.Warn("batches still being settled at shutdown")
+		}
+	}
 }
 
 // withFiltering enables the filter of RF-07 on the ingestion service: what it finds is
