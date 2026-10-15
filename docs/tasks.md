@@ -69,7 +69,7 @@ Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
 - [x] Comprimidos en `_unassigned/` procesados como subidas (RF-27a): detección al leer la sección, traslado a staging, trabajo de un lote `samba`, conjuntos multiparte por carpeta, progreso en la sección
 - [x] Escaneo periódico (dos intervalos) y «Escanear ahora»; el escaneo de `_unassigned/` llama a `ingestion.Service.AdoptSamba` (RF-27a); valorar cachear la detección de comprimidos por (ruta, tamaño, mtime)
 - [x] Importación de `Movies/` y `TV Shows/` existentes (RF-29, criterio «lo que Jellyfin reconoce»): registro en su sitio sin renombrar, etiquetas `[tmdbid-]`, `{tmdb-}` e `[imdbid-]`, «Sin vincular», solo lo no interpretable a No asignados, bajas de lo borrado; pruebas con enlaces duros de `~/Downloads/PruebasVideos` (nunca modificar el original)
-- [ ] Zips creados en Windows con la barra invertida como separador (p. ej. `Compress-Archive` de PowerShell 5.1) se extraen con su estructura en vez de fallar como `archive_corrupt`; podar `archive_probes` de copias que ya no están en `_unassigned/`; en el análisis de nombres, si el título del archivo coincide con el de la carpeta (normalizado), sugerir el de la carpeta tal cual (con su « - »)
+- [~] Zips creados en Windows con la barra invertida como separador (p. ej. `Compress-Archive` de PowerShell 5.1) se extraen con su estructura en vez de fallar como `archive_corrupt`; podar `archive_probes` de copias que ya no están en `_unassigned/`; en el análisis de nombres, si el título del archivo coincide con el de la carpeta (normalizado), sugerir el de la carpeta tal cual (con su « - »)
 
 ## Fase 7 — Edición, papelera, etiquetas de ID y descargas
 Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
