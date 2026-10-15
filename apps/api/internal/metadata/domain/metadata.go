@@ -6,6 +6,7 @@ package domain
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -304,6 +305,26 @@ func NormalizeQuery(q string) (string, error) {
 		return "", ErrInvalidQuery
 	}
 	return q, nil
+}
+
+// imdbIDPattern is an IMDb title id: "tt" followed by its digits.
+var imdbIDPattern = regexp.MustCompile(`^tt[0-9]{1,15}$`)
+
+// NormalizeIMDbID returns an IMDb title id in lower case, or ErrInvalidQuery when
+// s is not one. The id is only ever sent to TMDB's /find endpoint (RF-29).
+func NormalizeIMDbID(s string) (string, error) {
+	id := strings.ToLower(strings.TrimSpace(s))
+	if !imdbIDPattern.MatchString(id) {
+		return "", ErrInvalidQuery
+	}
+	return id, nil
+}
+
+// FindResult is what TMDB links to an external id (RF-29): the movies and the
+// series that carry it. Either list may be empty.
+type FindResult struct {
+	Movies []MovieSummary
+	Series []SeriesSummary
 }
 
 // translationFor returns the translation whose language is exactly language

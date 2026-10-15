@@ -31,6 +31,10 @@ func (f *fakeTMDB) SearchSeries(context.Context, string, string, *int) ([]domain
 	return nil, nil
 }
 
+func (f *fakeTMDB) FindByIMDb(context.Context, string, string) (domain.FindResult, error) {
+	return domain.FindResult{}, nil
+}
+
 func (f *fakeTMDB) Movie(_ context.Context, language string, id int64) (domain.Movie, error) {
 	m, ok := f.movies[language][id]
 	if !ok {

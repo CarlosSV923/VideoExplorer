@@ -15,6 +15,9 @@ import (
 type Provider interface {
 	SearchMovies(ctx context.Context, language, query string, year *int) ([]domain.MovieSummary, error)
 	SearchSeries(ctx context.Context, language, query string, year *int) ([]domain.SeriesSummary, error)
+	// FindByIMDb returns the movies and the series that TMDB links to an IMDb id (RF-29). An id TMDB
+	// does not know gives empty lists, not domain.ErrNotFound.
+	FindByIMDb(ctx context.Context, language, imdbID string) (domain.FindResult, error)
 	// Movie and Series return domain.ErrNotFound for unknown ids.
 	Movie(ctx context.Context, language string, id int64) (domain.Movie, error)
 	Series(ctx context.Context, language string, id int64) (domain.Series, error)
@@ -67,6 +70,19 @@ func (s *Service) SearchSeries(ctx context.Context, query string, year *int) ([]
 		return nil, err
 	}
 	return s.provider.SearchSeries(ctx, s.language, q, year)
+}
+
+// FindByIMDb returns the movies and the series that TMDB links to an IMDb id such as tt18412256 (RF-29).
+// The id is checked before it is sent; an id that is not one is domain.ErrInvalidQuery.
+func (s *Service) FindByIMDb(ctx context.Context, imdbID string) (domain.FindResult, error) {
+	if s.provider == nil {
+		return domain.FindResult{}, domain.ErrNotConfigured
+	}
+	id, err := domain.NormalizeIMDbID(imdbID)
+	if err != nil {
+		return domain.FindResult{}, err
+	}
+	return s.provider.FindByIMDb(ctx, s.language, id)
 }
 
 // Movie returns one movie with its genres named in the configured language.

@@ -101,6 +101,13 @@ func (c *CachedProvider) SearchSeries(ctx context.Context, language, query strin
 	})
 }
 
+// FindByIMDb answers from the cache while fresh (24 h, like a search).
+func (c *CachedProvider) FindByIMDb(ctx context.Context, language, imdbID string) (domain.FindResult, error) {
+	return cached(ctx, c, key("find/imdb/"+imdbID, language, nil), searchTTL, func(ctx context.Context) (domain.FindResult, error) {
+		return c.next.FindByIMDb(ctx, language, imdbID)
+	})
+}
+
 // Movie answers from the cache while fresh (30 days).
 func (c *CachedProvider) Movie(ctx context.Context, language string, id int64) (domain.Movie, error) {
 	return cached(ctx, c, key("movie/"+strconv.FormatInt(id, 10), language, nil), stableTTL, func(ctx context.Context) (domain.Movie, error) {

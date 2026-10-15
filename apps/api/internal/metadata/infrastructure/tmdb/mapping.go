@@ -49,21 +49,7 @@ func (c *Client) SearchMovies(ctx context.Context, language, query string, year 
 	if err := c.get(ctx, "/search/movie", q, &raw); err != nil {
 		return nil, err
 	}
-	out := make([]domain.MovieSummary, 0, len(raw.Results))
-	for _, r := range raw.Results {
-		if r.ID <= 0 {
-			return nil, c.malformed("/search/movie", "id")
-		}
-		out = append(out, domain.MovieSummary{
-			ID:               r.ID,
-			Title:            firstNonEmpty(r.Title, r.OriginalTitle),
-			OriginalTitle:    r.OriginalTitle,
-			OriginalLanguage: r.OriginalLanguage,
-			Year:             domain.YearOf(parseDate(r.ReleaseDate)),
-			PosterPath:       validPath(r.PosterPath),
-		})
-	}
-	return out, nil
+	return c.movieSummaries("/search/movie", raw.Results)
 }
 
 // SearchSeries returns the first page of TMDB's series search.
@@ -78,10 +64,60 @@ func (c *Client) SearchSeries(ctx context.Context, language, query string, year 
 	if err := c.get(ctx, "/search/tv", q, &raw); err != nil {
 		return nil, err
 	}
-	out := make([]domain.SeriesSummary, 0, len(raw.Results))
-	for _, r := range raw.Results {
+	return c.seriesSummaries("/search/tv", raw.Results)
+}
+
+// FindByIMDb asks TMDB's /find endpoint for the movies and the series that carry an IMDb id (RF-29).
+// An id TMDB does not know gives empty lists.
+func (c *Client) FindByIMDb(ctx context.Context, language, imdbID string) (domain.FindResult, error) {
+	id, err := domain.NormalizeIMDbID(imdbID)
+	if err != nil {
+		return domain.FindResult{}, err
+	}
+	q := url.Values{"external_source": {"imdb_id"}, "language": {language}}
+	var raw struct {
+		MovieResults []apiSearchMovie  `json:"movie_results"`
+		TVResults    []apiSearchSeries `json:"tv_results"`
+	}
+	if err := c.get(ctx, "/find/"+id, q, &raw); err != nil {
+		return domain.FindResult{}, err
+	}
+	movies, err := c.movieSummaries("/find", raw.MovieResults)
+	if err != nil {
+		return domain.FindResult{}, err
+	}
+	series, err := c.seriesSummaries("/find", raw.TVResults)
+	if err != nil {
+		return domain.FindResult{}, err
+	}
+	return domain.FindResult{Movies: movies, Series: series}, nil
+}
+
+// movieSummaries maps the movies of a TMDB answer; an answer without a valid id is malformed.
+func (c *Client) movieSummaries(endpoint string, results []apiSearchMovie) ([]domain.MovieSummary, error) {
+	out := make([]domain.MovieSummary, 0, len(results))
+	for _, r := range results {
 		if r.ID <= 0 {
-			return nil, c.malformed("/search/tv", "id")
+			return nil, c.malformed(endpoint, "id")
+		}
+		out = append(out, domain.MovieSummary{
+			ID:               r.ID,
+			Title:            firstNonEmpty(r.Title, r.OriginalTitle),
+			OriginalTitle:    r.OriginalTitle,
+			OriginalLanguage: r.OriginalLanguage,
+			Year:             domain.YearOf(parseDate(r.ReleaseDate)),
+			PosterPath:       validPath(r.PosterPath),
+		})
+	}
+	return out, nil
+}
+
+// seriesSummaries maps the series of a TMDB answer; an answer without a valid id is malformed.
+func (c *Client) seriesSummaries(endpoint string, results []apiSearchSeries) ([]domain.SeriesSummary, error) {
+	out := make([]domain.SeriesSummary, 0, len(results))
+	for _, r := range results {
+		if r.ID <= 0 {
+			return nil, c.malformed(endpoint, "id")
 		}
 		out = append(out, domain.SeriesSummary{
 			ID:               r.ID,

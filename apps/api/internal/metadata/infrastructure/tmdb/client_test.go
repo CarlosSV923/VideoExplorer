@@ -185,6 +185,44 @@ func TestSearchMoviesSendsLanguageAndYear(t *testing.T) {
 	}
 }
 
+func TestFindByIMDbSendsExternalSourceAndMapsBothKinds(t *testing.T) {
+	t.Parallel()
+
+	f := newFakeTMDB(t, map[string]http.HandlerFunc{"/3/find/tt18412256": jsonOK(`{
+		"movie_results":[{"id":1000001,"title":"Alien: Romulus","original_title":"Alien: Romulus","release_date":"2024-08-13"}],
+		"tv_results":[]
+	}`)})
+	c := newClient(t, f, tmdb.Config{})
+
+	got, err := c.FindByIMDb(t.Context(), "es-MX", "TT18412256")
+	if err != nil {
+		t.Fatalf("FindByIMDb: %v", err)
+	}
+	q := f.lastQuery("/3/find/tt18412256")
+	if q.Get("external_source") != "imdb_id" || q.Get("language") != "es-MX" {
+		t.Errorf("query = %v", q)
+	}
+	if len(got.Movies) != 1 || got.Movies[0].ID != 1000001 || *got.Movies[0].Year != 2024 {
+		t.Errorf("movies = %+v", got.Movies)
+	}
+	if len(got.Series) != 0 {
+		t.Errorf("series = %+v, want none", got.Series)
+	}
+}
+
+func TestFindByIMDbRefusesAnIDThatIsNotOne(t *testing.T) {
+	t.Parallel()
+
+	f := newFakeTMDB(t, nil)
+	c := newClient(t, f, tmdb.Config{})
+	if _, err := c.FindByIMDb(t.Context(), "es-MX", "tt1/../search"); !errors.Is(err, domain.ErrInvalidQuery) {
+		t.Errorf("err = %v, want ErrInvalidQuery", err)
+	}
+	if n := f.hitCount("/3/find/tt1/../search"); n != 0 {
+		t.Errorf("the request was sent %d times", n)
+	}
+}
+
 func TestSearchSeriesUsesFirstAirDateYear(t *testing.T) {
 	t.Parallel()
 

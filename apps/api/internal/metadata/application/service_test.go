@@ -26,6 +26,7 @@ type fakeProvider struct {
 	failures    map[string]error // "method:language" -> error for that call only
 	searchQuery string
 	searchYear  *int
+	imdbID      string // the IMDb id FindByIMDb was asked for
 }
 
 func (f *fakeProvider) record(method, language string) error {
@@ -62,6 +63,14 @@ func (f *fakeProvider) SearchMovies(_ context.Context, language, query string, y
 func (f *fakeProvider) SearchSeries(_ context.Context, language, query string, year *int) ([]domain.SeriesSummary, error) {
 	f.searchQuery, f.searchYear = query, year
 	return nil, f.record("SearchSeries", language)
+}
+
+func (f *fakeProvider) FindByIMDb(_ context.Context, language, imdbID string) (domain.FindResult, error) {
+	f.imdbID = imdbID
+	if err := f.record("FindByIMDb", language); err != nil {
+		return domain.FindResult{}, err
+	}
+	return domain.FindResult{Movies: []domain.MovieSummary{{ID: 1, Title: "Alien Romulus"}}}, nil
 }
 
 func (f *fakeProvider) Movie(_ context.Context, language string, _ int64) (domain.Movie, error) {
@@ -139,6 +148,57 @@ func TestSearchValidatesInputAndPassesLanguage(t *testing.T) {
 	}
 	if got := f.callsTo("SearchMovies"); len(got) != 1 || got[0] != "SearchMovies:es-MX" {
 		t.Errorf("calls = %v, want one call in es-MX", got)
+	}
+}
+
+func TestFindByIMDbChecksTheIDAndPassesLanguage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		id      string
+		wantID  string
+		wantErr error
+	}{
+		{"an id in capitals is sent in lower case", "TT18412256", "tt18412256", nil},
+		{"surrounding spaces are removed", " tt18412256 ", "tt18412256", nil},
+		{"a TMDB id is not an IMDb id", "1726", "", domain.ErrInvalidQuery},
+		{"a path is not an IMDb id", "tt1/../../x", "", domain.ErrInvalidQuery},
+		{"an empty id is refused", "", "", domain.ErrInvalidQuery},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			f := &fakeProvider{}
+			svc := application.NewService(f, "es-MX")
+			got, err := svc.FindByIMDb(t.Context(), tt.id)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("FindByIMDb(%q) err = %v, want %v", tt.id, err, tt.wantErr)
+			}
+			if tt.wantErr != nil {
+				if calls := f.callsTo("FindByIMDb"); len(calls) != 0 {
+					t.Errorf("the provider was asked for an invalid id: %v", calls)
+				}
+				return
+			}
+			if f.imdbID != tt.wantID {
+				t.Errorf("provider got id %q, want %q", f.imdbID, tt.wantID)
+			}
+			if calls := f.callsTo("FindByIMDb"); len(calls) != 1 || calls[0] != "FindByIMDb:es-MX" {
+				t.Errorf("calls = %v, want one call in es-MX", calls)
+			}
+			if len(got.Movies) != 1 || got.Movies[0].Title != "Alien Romulus" {
+				t.Errorf("movies = %+v", got.Movies)
+			}
+		})
+	}
+}
+
+func TestFindByIMDbWithoutProviderIsNotConfigured(t *testing.T) {
+	t.Parallel()
+	svc := application.NewService(nil, "es-MX")
+	if _, err := svc.FindByIMDb(t.Context(), "tt18412256"); !errors.Is(err, domain.ErrNotConfigured) {
+		t.Errorf("err = %v, want ErrNotConfigured", err)
 	}
 }
 

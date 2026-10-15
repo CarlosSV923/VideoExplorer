@@ -122,6 +122,11 @@ func (p *countingProvider) SearchSeries(_ context.Context, language, _ string, _
 	return []domain.SeriesSummary{{ID: 1, Title: label}}, err
 }
 
+func (p *countingProvider) FindByIMDb(_ context.Context, language, _ string) (domain.FindResult, error) {
+	label, err := p.record("FindByIMDb", language)
+	return domain.FindResult{Movies: []domain.MovieSummary{{ID: 1, Title: label}}}, err
+}
+
 func (p *countingProvider) Movie(_ context.Context, language string, id int64) (domain.Movie, error) {
 	label, err := p.record("Movie", language)
 	return domain.Movie{ID: id, Title: label}, err
@@ -181,6 +186,10 @@ func TestCachedProviderLifetimesByKind(t *testing.T) {
 		}},
 		{"season 24 h", "Season", day, func(ctx context.Context, p *application.CachedProvider) error {
 			_, err := p.Season(ctx, "es-MX", 1396, 1)
+			return err
+		}},
+		{"find by IMDb id 24 h", "FindByIMDb", day, func(ctx context.Context, p *application.CachedProvider) error {
+			_, err := p.FindByIMDb(ctx, "es-MX", "tt18412256")
 			return err
 		}},
 		{"movie 30 days", "Movie", 30 * day, func(ctx context.Context, p *application.CachedProvider) error {
