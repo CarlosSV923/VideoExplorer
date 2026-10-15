@@ -458,3 +458,29 @@ func mustTitleID(t *testing.T, fx *importFixture, folder string) int64 {
 	t.Fatalf("no title in %s", folder)
 	return 0
 }
+
+// TestVersionsOfAChapterAreKeptOnlyWhenAllCarryALabel: two files of one chapter that both carry a version label
+// are registered as its versions; a chapter whose files do not all carry one goes to No asignados (RF-29, §5).
+func TestVersionsOfAChapterAreKeptOnlyWhenAllCarryALabel(t *testing.T) {
+	t.Parallel()
+	fx := newImportFixture(t, &importTMDB{configured: false})
+	show := "TV Shows/Show (2010)/Season 01/"
+	fx.put(t, show+"Show (2010) - S01E01 - Pilot - 1080p.mkv", []byte("hd"), fx.settled())
+	fx.put(t, show+"Show (2010) - S01E01 - Pilot - 720p.mkv", []byte("sd"), fx.settled())
+	fx.put(t, show+"Show (2010) - S01E02.mkv", []byte("plain"), fx.settled())
+	fx.put(t, show+"Show (2010) - S01E02 - Pilot - 720p.mkv", []byte("labelled"), fx.settled())
+	fx.scan(t)
+
+	want := []string{
+		"TV Shows/Show (2010)/Season 01/Show (2010) - S01E01 - Pilot - 1080p.mkv",
+		"TV Shows/Show (2010)/Season 01/Show (2010) - S01E01 - Pilot - 720p.mkv",
+	}
+	if got := fx.registry(t)["TV Shows/Show (2010)"]; !slices.Equal(got, want) {
+		t.Errorf("registry = %v, want the two versions of chapter 1", got)
+	}
+	for _, rel := range []string{"Show (2010) - S01E02.mkv", "Show (2010) - S01E02 - Pilot - 720p.mkv"} {
+		if !fx.exists(domain.UnassignedDir + "/Show (2010)/Season 01/" + rel) {
+			t.Errorf("%s should be in No asignados, keeping its folder", rel)
+		}
+	}
+}

@@ -587,7 +587,72 @@ func TestPlanImportSeries(t *testing.T) {
 			},
 		},
 		{
-			name: "two files for the same chapter are both out: versions are not imported",
+			name: "two files of one chapter with a version suffix are registered as its versions",
+			input: func() domain.ImportInput {
+				a := "Season 01/Show (2010) - S01E01 - Pilot - 1080p.mkv"
+				b := "Season 01/Show (2010) - S01E01 - Pilot - 720p.mkv"
+				in := baseInput(seriesRoot, folderOf("Show (2010)", a, b))
+				in.Read = readingsOf(map[string]domain.FileReading{a: episode(1, 1), b: episode(1, 1)})
+				return in
+			}(),
+			check: func(t *testing.T, p domain.ImportPlan) {
+				nt := newTitleOf(t, p)
+				if len(nt.Files) != 2 || nt.Files[0].Version != "1080p" || nt.Files[1].Version != "720p" {
+					t.Fatalf("files = %+v, want the two versions", nt.Files)
+				}
+				if nt.Files[0].Place != nt.Files[1].Place || len(movedFrom(p)) != 0 {
+					t.Errorf("both versions take the same chapter and nothing moves: %+v moved=%v", nt.Files, movedFrom(p))
+				}
+			},
+		},
+		{
+			name: "a chapter with and without a version suffix are both out",
+			input: func() domain.ImportInput {
+				a := "Season 01/Show (2010) - S01E01 - Pilot.mkv"
+				b := "Season 01/Show (2010) - S01E01 - Pilot - 1080p.mkv"
+				in := baseInput(seriesRoot, folderOf("Show (2010)", a, b))
+				in.Read = readingsOf(map[string]domain.FileReading{a: episode(1, 1), b: episode(1, 1)})
+				return in
+			}(),
+			check: func(t *testing.T, p domain.ImportPlan) {
+				if len(p.NewTitles) != 0 || len(movedFrom(p)) != 2 {
+					t.Errorf("titles=%+v moved=%v, want both out", p.NewTitles, movedFrom(p))
+				}
+			},
+		},
+		{
+			name: "a new version joins the versions the registry already holds for its chapter",
+			input: func() domain.ImportInput {
+				held := "TV Shows/Show (2010)/Season 01/Show (2010) - S01E01 - Pilot - 1080p.mkv"
+				a := "Season 01/Show (2010) - S01E01 - Pilot - 720p.mkv"
+				in := baseInput(seriesRoot, folderOf("Show (2010)", "Season 01/Show (2010) - S01E01 - Pilot - 1080p.mkv", a))
+				in.Read = readingsOf(map[string]domain.FileReading{a: episode(1, 1)})
+				in.Titles = []domain.RegisteredTitle{registered(7, seriesRoot, "Show (2010)",
+					domain.LibraryFile{ID: 1, Rel: held, Kind: domain.FileVideo, Version: "1080p", Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}})}
+				return in
+			}(),
+			check: func(t *testing.T, p domain.ImportPlan) {
+				if len(p.AddFiles) != 1 || p.AddFiles[0].Files[0].Version != "720p" || len(movedFrom(p)) != 0 {
+					t.Errorf("add files = %+v moved = %v, want the 720p version added", p.AddFiles, movedFrom(p))
+				}
+			},
+		},
+		{
+			name: "a chapter file with a version suffix alone is the chapter, with no version",
+			input: func() domain.ImportInput {
+				a := "Season 01/Show (2010) - S01E01 - Pilot - 1080p.mkv"
+				in := baseInput(seriesRoot, folderOf("Show (2010)", a))
+				in.Read = readingsOf(map[string]domain.FileReading{a: episode(1, 1)})
+				return in
+			}(),
+			check: func(t *testing.T, p domain.ImportPlan) {
+				if nt := newTitleOf(t, p); len(nt.Files) != 1 || nt.Files[0].Version != "" {
+					t.Errorf("files = %+v, want one file with no version", nt.Files)
+				}
+			},
+		},
+		{
+			name: "two files for the same chapter are both out when neither has a version suffix",
 			input: func() domain.ImportInput {
 				a, b := "Season 01/Show.S01E01.1080p.mkv", "Season 01/Show.S01E01.720p.mkv"
 				in := baseInput(seriesRoot, folderOf("Show (2010)", a, b))

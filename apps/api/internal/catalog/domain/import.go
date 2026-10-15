@@ -2,6 +2,7 @@ package domain
 
 import (
 	"path"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -225,7 +226,10 @@ type candidate struct {
 	ok      bool
 	place   Place
 	version string
-	key     string
+	// labelTitle and label are the chapter title and the version label that the name gives (§5).
+	labelTitle string
+	label      string
+	key        string
 	// parent is the video of a subtitle: its library path, "" for none.
 	parent string
 }
@@ -609,37 +613,107 @@ func episodeVideo(c *candidate) bool {
 		return false
 	}
 	c.place = Place{Episode: true, Season: *r.Season, First: first, Last: last}
+	c.labelTitle, c.label = chapterLabelOf(fileStem(path.Base(c.rel)))
 	return true
 }
 
-// resolveEpisodes decides which chapter videos are registered: two files that give the same chapter are not
-// told apart (versions are not imported, RF-29), so both stay out, and so does a chapter the registry holds.
+// resolveEpisodes decides which chapter videos are registered (RF-29). Files that overlap in a season form a
+// group with the chapters the registry holds too. A group of one file is that chapter's file. A group of more
+// is a set of versions only when every file of it carries a version label (§5, «Capítulo, versión»: the name
+// after the marker is «<título> - <versión>»), all have the same chapter title and the labels differ; otherwise
+// none of its candidates is registered and they go to No asignados.
 func resolveEpisodes(videos []*candidate, rows []LibraryFile) {
-	var occupied []Place
-	for _, r := range rows {
-		if r.Kind == FileVideo && r.Place.Episode {
-			occupied = append(occupied, r.Place)
-		}
-	}
-	// The candidates are compared as they were before this check, so that both files of a clash are out.
-	var pending []*candidate
+	var items []chapterItem
 	for _, v := range videos {
 		if v.ok {
-			pending = append(pending, v)
+			items = append(items, chapterItem{place: v.place, title: v.labelTitle, version: v.label, cand: v})
 		}
 	}
-	for i, v := range pending {
-		for _, o := range occupied {
-			if overlaps(v.place, o) {
-				v.ok = false
-			}
-		}
-		for j, w := range pending {
-			if i != j && overlaps(v.place, w.place) {
-				v.ok = false
-			}
+	for _, r := range rows {
+		if r.Kind == FileVideo && r.Place.Episode {
+			title, _ := chapterLabelOf(fileStem(path.Base(r.Rel)))
+			items = append(items, chapterItem{place: r.Place, title: title, version: r.Version})
 		}
 	}
+	seen := make([]bool, len(items))
+	for i := range items {
+		if seen[i] {
+			continue
+		}
+		group := []int{i}
+		seen[i] = true
+		for k := 0; k < len(group); k++ {
+			for j := range items {
+				if !seen[j] && overlaps(items[group[k]].place, items[j].place) {
+					seen[j] = true
+					group = append(group, j)
+				}
+			}
+		}
+		settleChapterGroup(items, group)
+	}
+}
+
+// chapterItem is a file that competes for chapters: a candidate of this change, or a video the registry holds.
+type chapterItem struct {
+	place   Place
+	title   string
+	version string
+	cand    *candidate // nil for a file the registry holds
+}
+
+// settleChapterGroup decides the candidates of one group of overlapping chapter files (see resolveEpisodes).
+func settleChapterGroup(items []chapterItem, group []int) {
+	if len(group) == 1 {
+		if c := items[group[0]].cand; c != nil {
+			c.version = ""
+		}
+		return
+	}
+	valid := true
+	title := titleKey(items[group[0]].title)
+	labels := map[string]bool{}
+	for _, idx := range group {
+		it := items[idx]
+		key := strings.ToLower(it.version)
+		if it.version == "" || titleKey(it.title) != title || labels[key] {
+			valid = false
+		}
+		labels[key] = true
+	}
+	for _, idx := range group {
+		it := items[idx]
+		if it.cand == nil {
+			continue
+		}
+		it.cand.ok = valid
+		if valid {
+			it.cand.version = it.version
+		}
+	}
+}
+
+// chapterMarker is the marker of a chapter in a file name: SxxEyy, SxxEyyEzz or SxxEy-Ezz.
+var chapterMarker = regexp.MustCompile(`(?i)S\d{1,3}E\d{1,3}(?:-?E?\d{1,3})?`)
+
+// chapterLabelOf reads the version label of a chapter file name (§5, «Capítulo, versión»): the name after the
+// chapter marker is «<título> - <versión>», or just «- <versión>» when the chapter has no title. It returns the
+// title part ("" when there is none) and the version; the version is "" when the name has no such suffix.
+func chapterLabelOf(stem string) (title, version string) {
+	loc := chapterMarker.FindStringIndex(stem)
+	if loc == nil {
+		return "", ""
+	}
+	rest := stem[loc[1]:]
+	if !strings.HasPrefix(rest, " - ") {
+		return "", ""
+	}
+	segments := strings.Split(rest[len(" - "):], " - ")
+	version = strings.TrimSpace(segments[len(segments)-1])
+	if version == "" || !plainName(version) {
+		return "", ""
+	}
+	return strings.TrimSpace(strings.Join(segments[:len(segments)-1], " - ")), version
 }
 
 // overlaps reports whether two chapter places share a chapter of the same season.
