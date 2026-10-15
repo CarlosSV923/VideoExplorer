@@ -51,3 +51,24 @@ func (r *ArchiveProbeRepository) Store(ctx context.Context, path string, size, m
 	}
 	return nil
 }
+
+// Prune implements application.ArchiveProbes: it deletes the readings of the paths that are not in keep.
+func (r *ArchiveProbeRepository) Prune(ctx context.Context, keep []string) error {
+	paths, err := r.q.ListArchiveProbePaths(ctx)
+	if err != nil {
+		return fmt.Errorf("ingestion: list archive probes: %w", err)
+	}
+	kept := make(map[string]bool, len(keep))
+	for _, p := range keep {
+		kept[p] = true
+	}
+	for _, p := range paths {
+		if kept[p] {
+			continue
+		}
+		if err := r.q.DeleteArchiveProbe(ctx, p); err != nil {
+			return fmt.Errorf("ingestion: forget archive probe: %w", err)
+		}
+	}
+	return nil
+}

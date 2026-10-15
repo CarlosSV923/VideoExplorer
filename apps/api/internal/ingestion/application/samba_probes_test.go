@@ -52,6 +52,22 @@ func (p *fakeProbes) Store(_ context.Context, path string, size, mtime int64, ar
 	return nil
 }
 
+// Prune forgets the readings of the paths that are not kept.
+func (p *fakeProbes) Prune(_ context.Context, keep []string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	kept := make(map[string]bool, len(keep))
+	for _, path := range keep {
+		kept[path] = true
+	}
+	for path := range p.entries {
+		if !kept[path] {
+			delete(p.entries, path)
+		}
+	}
+	return nil
+}
+
 // setMtime gives the copy called name a modification time, in Unix milliseconds, as the section reads it.
 func (f *fakeSamba) setMtime(name string, mtime int64) {
 	f.mu.Lock()

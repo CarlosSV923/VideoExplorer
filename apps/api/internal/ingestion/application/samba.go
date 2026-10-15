@@ -35,6 +35,7 @@ func (s *Service) AdoptSamba(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("ingestion: list samba copies: %w", err)
 	}
+	s.pruneProbes(ctx, files)
 	for i := range files {
 		if files[i].Copying || files[i].Size <= 0 {
 			continue
@@ -97,6 +98,23 @@ func (s *Service) archiveOf(ctx context.Context, f domain.SambaFile) (bool, erro
 func (s *Service) WithArchiveProbes(probes ArchiveProbes) *Service {
 	s.sambaProbes = probes
 	return s
+}
+
+// pruneProbes forgets the readings of the copies that are no longer in _unassigned/ (taken, removed or moved),
+// as the section lists them now (RF-27a). It runs at each reading of the section, so the readings kept do not
+// grow with the copies that came and went. A failure is only logged: the reading of a copy that stays is read
+// again at worst.
+func (s *Service) pruneProbes(ctx context.Context, files []domain.SambaFile) {
+	if s.sambaProbes == nil {
+		return
+	}
+	keep := make([]string, 0, len(files))
+	for _, f := range files {
+		keep = append(keep, f.Source)
+	}
+	if err := s.sambaProbes.Prune(ctx, keep); err != nil && ctx.Err() == nil {
+		s.log.Warn("samba copy probes not pruned", "error", err)
+	}
 }
 
 // adoptUnit takes one unit of Samba copies (RF-27a). The journal of the change is what makes the move

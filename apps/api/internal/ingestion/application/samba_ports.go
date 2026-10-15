@@ -39,4 +39,6 @@ type ArchiveProbes interface {
 	Lookup(ctx context.Context, path string, size, mtime int64) (archive, ok bool, err error)
 	// Store records what the file at path is, with the size and modification time it has now.
 	Store(ctx context.Context, path string, size, mtime int64, archive bool) error
+	// Prune forgets the readings of the paths that are not in keep: the copies that left _unassigned/ (RF-27a).
+	Prune(ctx context.Context, keep []string) error
 }

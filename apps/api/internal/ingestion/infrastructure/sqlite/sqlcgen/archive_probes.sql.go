@@ -9,6 +9,15 @@ import (
 	"context"
 )
 
+const deleteArchiveProbe = `-- name: DeleteArchiveProbe :exec
+DELETE FROM archive_probes WHERE path = ?
+`
+
+func (q *Queries) DeleteArchiveProbe(ctx context.Context, path string) error {
+	_, err := q.db.ExecContext(ctx, deleteArchiveProbe, path)
+	return err
+}
+
 const getArchiveProbe = `-- name: GetArchiveProbe :one
 SELECT size, mtime_ms, archive FROM archive_probes WHERE path = ?
 `
@@ -24,6 +33,33 @@ func (q *Queries) GetArchiveProbe(ctx context.Context, path string) (GetArchiveP
 	var i GetArchiveProbeRow
 	err := row.Scan(&i.Size, &i.MtimeMs, &i.Archive)
 	return i, err
+}
+
+const listArchiveProbePaths = `-- name: ListArchiveProbePaths :many
+SELECT path FROM archive_probes
+`
+
+func (q *Queries) ListArchiveProbePaths(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listArchiveProbePaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const upsertArchiveProbe = `-- name: UpsertArchiveProbe :exec
