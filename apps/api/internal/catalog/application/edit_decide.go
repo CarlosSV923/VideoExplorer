@@ -50,7 +50,24 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 	for _, m := range members {
 		m.dups, m.hasDups, m.exclusive = dups, true, dups.Exclusive
 	}
+	// The preview lists the duplicates, their labels and the answers they accept before the answer is given,
+	// as Asignar does (RF-24, RF-25): the occupants and the labels the rule proposes are read first.
+	occ, err := e.d.Finder.Occupants(ctx, ev.id.folder, dups, e.d.SubtitleExts, e.d.Media)
+	if err != nil {
+		return err
+	}
+	for _, m := range members {
+		m.occ = occ
+	}
+	if len(members) == 1 {
+		first.in.Media, err = e.mediaOf(ctx, first.file.Rel)
+		if err != nil {
+			return err
+		}
+		first.occLabels = domain.ProposeVersions(occ, first.in)
+	}
 	if dec == "" {
+		ev.markLabels(occ)
 		ev.addMembers(members, "duplicate", "required", "")
 		return nil
 	}
@@ -76,40 +93,23 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 			}
 		}
 	}
-	occ, err := e.d.Finder.Occupants(ctx, ev.id.folder, dups, e.d.SubtitleExts, e.d.Media)
-	if err != nil {
-		return err
+	for _, m := range members {
+		m.decision = dec
+	}
+	if len(members) == 1 && dec == domain.DecisionKeepBoth && !dups.Exclusive {
+		if !ev.applyLabels(first, occ, first.occLabels) {
+			return nil
+		}
+	} else {
+		ev.markLabels(occ)
 	}
 	incs := make([]domain.Incoming, 0, len(members))
 	for _, m := range members {
 		in := m.in
-		if len(members) == 1 {
-			in.Media, err = e.mediaOf(ctx, m.file.Rel)
-			if err != nil {
-				return err
-			}
-		}
 		if dec == domain.DecisionKeepBoth {
 			in.Version = m.version
 		}
 		incs = append(incs, in)
-	}
-	for _, m := range members {
-		m.decision, m.occ = dec, occ
-	}
-	if len(members) == 1 {
-		proposed := domain.ProposeVersions(occ, incs[0])
-		first.occLabels = proposed
-		first.labelProp, first.labelBad = proposed[len(occ)].Text, proposed[len(occ)].Incomplete
-		if dec == domain.DecisionKeepBoth && !dups.Exclusive {
-			if !ev.applyLabels(first, occ, proposed) {
-				return nil
-			}
-		} else {
-			ev.markLabels(occ)
-		}
-	} else {
-		ev.markLabels(occ)
 	}
 	plan, err := domain.PlanDecision(dec, occ, dups.Exclusive, incs)
 	if err != nil {

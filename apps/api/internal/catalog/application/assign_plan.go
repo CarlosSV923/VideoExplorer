@@ -174,8 +174,6 @@ type videoState struct {
 	finalPath string
 	decision  domain.Decision
 	version   string
-	labelProp string
-	labelBad  bool
 	// occLabels are the labels the rule proposes for the versions of the place, then the new video's.
 	occLabels []domain.VersionLabel
 }
@@ -615,7 +613,6 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 	if single {
 		labels := domain.ProposeVersions(occ, first.incoming)
 		first.occLabels = labels
-		first.labelProp, first.labelBad = labels[len(occ)].Text, labels[len(occ)].Incomplete
 	}
 	if decision == "" {
 		p.markLabels(occ)
@@ -844,25 +841,9 @@ func plannedVideo(vs *videoState) PlannedVideo {
 	if !vs.chosen || vs.keep || vs.target == nil {
 		return pv
 	}
-	if vs.hasDups {
-		pv.ExactCopy = vs.dups.ExactCopy
-		pv.Allowed = allowedFor(vs.dups.Exclusive || unknownVersion(vs.occupants))
-		if vs.dups.ExactCopy {
-			pv.Proposal = domain.DecisionSkip
-		}
-	}
-	for i, o := range vs.occupants {
-		d := PlannedDuplicate{Rel: o.Video.Rel, Size: o.Video.Size, Version: o.Video.Version}
-		if i < len(vs.occLabels) {
-			d.VersionProposal = vs.occLabels[i].Text
-			d.VersionNeeded = o.Video.Version == "" && vs.occLabels[i].Incomplete
-		}
-		pv.Duplicates = append(pv.Duplicates, d)
-	}
-	if vs.hasDups {
-		pv.VersionProposal = vs.labelProp
-		pv.VersionIncomplete = vs.labelBad
-	}
+	p := previewOfDuplicates(vs.dups, vs.occupants, vs.occLabels, false)
+	pv.Duplicates, pv.ExactCopy, pv.Allowed, pv.Proposal = p.duplicates, p.exactCopy, p.allowed, p.proposal
+	pv.VersionProposal, pv.VersionIncomplete = p.versionProposal, p.versionIncomplete
 	return pv
 }
 

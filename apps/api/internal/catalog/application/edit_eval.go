@@ -63,9 +63,6 @@ type editVideo struct {
 	exclusive bool
 	// occLabels are the labels the rule proposes for the versions of the place, then the video's own.
 	occLabels []domain.VersionLabel
-	// labelProp and labelBad are the label the rule proposes for the new video, and whether it is incomplete.
-	labelProp string
-	labelBad  bool
 }
 
 // editSub is a subtitle of the title while an edit is checked: it goes with its video (RF-23).
@@ -455,9 +452,11 @@ func (ev *editEval) finish(st editState, id *editTitle) {
 		}
 		ev.moves = append(ev.moves, movesOfNamesFor(v.moves)...)
 		pv := EditedVideo{FileID: v.file.ID, File: v.file.Rel, FinalPath: final, Changed: !strings.EqualFold(final, v.file.Rel), Decision: v.decision, Version: v.version}
+		// Only a video with duplicates has a title to compare the folders with (ev.id is set by then).
 		if v.hasDups {
-			pv.Duplicates, pv.ExactCopy, pv.Allowed, pv.Proposal = previewDuplicates(v, ev.folderChanged())
-			pv.VersionProposal, pv.VersionIncomplete = v.labelProp, v.labelBad
+			p := previewOfDuplicates(v.dups, v.occ, v.occLabels, ev.folderChanged())
+			pv.Duplicates, pv.ExactCopy, pv.Allowed, pv.Proposal = p.duplicates, p.exactCopy, p.allowed, p.proposal
+			pv.VersionProposal, pv.VersionIncomplete = p.versionProposal, p.versionIncomplete
 		}
 		plan.Videos = append(plan.Videos, pv)
 	}
@@ -484,45 +483,6 @@ func movesOfNamesFor(moves []domain.Move) []domain.Move {
 	for _, m := range moves {
 		if !strings.EqualFold(m.From, m.To) {
 			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// previewDuplicates returns what the preview shows of a video's duplicates: each one, whether they are an exact
-// copy (RF-24), the answers they accept, and the proposal. A title whose folder changes accepts no Omitir.
-func previewDuplicates(v *editVideo, folderChanged bool) ([]PlannedDuplicate, bool, []domain.Decision, domain.Decision) {
-	var out []PlannedDuplicate
-	for i, o := range v.occ {
-		d := PlannedDuplicate{Rel: o.Video.Rel, Size: o.Video.Size, Version: o.Video.Version}
-		if i < len(v.occLabelsOf()) {
-			d.VersionProposal = v.occLabelsOf()[i].Text
-			d.VersionNeeded = o.Video.Version == "" && v.occLabelsOf()[i].Incomplete
-		}
-		out = append(out, d)
-	}
-	allowed := allowedFor(v.dups.Exclusive || unknownVersion(v.occ))
-	if folderChanged {
-		allowed = withoutSkip(allowed)
-	}
-	var proposal domain.Decision
-	if v.dups.ExactCopy {
-		proposal = domain.DecisionSkip
-	}
-	return out, v.dups.ExactCopy, allowed, proposal
-}
-
-// occLabelsOf returns the labels the rule proposes for the versions of a video's place.
-func (v *editVideo) occLabelsOf() []domain.VersionLabel {
-	return v.occLabels
-}
-
-// withoutSkip returns the answers without Omitir.
-func withoutSkip(in []domain.Decision) []domain.Decision {
-	var out []domain.Decision
-	for _, d := range in {
-		if d != domain.DecisionSkip {
-			out = append(out, d)
 		}
 	}
 	return out
