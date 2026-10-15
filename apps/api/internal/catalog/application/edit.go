@@ -401,7 +401,7 @@ func (e *Edits) rootFor(kind domain.TitleKind) string {
 }
 
 // classifyTitles splits the registry's titles into the ones in the library and the ones whose files are all in
-// the trash (RF-30). A title with no files at all is in neither.
+// the trash (RF-30): those keep their registry for RF-31 and are not in the library (no listing, no search).
 func classifyTitles(ctx context.Context, repo LibraryRepository) (live, trashed []domain.LibraryTitle, err error) {
 	titles, err := repo.Titles(ctx)
 	if err != nil {
@@ -412,10 +412,9 @@ func classifyTitles(ctx context.Context, repo LibraryRepository) (live, trashed 
 		if err != nil {
 			return nil, nil, err
 		}
-		switch {
-		case anyLive(files):
+		if len(files) == 0 || anyLive(files) {
 			live = append(live, t)
-		case len(files) > 0:
+		} else {
 			trashed = append(trashed, t)
 		}
 	}

@@ -17,7 +17,7 @@ type TrashOrigin string
 const (
 	// TrashOriginUpload: the original of an archive that was extracted (RF-06).
 	TrashOriginUpload TrashOrigin = "upload"
-	// TrashOriginLibrary: a file of the library that a new file replaced (RF-24).
+	// TrashOriginLibrary: a file of the library that a new file replaced (RF-24), or that the user sent from its title (RF-44).
 	TrashOriginLibrary TrashOrigin = "library"
 	// TrashOriginSamba: a file or folder that Samba copied into _unassigned/ (RF-27). It has no batch.
 	TrashOriginSamba TrashOrigin = "samba"
@@ -34,7 +34,7 @@ const (
 	TrashReasonFiltered TrashReason = "filtered"
 	// TrashReasonReplaced: a new file took the place of this library file, which goes with its subtitles (RF-24).
 	TrashReasonReplaced TrashReason = "replaced"
-	// TrashReasonRemoved: the user sent it to the trash from No asignados (RF-27).
+	// TrashReasonRemoved: the user sent it to the trash from No asignados (RF-27) or from its title (RF-44).
 	TrashReasonRemoved TrashReason = "removed"
 )
 
@@ -93,7 +93,12 @@ func NewTrashEntryOf(origin TrashOrigin, reason TrashReason, dir string, from Pr
 	default:
 		return TrashEntry{}, fmt.Errorf("%w: reason %q", ErrInvalidTrash, reason)
 	}
-	if (origin == TrashOriginLibrary) != (reason == TrashReasonReplaced) {
+	// A library file goes to the trash when a new file replaces it (RF-24) or when the user sends it from the
+	// title (RF-44); only a library file can be replaced.
+	if origin == TrashOriginLibrary && reason != TrashReasonReplaced && reason != TrashReasonRemoved {
+		return TrashEntry{}, fmt.Errorf("%w: origin %q with reason %q", ErrInvalidTrash, origin, reason)
+	}
+	if origin != TrashOriginLibrary && reason == TrashReasonReplaced {
 		return TrashEntry{}, fmt.Errorf("%w: origin %q with reason %q", ErrInvalidTrash, origin, reason)
 	}
 	if !safeComponent(dir) {

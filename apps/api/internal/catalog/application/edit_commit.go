@@ -261,26 +261,34 @@ func (e *Edits) trashReplaced(b *Builder, ev *editEval) (*trashed, error) {
 	return &trashed{entry: entry, ids: ids}, nil
 }
 
-// removeEmptied removes the folders of the title that the moves leave empty (RF-44: "una carpeta que queda vacía
-// se quita"). A folder that receives a file, or that holds anything the edit does not move, stays. Only the
-// title's folder and its seasons are considered: the library's roots are never removed. The paths keep their
-// letter case: they are the paths on disk.
+// removeEmptied removes the folders the edit moved files out of and left empty (RNF-04).
 func (e *Edits) removeEmptied(b *Builder, ev *editEval) error {
-	movedOut := map[string]bool{}
-	keep := map[string]bool{}
-	var froms []string
+	var froms, targets []string
 	for _, m := range append(append([]domain.Move{}, ev.moves...), ev.renames...) {
 		if !strings.EqualFold(m.From, m.To) {
-			movedOut[strings.ToLower(m.From)] = true
 			froms = append(froms, m.From)
 		}
-		for k := range foldersOf(m.To) {
-			keep[k] = true
-		}
+		targets = append(targets, m.To)
 	}
 	for _, m := range ev.trash {
-		movedOut[strings.ToLower(m.From)] = true
 		froms = append(froms, m.From)
+	}
+	return e.removeEmptiedFolders(b, froms, targets)
+}
+
+// removeEmptiedFolders removes the folders that the files in froms left empty. A folder that receives one of
+// targets, or that holds anything the change does not move away, stays. The paths keep their letter case: they are
+// the paths on disk.
+func (e *Edits) removeEmptiedFolders(b *Builder, froms, targets []string) error {
+	movedOut := map[string]bool{}
+	keep := map[string]bool{}
+	for _, f := range froms {
+		movedOut[strings.ToLower(f)] = true
+	}
+	for _, t := range targets {
+		for k := range foldersOf(t) {
+			keep[k] = true
+		}
 	}
 	candidates := map[string]string{}
 	for _, from := range froms {

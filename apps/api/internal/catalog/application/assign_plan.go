@@ -248,7 +248,7 @@ func (a *Assignments) Plan(ctx context.Context, entryID int64, token string, req
 // reads TMDB for the titles and chapters that need it (spec §6). It reads the registry, not the disk.
 func (a *Assignments) prepare(ctx context.Context, entry domain.UnassignedEntry, req Request) (*prepared, error) {
 	p := &prepared{entry: entry, labels: map[string]string{}, labelUsed: map[string]bool{}}
-	titles, err := a.d.Library.Titles(ctx)
+	titles, trashed, err := classifyTitles(ctx, a.d.Library)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (a *Assignments) prepare(ctx context.Context, entry domain.UnassignedEntry,
 				vs.keep = true
 				continue
 			}
-			if err := a.resolveVideo(ctx, vs, titles); err != nil {
+			if err := a.resolveVideo(ctx, vs, titles, trashed); err != nil {
 				return nil, err
 			}
 		case a.isSubtitle(entryPath(entry, f.Rel)):
@@ -326,9 +326,9 @@ func (a *Assignments) prepare(ctx context.Context, entry domain.UnassignedEntry,
 
 // resolveVideo reads the title and the place of a video that is placed, and its chapter title (RF-22,
 // spec §5, §6). Problems become issues of the video.
-func (a *Assignments) resolveVideo(ctx context.Context, vs *videoState, titles []domain.LibraryTitle) error {
+func (a *Assignments) resolveVideo(ctx context.Context, vs *videoState, titles, trashed []domain.LibraryTitle) error {
 	c := vs.choice
-	t, field, code, err := a.resolveTitle(ctx, c.Title, titles)
+	t, field, code, err := a.resolveTitle(ctx, c.Title, titles, trashed)
 	if err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func (a *Assignments) resolveVideo(ctx context.Context, vs *videoState, titles [
 
 // resolveTitle returns the title that a choice names (RF-21). A problem is returned as a field and
 // a code; an error is a failure of the registry.
-func (a *Assignments) resolveTitle(ctx context.Context, c TitleChoice, titles []domain.LibraryTitle) (*target, string, string, error) {
+func (a *Assignments) resolveTitle(ctx context.Context, c TitleChoice, titles, trashed []domain.LibraryTitle) (*target, string, string, error) {
 	switch c.Source {
 	case "library":
 		for _, lt := range titles {
@@ -391,6 +391,9 @@ func (a *Assignments) resolveTitle(ctx context.Context, c TitleChoice, titles []
 		if libraryIDOf(titles, c.Kind, c.TMDBID) > 0 {
 			return nil, "title", "in_library", nil
 		}
+		if titleOfTMDB(trashed, c.Kind, c.TMDBID, 0) != nil {
+			return nil, "title", "in_trash", nil
+		}
 		tt, err := a.d.TMDB.Title(ctx, c.Kind, c.TMDBID)
 		switch {
 		case isNotFound(err):
@@ -399,7 +402,7 @@ func (a *Assignments) resolveTitle(ctx context.Context, c TitleChoice, titles []
 			return nil, "title", "tmdb_unavailable", nil
 		}
 		title := domain.Title{Name: tt.DiscTitle, Year: tt.Year, TMDBID: c.TMDBID, IDTag: domain.DefaultIDTag(c.TMDBID)}
-		return a.newTarget(c.Kind, title, tt.Title, titles)
+		return a.newTarget(c.Kind, title, tt.Title, titles, trashed)
 	case "free":
 		if c.Kind != domain.KindMovie && c.Kind != domain.KindSeries {
 			return nil, "title", "kind_invalid", nil
@@ -411,7 +414,7 @@ func (a *Assignments) resolveTitle(ctx context.Context, c TitleChoice, titles []
 		if c.Year < 0 || c.Year > 9999 {
 			return nil, "year", "invalid", nil
 		}
-		return a.newTarget(c.Kind, domain.Title{Name: name, Year: c.Year}, name, titles)
+		return a.newTarget(c.Kind, domain.Title{Name: name, Year: c.Year}, name, titles, trashed)
 	default:
 		return nil, "title", "source_invalid", nil
 	}
@@ -419,7 +422,7 @@ func (a *Assignments) resolveTitle(ctx context.Context, c TitleChoice, titles []
 
 // newTarget returns the target of a title the registry does not have yet: its folder must be free
 // in the registry (RF-21: a title already there is assigned, not created again).
-func (a *Assignments) newTarget(kind domain.TitleKind, title domain.Title, display string, titles []domain.LibraryTitle) (*target, string, string, error) {
+func (a *Assignments) newTarget(kind domain.TitleKind, title domain.Title, display string, titles, trashed []domain.LibraryTitle) (*target, string, string, error) {
 	root := a.rootFor(kind)
 	folder, err := domain.TitleFolder(root, title)
 	if err != nil {
@@ -428,6 +431,11 @@ func (a *Assignments) newTarget(kind domain.TitleKind, title domain.Title, displ
 	for _, lt := range titles {
 		if strings.EqualFold(lt.Folder, folder) {
 			return nil, "title", "in_library", nil
+		}
+	}
+	for _, lt := range trashed {
+		if strings.EqualFold(lt.Folder, folder) {
+			return nil, "title", "in_trash", nil
 		}
 	}
 	return &target{kind: kind, folder: folder, root: root, title: title, display: display, tmdbID: title.TMDBID, newTitle: true}, "", "", nil

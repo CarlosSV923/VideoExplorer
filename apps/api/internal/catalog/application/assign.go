@@ -199,7 +199,7 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 	if len(words) == 0 {
 		return SearchResult{}, ErrInvalidQuery
 	}
-	titles, err := a.d.Library.Titles(ctx)
+	titles, _, err := classifyTitles(ctx, a.d.Library)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -308,7 +308,7 @@ func (a *Assignments) Suggest(ctx context.Context, entryID int64, token string) 
 	if err := a.requireLock(entry, token); err != nil {
 		return Suggestions{}, err
 	}
-	titles, err := a.d.Library.Titles(ctx)
+	titles, _, err := classifyTitles(ctx, a.d.Library)
 	if err != nil {
 		return Suggestions{}, err
 	}

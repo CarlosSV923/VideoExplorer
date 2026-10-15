@@ -836,6 +836,63 @@ paths:
         '422':
           $ref: '#/components/responses/EditInvalid'
 
+  /library/titles/{id}/unassigned:
+    post:
+      tags: [library]
+      operationId: moveTitleToUnassigned
+      summary: Move a title, a season or a file to No asignados, with its subtitles (RF-44)
+      description: |
+        Moves what the scope names to No asignados as a new entry, with origin `samba` and relation `none`
+        (RF-44): a title keeps its folder's name, a season is named "<Título> (<Año>) Season NN", a video
+        with subtitles keeps its name without the extension as its folder, and a video without subtitles
+        is a loose file. The registry forgets what moved; a title with nothing left is removed. One change
+        of the library, undone as a whole on failure.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibraryScope'
+      responses:
+        '204':
+          description: The entry is in No asignados.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/trash:
+    post:
+      tags: [library]
+      operationId: trashTitleScope
+      summary: Send a title, a season or a file to the trash, with its subtitles (RF-44, RF-30)
+      description: |
+        Sends what the scope names to the trash, one trash entry per video with its subtitles, with origin
+        `library` and reason `removed`, so that restoring it puts it back in its place (RF-31). The rows stay
+        in the registry, marked as trashed; a title whose files are all in the trash leaves the library and
+        keeps its registry for restoring (RF-30).
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibraryScope'
+      responses:
+        '204':
+          description: The files are in the trash.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1559,6 +1616,28 @@ components:
           type: string
           pattern: '^[A-Za-z0-9_-]{1,128}\.(jpe?g|png)$'
           description: The poster's file for `GET /images/poster/{file}`; omitted when there is none.
+    LibraryScope:
+      type: object
+      description: |
+        What a move or a trash takes from a title (RF-44): the whole title (`title`), one season (`season`,
+        with its number; 0 holds the specials), or one video with its subtitles (`file`, with its `fileId`).
+        A movie's part or version is a file.
+      required: [kind]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [title, season, file]
+        season:
+          type: integer
+          minimum: 0
+          maximum: 999
+          description: Required for `season`.
+        fileId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 'Required for `file`: a video of the title, as the title page lists it.'
     EditProblem:
       description: RFC 9457 problem details of an edit, with the stable reason in `code`.
       allOf:

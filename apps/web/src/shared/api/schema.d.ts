@@ -634,6 +634,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/titles/{id}/unassigned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a title, a season or a file to No asignados, with its subtitles (RF-44)
+         * @description Moves what the scope names to No asignados as a new entry, with origin `samba` and relation `none`
+         *     (RF-44): a title keeps its folder's name, a season is named "<Título> (<Año>) Season NN", a video
+         *     with subtitles keeps its name without the extension as its folder, and a video without subtitles
+         *     is a loose file. The registry forgets what moved; a title with nothing left is removed. One change
+         *     of the library, undone as a whole on failure.
+         */
+        post: operations["moveTitleToUnassigned"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a title, a season or a file to the trash, with its subtitles (RF-44, RF-30)
+         * @description Sends what the scope names to the trash, one trash entry per video with its subtitles, with origin
+         *     `library` and reason `removed`, so that restoring it puts it back in its place (RF-31). The rows stay
+         *     in the registry, marked as trashed; a title whose files are all in the trash leaves the library and
+         *     keeps its registry for restoring (RF-30).
+         */
+        post: operations["trashTitleScope"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1034,6 +1081,22 @@ export interface components {
             year?: number;
             /** @description The poster's file for `GET /images/poster/{file}`; omitted when there is none. */
             posterFile?: string;
+        };
+        /**
+         * @description What a move or a trash takes from a title (RF-44): the whole title (`title`), one season (`season`,
+         *     with its number; 0 holds the specials), or one video with its subtitles (`file`, with its `fileId`).
+         *     A movie's part or version is a file.
+         */
+        LibraryScope: {
+            /** @enum {string} */
+            kind: "title" | "season" | "file";
+            /** @description Required for `season`. */
+            season?: number;
+            /**
+             * Format: int64
+             * @description Required for `file`: a video of the title, as the title page lists it.
+             */
+            fileId?: number;
         };
         /** @description RFC 9457 problem details of an edit, with the stable reason in `code`. */
         EditProblem: components["schemas"]["Problem"] & {
@@ -2232,6 +2295,62 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["EditConflict"];
             422: components["responses"]["EditInvalid"];
+        };
+    };
+    moveTitleToUnassigned: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryScope"];
+            };
+        };
+        responses: {
+            /** @description The entry is in No asignados. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    trashTitleScope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryScope"];
+            };
+        };
+        responses: {
+            /** @description The files are in the trash. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
 }
