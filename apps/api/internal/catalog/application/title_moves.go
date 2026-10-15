@@ -96,6 +96,10 @@ func (e *Edits) MoveToUnassigned(ctx context.Context, titleID int64, s Scope) er
 		if err != nil {
 			return err
 		}
+		// The section folder may not exist yet on a library that was never scanned into it (RNF-04: a move needs its folder).
+		if err := b.Mkdir(b.files.UnassignedPath()); err != nil {
+			return err
+		}
 		if !entry.Loose {
 			if err := b.Mkdir(b.files.UnassignedPath(entry.Name)); err != nil {
 				return err

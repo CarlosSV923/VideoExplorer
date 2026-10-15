@@ -1,6 +1,8 @@
 package sqlite_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -217,5 +219,24 @@ func TestTrashingATitleTakesItOutOfTheLibraryAndLinkingItToTMDBSaysInTrash(t *te
 	p := e.plan(freeID, req)
 	if p.Valid || len(p.Errors) != 1 || p.Errors[0].Code != "in_trash" {
 		t.Errorf("a TMDB title the trash holds is in_trash: valid=%v errors=%+v", p.Valid, p.Errors)
+	}
+}
+
+// TestMovingToUnassignedCreatesTheSectionFolderWhenItIsMissing covers a library that No asignados has never used:
+// its folder is created by the move, not assumed (RNF-04).
+func TestMovingToUnassignedCreatesTheSectionFolderWhenItIsMissing(t *testing.T) {
+	t.Parallel()
+	e := newEditEnv(t, nil)
+	if err := os.RemoveAll(filepath.Join(e.root, domain.UnassignedDir)); err != nil {
+		t.Fatal(err)
+	}
+	video := e.write("Movies/Iron Man (2008)/Iron Man (2008).mkv", "iron")
+	titleID := e.seedMovie(ironFolder, 0, false, e.video(domain.KindMovie, video, domain.Place{}, ""))
+	rows := e.rows(titleID)
+	if err := e.edits.MoveToUnassigned(e.ctx, titleID, application.Scope{Kind: application.ScopeFile, FileID: rows[video].ID}); err != nil {
+		t.Fatalf("MoveToUnassigned without the section folder: %v", err)
+	}
+	if !e.exists("_unassigned/Iron Man (2008).mkv") {
+		t.Error("the loose file is in the section folder, which the move created")
 	}
 }
