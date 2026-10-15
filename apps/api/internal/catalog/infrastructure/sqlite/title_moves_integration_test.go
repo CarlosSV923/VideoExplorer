@@ -240,3 +240,62 @@ func TestMovingToUnassignedCreatesTheSectionFolderWhenItIsMissing(t *testing.T) 
 		t.Error("the loose file is in the section folder, which the move created")
 	}
 }
+
+// TestTrashingASeasonSendsItsChaptersAndKeepsTheOthers sends one season to the trash: each of its chapters takes
+// its own trash entry, its folder is removed when it is empty, and the other season stays (RF-30, RF-44).
+func TestTrashingASeasonSendsItsChaptersAndKeepsTheOthers(t *testing.T) {
+	t.Parallel()
+	e := newEditEnv(t, nil)
+	s1 := e.write(lizzieFolder+"/Season 01/Lizzie (2008) - S01E01 - Pilot.mkv", "one")
+	s2 := e.write(lizzieFolder+"/Season 02/Lizzie (2008) - S02E01 - Return.mkv", "two")
+	titleID := recordTitle(t, e.conn, mustTitle(t, domain.KindSeries, "Lizzie", lizzieFolder, 0, false),
+		e.video(domain.KindSeries, s1, domain.Place{Episode: true, Season: 1, First: 1, Last: 1}, ""),
+		e.video(domain.KindSeries, s2, domain.Place{Episode: true, Season: 2, First: 1, Last: 1}, ""))
+
+	if err := e.edits.Trash(e.ctx, titleID, application.Scope{Kind: application.ScopeSeason, Season: 1}); err != nil {
+		t.Fatalf("Trash: %v", err)
+	}
+	if e.exists(s1) || e.exists(lizzieFolder+"/Season 01") || !e.exists(s2) {
+		t.Error("the season's folder is gone with its chapter; the other season stays")
+	}
+	if count, origin, reason := e.trashedEntries(); count != 1 || origin != string(domain.TrashOriginLibrary) || reason != string(domain.TrashReasonRemoved) {
+		t.Errorf("trash entries = %d %s %s", count, origin, reason)
+	}
+	if got := e.rows(titleID); got[s1].TrashEntryID == 0 || got[s2].TrashEntryID != 0 {
+		t.Errorf("the registry marks only the season's chapter: %+v", got)
+	}
+	if !e.inLibrary(titleID) {
+		t.Error("the title stays in the library with the other season")
+	}
+}
+
+// TestChangingTheKindMovesTheTitleToTheOtherRoot changes a free movie into a series of TMDB: the video takes the
+// season and chapter the form gives, and the folder moves from Movies/ to TV Shows/ (RF-44, "cambiar el tipo").
+func TestChangingTheKindMovesTheTitleToTheOtherRoot(t *testing.T) {
+	t.Parallel()
+	e := newEditEnv(t, nil)
+	video := e.write(ironFolder+"/Iron Man (2008).mkv", "iron")
+	titleID := e.seedMovie(ironFolder, 0, false, e.video(domain.KindMovie, video, domain.Place{}, ""))
+	season, chapter := 1, 1
+	req := application.EditRequest{
+		Title:  application.TitleChoice{Source: "tmdb", Kind: domain.KindSeries, TMDBID: 1396},
+		Videos: []application.EditVideo{{FileID: e.rows(titleID)[video].ID, Season: &season, Chapter: &chapter}},
+	}
+	p := e.plan(titleID, req)
+	if !p.Valid || p.Kind != domain.KindSeries || p.Folder != "TV Shows/Breaking Bad (2008) [tmdbid-1396]" {
+		t.Fatalf("plan: valid=%v kind=%s folder=%q errors=%+v", p.Valid, p.Kind, p.Folder, p.Errors)
+	}
+	e.commit(titleID, withRevision(req, p.Revision))
+
+	if e.exists(video) || e.exists(ironFolder) {
+		t.Error("the movie's folder is gone from Movies/")
+	}
+	seasonDir := filepath.Join(e.root, "TV Shows", "Breaking Bad (2008) [tmdbid-1396]", "Season 01")
+	entries, err := os.ReadDir(seasonDir)
+	if err != nil || len(entries) != 1 || entries[0].Name() != "Breaking Bad (2008) - S01E01 - Episode 1.mkv" {
+		t.Errorf("the chapter is in the series folder, named as §5 names a chapter: %v, %v", entries, err)
+	}
+	if title, ok := e.titleOf("TV Shows/Breaking Bad (2008) [tmdbid-1396]"); !ok || title.Kind != domain.KindSeries || !title.IDTag {
+		t.Errorf("the registry title is a linked series with its tag: %+v, %v", title, ok)
+	}
+}
