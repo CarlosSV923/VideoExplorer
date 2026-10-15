@@ -27,10 +27,12 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 	members := g.members
 	first := members[0]
 	dec := first.choice.Duplicate
+	// The answers of the parts must agree (RF-22). A disagreement is an issue of every part, but the duplicates are
+	// listed all the same, before the answer (RF-24), so the check comes after the search.
+	mismatch := false
 	for _, m := range members[1:] {
 		if m.choice.Duplicate != dec {
-			ev.addMembers(members, "duplicate", "mismatch", "")
-			return nil
+			mismatch = true
 		}
 	}
 	skip := ev.movers()
@@ -45,6 +47,9 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 		dups = ownCollisions(dups, members)
 	}
 	if len(dups.Files) == 0 {
+		if mismatch {
+			ev.addMembers(members, "duplicate", "mismatch", "")
+		}
 		return nil
 	}
 	for _, m := range members {
@@ -65,6 +70,11 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 			return err
 		}
 		first.occLabels = domain.ProposeVersions(occ, first.in)
+	}
+	if mismatch {
+		ev.markLabels(occ)
+		ev.addMembers(members, "duplicate", "mismatch", "")
+		return nil
 	}
 	if dec == "" {
 		ev.markLabels(occ)

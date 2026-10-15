@@ -638,6 +638,37 @@ func TestPartsAndTheWholeMovieAreExclusive(t *testing.T) {
 	}
 }
 
+// TestPartsWithDifferentAnswersStillListTheirDuplicates checks RF-22 and RF-24: parts whose answers disagree are a
+// mismatch of every part, and the preview lists the whole movie that holds their place with the answers it accepts.
+func TestPartsWithDifferentAnswersStillListTheirDuplicates(t *testing.T) {
+	t.Parallel()
+	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+	e.tmdbMovie(438631, "Dune", "Dune", 2021)
+	e.registerTitle(domain.LibraryTitle{
+		Kind: domain.KindMovie, Title: "Dune", DiscTitle: "Dune", Year: 2021, TMDBID: 438631, IDTag: true,
+		Folder: "Movies/Dune (2021) [tmdbid-438631]",
+	}, map[string]string{"Movies/Dune (2021) [tmdbid-438631]/Dune (2021) [tmdbid-438631].mkv": "whole"})
+	id := e.entry("Dune parts", domain.RelationParts, false, map[string]string{"Dune.cd1.mkv": "p1", "Dune.cd2.mkv": "p2"})
+	e.lockAs(id)
+	title := application.TitleChoice{Source: "library", LibraryID: 1}
+	req := application.Request{Videos: []application.VideoChoice{
+		{File: "Dune.cd1.mkv", Title: title, Part: 1, Duplicate: domain.DecisionReplace},
+		{File: "Dune.cd2.mkv", Title: title, Part: 2, Duplicate: domain.DecisionSkip},
+	}}
+	plan := planOf(t, e, id, req)
+	if plan.Valid || !hasIssue(plan.Errors, "Dune.cd1.mkv", "duplicate", "mismatch") || !hasIssue(plan.Errors, "Dune.cd2.mkv", "duplicate", "mismatch") {
+		t.Fatalf("the answers of the parts disagree: valid=%v errors=%+v", plan.Valid, plan.Errors)
+	}
+	for _, v := range plan.Videos {
+		if len(v.Duplicates) != 1 || v.Duplicates[0].Rel != "Movies/Dune (2021) [tmdbid-438631]/Dune (2021) [tmdbid-438631].mkv" {
+			t.Errorf("%s lists the whole movie: %+v", v.File, v.Duplicates)
+		}
+		if len(v.Allowed) != 2 || v.Allowed[0] != domain.DecisionReplace || v.Allowed[1] != domain.DecisionSkip {
+			t.Errorf("%s offers Replace or Skip: %v", v.File, v.Allowed)
+		}
+	}
+}
+
 func TestDuplicatesNeedADecisionAndAnExactCopyIsSkipped(t *testing.T) {
 	t.Parallel()
 	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })

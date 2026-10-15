@@ -160,3 +160,42 @@ func TestAnExactCopyWhoseFolderChangesOffersNoSkip(t *testing.T) {
 	}
 	e.assertNothingJournaled()
 }
+
+// TestPartsWithDifferentAnswersStillListTheWholeFile checks RF-22 and RF-24 in an edit: two videos that become parts of
+// a movie whose whole file is in the folder have answers that disagree, which is a mismatch of both, and the plan still
+// lists the whole file for each of them with the answers it accepts.
+func TestPartsWithDifferentAnswersStillListTheWholeFile(t *testing.T) {
+	t.Parallel()
+	e := newEditEnv(t, nil)
+	first := e.write(taggedIron+"/Iron Man (2008) [tmdbid-1726] - 1080p.mkv", "version one")
+	second := e.write(taggedIron+"/Iron Man (2008) [tmdbid-1726] - 720p.mkv", "version two")
+	whole := e.write(taggedIron+"/Iron Man (2008) [tmdbid-1726].mkv", "whole")
+	titleID := e.seedMovie(taggedIron, 1726, true,
+		e.video(domain.KindMovie, first, domain.Place{}, "1080p"),
+		e.video(domain.KindMovie, second, domain.Place{}, "720p"))
+	rows := e.rows(titleID)
+	req := movieChoices(rows, application.TitleChoice{Source: "library", LibraryID: titleID})
+	for i := range req.Videos {
+		switch req.Videos[i].FileID {
+		case rows[first].ID:
+			req.Videos[i].Part, req.Videos[i].Version, req.Videos[i].Duplicate = 1, "", domain.DecisionReplace
+		case rows[second].ID:
+			req.Videos[i].Part, req.Videos[i].Version, req.Videos[i].Duplicate = 2, "", domain.DecisionSkip
+		}
+	}
+
+	p := e.plan(titleID, req)
+	if p.Valid || !hasEditIssue(p.Errors, "duplicate", "mismatch") {
+		t.Fatalf("the answers of the parts disagree: valid=%v errors=%+v", p.Valid, p.Errors)
+	}
+	for _, rel := range []string{first, second} {
+		v := previewVideo(t, p, rel)
+		if got := dupPaths(v); !slices.Equal(got, []string{whole}) {
+			t.Errorf("%s lists the whole file: %v", rel, got)
+		}
+		if want := []domain.Decision{domain.DecisionReplace, domain.DecisionSkip}; !slices.Equal(v.Allowed, want) {
+			t.Errorf("%s offers %v, want %v", rel, v.Allowed, want)
+		}
+	}
+	e.assertNothingJournaled()
+}

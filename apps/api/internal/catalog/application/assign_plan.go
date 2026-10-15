@@ -562,12 +562,12 @@ func placementKey(vs *videoState) string {
 func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *placement, ev *evaluation) error {
 	first := g.videos[0]
 	decision := first.choice.Duplicate
+	// The answers of the parts must agree (RF-22). A disagreement is an issue of every part, but the duplicates are
+	// listed all the same, before the answer (RF-24), so the check comes after the search.
+	mismatch := false
 	for _, vs := range g.videos[1:] {
 		if vs.choice.Duplicate != decision {
-			for _, v := range g.videos {
-				v.addIssue(ev, "duplicate", "mismatch", "")
-			}
-			return nil
+			mismatch = true
 		}
 	}
 	subs := a.subtitlesOf(p, g)
@@ -581,6 +581,10 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 		vs.hasDups = len(dups.Files) > 0
 	}
 	if !first.hasDups {
+		if mismatch {
+			addMismatch(g, ev)
+			return nil
+		}
 		incomings := make([]domain.Incoming, 0, len(g.videos))
 		for _, vs := range g.videos {
 			incomings = append(incomings, vs.incoming)
@@ -613,6 +617,11 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 	if single {
 		labels := domain.ProposeVersions(occ, first.incoming)
 		first.occLabels = labels
+	}
+	if mismatch {
+		p.markLabels(occ)
+		addMismatch(g, ev)
+		return nil
 	}
 	if decision == "" {
 		p.markLabels(occ)
@@ -659,6 +668,13 @@ func (a *Assignments) assessPlacement(ctx context.Context, p *prepared, g *place
 	}
 	ev.places = append(ev.places, g)
 	return nil
+}
+
+// addMismatch records on every part of a placement that the parts were given different answers (RF-22).
+func addMismatch(g *placement, ev *evaluation) {
+	for _, v := range g.videos {
+		v.addIssue(ev, "duplicate", "mismatch", "")
+	}
 }
 
 // applyLabels gives each old version that needs one the label the user wrote for it (RF-24). An old
