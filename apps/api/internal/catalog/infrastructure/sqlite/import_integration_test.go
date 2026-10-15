@@ -391,3 +391,27 @@ func TestSubtitlesFollowTheirVideo(t *testing.T) {
 		t.Error("the subtitle with no video should be in No asignados")
 	}
 }
+
+// TestAnUnknownTagLeavesTheTitleFree: a folder whose id tag TMDB does not know is «Sin vincular», even when a
+// title with its name and year exists; it is not searched by name (RF-29).
+func TestAnUnknownTagLeavesTheTitleFree(t *testing.T) {
+	t.Parallel()
+	tmdb := &importTMDB{
+		configured: true,
+		search:     map[string][]application.TMDBTitle{"movie|Foo": {{ID: 77, Title: "Foo", Year: 2010}}},
+	}
+	fx := newImportFixture(t, tmdb)
+	fx.put(t, "Movies/Foo (2010) [tmdbid-999]/Foo (2010).mkv", []byte("foo"), fx.settled())
+	fx.scan(t)
+
+	titles, err := fx.library.Titles(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(titles) != 1 || titles[0].TMDBID != 0 || titles[0].IDTag || titles[0].Title != "Foo" {
+		t.Errorf("titles = %+v, want one free title «Sin vincular»", titles)
+	}
+	if !fx.exists("Movies/Foo (2010) [tmdbid-999]/Foo (2010).mkv") {
+		t.Error("the file was moved")
+	}
+}

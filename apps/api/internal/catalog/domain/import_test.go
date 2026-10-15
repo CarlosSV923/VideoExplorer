@@ -245,7 +245,7 @@ func TestPlanImportMovies(t *testing.T) {
 			},
 		},
 		{
-			name: "a tag TMDB does not know falls back to the one title that matches name and year",
+			name: "a tag TMDB does not know leaves the title free, even when name and year match",
 			input: func() domain.ImportInput {
 				in := baseInput(movieRoot, folderOf("Godzilla (2014) [tmdbid-1]", "Godzilla (2014).mkv"))
 				in.Lookups = map[string]domain.Lookup{"movies/godzilla (2014) [tmdbid-1]": {
@@ -255,8 +255,23 @@ func TestPlanImportMovies(t *testing.T) {
 			}(),
 			check: func(t *testing.T, p domain.ImportPlan) {
 				nt := newTitleOf(t, p)
-				if nt.Title.TMDBID != 99 || nt.Title.IDTag {
-					t.Errorf("title = %+v, want TMDB 99 with the tag off (the folder's tag is another id)", nt.Title)
+				if nt.Title.TMDBID != 0 || nt.Title.IDTag || nt.Title.Title != "Godzilla" {
+					t.Errorf("title = %+v, want «Sin vincular» (free)", nt.Title)
+				}
+			},
+		},
+		{
+			name: "an IMDb tag TMDB does not know leaves the title free",
+			input: func() domain.ImportInput {
+				in := baseInput(movieRoot, folderOf("Alien (1979) [imdbid-tt0000001]", "Alien (1979).mkv"))
+				in.Lookups = map[string]domain.Lookup{"movies/alien (1979) [imdbid-tt0000001]": {
+					Search: []domain.TMDBHit{{ID: 348, Title: "Alien", Year: 1979}},
+				}}
+				return in
+			}(),
+			check: func(t *testing.T, p domain.ImportPlan) {
+				if nt := newTitleOf(t, p); nt.Title.TMDBID != 0 {
+					t.Errorf("title = %+v, want «Sin vincular» (free)", nt.Title)
 				}
 			},
 		},

@@ -230,7 +230,10 @@ func (im *LibraryImport) lookupOf(ctx context.Context, w domain.Wanted) domain.L
 			im.d.Log.WarnContext(ctx, "TMDB could not find a folder's IMDb id", "folder", w.Folder, "error", err)
 		}
 	}
-	if look.ByID == nil && len(look.ByIMDb) == 0 && !look.Unavailable {
+	// A folder with an id tag is not searched by its name (RF-29): the tag decides, and a tag TMDB does not know
+	// leaves the title free.
+	tagged := w.TMDBID != 0 || w.IMDbID != ""
+	if look.ByID == nil && len(look.ByIMDb) == 0 && !look.Unavailable && !tagged {
 		hits, err := im.d.TMDB.SearchTitles(ctx, w.Kind, w.Title, w.Year)
 		switch {
 		case err == nil:

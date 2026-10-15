@@ -764,8 +764,9 @@ type link struct {
 }
 
 // linkOf chooses the TMDB title of a folder (RF-29): the folder's TMDB id, else the one title its IMDb id
-// links to, else the one title that TMDB finds with the folder's title and year. Any other answer leaves the
-// folder free.
+// links to. A folder with an id tag that TMDB does not know stays free («Sin vincular»): the tag states the
+// intention, so the title is not searched by its name. A folder with no tag is linked to the one title that
+// TMDB finds with the folder's title and year. Any other answer leaves the folder free.
 func linkOf(fn FolderName, look Lookup, has bool) link {
 	if !has || look.Unavailable {
 		return link{}
@@ -775,6 +776,9 @@ func linkOf(fn FolderName, look Lookup, has bool) link {
 	}
 	if len(look.ByIMDb) == 1 {
 		return link{tmdbID: look.ByIMDb[0].ID, title: look.ByIMDb[0].Title}
+	}
+	if fn.TMDBID != 0 || fn.IMDbID != "" {
+		return link{}
 	}
 	var found []TMDBHit
 	for _, h := range look.Search {
