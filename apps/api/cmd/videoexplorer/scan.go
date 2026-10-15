@@ -22,13 +22,17 @@ type scansWiring struct {
 	Handler *catalogshttp.ScanHandler
 }
 
-// newScans wires the scans over the section, the Samba arrivals of the ingestion and the store of the
-// times (RF-28). The library scan has no work until the import of RF-29 arrives: until then it only
-// records its time. ctx is the context the scans run under: its end stops them.
-func newScans(ctx context.Context, cfg config.Config, conn *sql.DB, catalog catalogWiring, ingest *ingestionapplication.Service, log *slog.Logger) (scansWiring, error) {
+// newScans wires the scans over the section, the Samba arrivals of the ingestion, the import of the library
+// (RF-29) and the store of the times (RF-28). ctx is the context the scans run under: its end stops them.
+func newScans(ctx context.Context, cfg config.Config, conn *sql.DB, catalog catalogWiring, meta metadataWiring, ingest *ingestionapplication.Service, log *slog.Logger) (scansWiring, error) {
+	imp, err := newLibraryImport(cfg, conn, catalog, meta, log)
+	if err != nil {
+		return scansWiring{}, err
+	}
 	scanner, err := catalogapplication.NewScanner(ctx, catalogapplication.ScanDeps{
 		Section:         catalog.Section,
 		Arrivals:        arrivalsOf{ingest: ingest},
+		Library:         imp,
 		Store:           catalogsqlite.NewScanRepository(conn),
 		UnassignedEvery: cfg.UnassignedScanInterval,
 		LibraryEvery:    cfg.LibraryScanInterval,

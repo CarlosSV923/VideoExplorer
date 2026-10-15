@@ -153,7 +153,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 	// The scans of the library (RF-28) run under their own context, so that they stop before the database closes.
 	scansCtx, cancelScans := context.WithCancel(ctx)
 	defer cancelScans()
-	scans, err := newScans(scansCtx, cfg, conn, catalog, ingest.Service, log)
+	scans, err := newScans(scansCtx, cfg, conn, catalog, meta, ingest.Service, log)
 	if err != nil {
 		return err
 	}

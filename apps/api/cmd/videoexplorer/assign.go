@@ -136,7 +136,7 @@ func (t tmdbOf) SearchTitles(ctx context.Context, kind catalogdomain.TitleKind, 
 		}
 		out := make([]catalogapplication.TMDBTitle, 0, len(hits))
 		for _, h := range hits {
-			out = append(out, catalogapplication.TMDBTitle{ID: h.ID, Title: h.Title, Year: intOf(h.Year), PosterFile: posterFile(h.PosterPath)})
+			out = append(out, catalogapplication.TMDBTitle{ID: h.ID, Title: h.Title, OriginalTitle: h.OriginalTitle, Year: intOf(h.Year), PosterFile: posterFile(h.PosterPath)})
 		}
 		return out, nil
 	}
@@ -146,7 +146,7 @@ func (t tmdbOf) SearchTitles(ctx context.Context, kind catalogdomain.TitleKind, 
 	}
 	out := make([]catalogapplication.TMDBTitle, 0, len(hits))
 	for _, h := range hits {
-		out = append(out, catalogapplication.TMDBTitle{ID: h.ID, Title: h.Title, Year: intOf(h.Year), PosterFile: posterFile(h.PosterPath)})
+		out = append(out, catalogapplication.TMDBTitle{ID: h.ID, Title: h.Title, OriginalTitle: h.OriginalTitle, Year: intOf(h.Year), PosterFile: posterFile(h.PosterPath)})
 	}
 	return out, nil
 }
@@ -159,7 +159,7 @@ func (t tmdbOf) Title(ctx context.Context, kind catalogdomain.TitleKind, id int6
 			return catalogapplication.TMDBTitle{}, tmdbErr(err)
 		}
 		return catalogapplication.TMDBTitle{
-			ID: s.ID, Title: s.Title, DiscTitle: metadatadomain.DiscTitle(s.OriginalTitle, s.EnglishTitle),
+			ID: s.ID, Title: s.Title, OriginalTitle: s.OriginalTitle, DiscTitle: metadatadomain.DiscTitle(s.OriginalTitle, s.EnglishTitle),
 			Year: intOf(s.Year), PosterFile: posterFile(s.Images.Poster),
 		}, nil
 	}
@@ -168,9 +168,28 @@ func (t tmdbOf) Title(ctx context.Context, kind catalogdomain.TitleKind, id int6
 		return catalogapplication.TMDBTitle{}, tmdbErr(err)
 	}
 	return catalogapplication.TMDBTitle{
-		ID: m.ID, Title: m.Title, DiscTitle: metadatadomain.DiscTitle(m.OriginalTitle, m.EnglishTitle),
+		ID: m.ID, Title: m.Title, OriginalTitle: m.OriginalTitle, DiscTitle: metadatadomain.DiscTitle(m.OriginalTitle, m.EnglishTitle),
 		Year: intOf(m.Year), PosterFile: posterFile(m.Images.Poster),
 	}, nil
+}
+
+// FindIMDb implements catalogapplication.ImportTMDB: the titles of one kind that TMDB links to an IMDb id (RF-29).
+func (t tmdbOf) FindIMDb(ctx context.Context, kind catalogdomain.TitleKind, imdbID string) ([]catalogapplication.TMDBTitle, error) {
+	found, err := t.svc.FindByIMDb(ctx, imdbID)
+	if err != nil {
+		return nil, tmdbErr(err)
+	}
+	var out []catalogapplication.TMDBTitle
+	if kind == catalogdomain.KindSeries {
+		for _, h := range found.Series {
+			out = append(out, catalogapplication.TMDBTitle{ID: h.ID, Title: h.Title, OriginalTitle: h.OriginalTitle, Year: intOf(h.Year), PosterFile: posterFile(h.PosterPath)})
+		}
+		return out, nil
+	}
+	for _, h := range found.Movies {
+		out = append(out, catalogapplication.TMDBTitle{ID: h.ID, Title: h.Title, OriginalTitle: h.OriginalTitle, Year: intOf(h.Year), PosterFile: posterFile(h.PosterPath)})
+	}
+	return out, nil
 }
 
 // Chapters implements catalogapplication.TMDB: the chapter title of spec §5 for the chapters of a file,
