@@ -45,8 +45,13 @@ func previewOfDuplicates(dups domain.Duplicates, occ []domain.Occupant, labels [
 	if folderChanged {
 		out.allowed = withoutSkip(out.allowed)
 	}
-	if dups.ExactCopy && slices.Contains(out.allowed, domain.DecisionSkip) {
-		out.proposal = domain.DecisionSkip
+	// An exact copy proposes Omitir; when Omitir is not offered (the title changes folder, RF-44) it proposes Replace,
+	// since the content is the same and the replaced file goes to the trash (RF-24).
+	if dups.ExactCopy {
+		out.proposal = domain.DecisionReplace
+		if slices.Contains(out.allowed, domain.DecisionSkip) {
+			out.proposal = domain.DecisionSkip
+		}
 	}
 	return out
 }

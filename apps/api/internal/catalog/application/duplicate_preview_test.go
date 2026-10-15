@@ -65,12 +65,13 @@ func TestPreviewOfDuplicates(t *testing.T) {
 			wantExact:    true,
 		},
 		{
-			name:          "an exact copy of a title whose folder changes proposes nothing: Omitir is not offered",
+			name:          "an exact copy of a title whose folder changes proposes Replace: Omitir is not offered",
 			dups:          previewDups(false, true, old),
 			occ:           []domain.Occupant{old},
 			folderChanged: true,
 			wantLen:       1,
 			wantAllowed:   []domain.Decision{domain.DecisionReplace, domain.DecisionKeepBoth},
+			wantProposal:  domain.DecisionReplace,
 			wantExact:     true,
 		},
 		{
@@ -87,6 +88,16 @@ func TestPreviewOfDuplicates(t *testing.T) {
 			folderChanged: true,
 			wantLen:       1,
 			wantAllowed:   []domain.Decision{domain.DecisionReplace},
+		},
+		{
+			name:          "an exact copy of parts whose folder changes proposes Replace, the only answer",
+			dups:          previewDups(true, true, old),
+			occ:           []domain.Occupant{old},
+			folderChanged: true,
+			wantLen:       1,
+			wantAllowed:   []domain.Decision{domain.DecisionReplace},
+			wantProposal:  domain.DecisionReplace,
+			wantExact:     true,
 		},
 		{
 			name:         "an exact copy of a part proposes Omitir, which it still allows",

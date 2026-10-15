@@ -11,9 +11,9 @@ import (
 // The preview of the ID tag action lists the duplicates of each file it moves, as an edit does (RF-24, RF-25, RF-45).
 // Taking the tag off renames the title's folder, so Omitir is never offered (RF-44).
 
-// TestTheTagPlanListsAnExactCopyAndProposesNoSkip checks that taking the tag off lists the copy that the new folder
-// already holds, with Replace and Keep both as the answers, and that no answer is proposed.
-func TestTheTagPlanListsAnExactCopyAndProposesNoSkip(t *testing.T) {
+// TestTheTagPlanListsAnExactCopyAndProposesReplace checks that taking the tag off lists the copy that the new folder
+// already holds, with Replace and Keep both as the answers, and proposes Replace (Omitir is not offered).
+func TestTheTagPlanListsAnExactCopyAndProposesReplace(t *testing.T) {
 	t.Parallel()
 	e := newEditEnv(t, nil)
 	whole := e.write(taggedIron+"/Iron Man (2008) [tmdbid-1726].mkv", "iron")
@@ -34,8 +34,8 @@ func TestTheTagPlanListsAnExactCopyAndProposesNoSkip(t *testing.T) {
 	if want := []domain.Decision{domain.DecisionReplace, domain.DecisionKeepBoth}; !slices.Equal(v.Allowed, want) {
 		t.Errorf("the answers = %v, want %v", v.Allowed, want)
 	}
-	if v.Proposal != "" {
-		t.Errorf("no answer is proposed when Omitir is not offered: %q", v.Proposal)
+	if v.Proposal != domain.DecisionReplace {
+		t.Errorf("Replace is proposed when Omitir is not offered: %q", v.Proposal)
 	}
 	e.assertNothingJournaled()
 }

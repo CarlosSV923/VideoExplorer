@@ -155,8 +155,8 @@ func TestAnExactCopyWhoseFolderChangesOffersNoSkip(t *testing.T) {
 	if want := []domain.Decision{domain.DecisionReplace, domain.DecisionKeepBoth}; !slices.Equal(v.Allowed, want) {
 		t.Errorf("the answers = %v, want %v (Omitir is not offered when the folder changes)", v.Allowed, want)
 	}
-	if v.Proposal != "" {
-		t.Errorf("no answer is proposed when Omitir is not offered: %q", v.Proposal)
+	if v.Proposal != domain.DecisionReplace {
+		t.Errorf("Replace is proposed when Omitir is not offered: %q", v.Proposal)
 	}
 	e.assertNothingJournaled()
 }
