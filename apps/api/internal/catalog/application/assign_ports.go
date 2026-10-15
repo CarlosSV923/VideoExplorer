@@ -49,6 +49,8 @@ type TMDB interface {
 type TMDBTitle struct {
 	ID    int64
 	Title string
+	// OriginalTitle is the title in its original language; empty when TMDB does not give it (RF-29 links by it).
+	OriginalTitle string
 	// DiscTitle is <T> of spec §5; empty in a search result.
 	DiscTitle string
 	// Year is <A>; 0 when unknown.

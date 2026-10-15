@@ -31,3 +31,18 @@ UPDATE library_files SET trash_entry_id = ? WHERE id = ?;
 -- name: ListLibraryTitles :many
 SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, updated_at
 FROM library_titles ORDER BY id;
+
+-- name: DeleteLibraryFile :exec
+DELETE FROM library_files WHERE id = ?;
+
+-- name: DeleteLibraryTitle :exec
+DELETE FROM library_titles WHERE id = ?;
+
+-- name: ListLibrarySeen :many
+SELECT rel, size, mtime_ms FROM library_seen ORDER BY rel;
+
+-- name: DeleteLibrarySeen :exec
+DELETE FROM library_seen;
+
+-- name: InsertLibrarySeen :exec
+INSERT INTO library_seen (rel, size, mtime_ms) VALUES (?, ?, ?);

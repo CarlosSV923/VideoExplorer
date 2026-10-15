@@ -17,8 +17,8 @@ type SectionReader interface {
 	Sync(ctx context.Context, arrivals Arrivals) ([]SectionEntry, error)
 }
 
-// LibraryScan scans Movies/ and TV Shows/ (RF-29). The import and the removals arrive with their phase;
-// until then the scan is not wired and only records its time.
+// LibraryScan scans Movies/ and TV Shows/ (RF-29): it registers what is recognized in place, moves what
+// cannot be read to No asignados and forgets what is gone (see LibraryImport).
 type LibraryScan interface {
 	Scan(ctx context.Context) error
 }

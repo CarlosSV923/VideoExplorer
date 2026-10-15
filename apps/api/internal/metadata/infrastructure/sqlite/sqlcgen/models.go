@@ -52,6 +52,12 @@ type LibraryOperation struct {
 	CreatedAt string
 }
 
+type LibrarySeen struct {
+	Rel     string
+	Size    int64
+	MtimeMs int64
+}
+
 type LibraryTitle struct {
 	ID        int64
 	Kind      string

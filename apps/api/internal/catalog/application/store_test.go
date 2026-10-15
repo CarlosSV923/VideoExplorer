@@ -26,6 +26,7 @@ type memStore struct {
 	titles      []domain.LibraryTitle
 	files       []domain.LibraryFile
 	removed     map[int64]bool
+	seen        []domain.SeenFile
 	failRecords bool
 }
 
@@ -497,6 +498,30 @@ func (m *memStore) live(id int64) *domain.UnassignedEntry {
 		return nil
 	}
 	return &m.entries[id-1]
+}
+
+// DeleteLibraryFile implements Records.
+func (m *memStore) DeleteLibraryFile(_ context.Context, id int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.files = slices.DeleteFunc(m.files, func(f domain.LibraryFile) bool { return f.ID == id })
+	return nil
+}
+
+// DeleteLibraryTitle implements Records.
+func (m *memStore) DeleteLibraryTitle(_ context.Context, id int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.titles = slices.DeleteFunc(m.titles, func(t domain.LibraryTitle) bool { return t.ID == id })
+	return nil
+}
+
+// ReplaceLibrarySeen implements Records.
+func (m *memStore) ReplaceLibrarySeen(_ context.Context, seen []domain.SeenFile) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.seen = append([]domain.SeenFile(nil), seen...)
+	return nil
 }
 
 // TrashLibraryFiles implements Records.

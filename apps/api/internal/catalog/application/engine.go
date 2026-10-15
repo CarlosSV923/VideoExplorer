@@ -119,6 +119,14 @@ type Records interface {
 	ReleaseAssignLock(ctx context.Context, entryID int64) error
 	// TrashLibraryFiles records that the files are in the trash entry entryID (RF-30).
 	TrashLibraryFiles(ctx context.Context, ids []int64, entryID int64) error
+	// DeleteLibraryFile forgets a file of the registry that is gone from the library (RF-29). A subtitle is
+	// deleted before its video.
+	DeleteLibraryFile(ctx context.Context, id int64) error
+	// DeleteLibraryTitle forgets a title of the registry that keeps no file, trashed ones included (RF-29).
+	DeleteLibraryTitle(ctx context.Context, id int64) error
+	// ReplaceLibrarySeen stores the readings of the files that the library scan waits for (RF-28, RF-29),
+	// in place of the ones the last scan stored.
+	ReplaceLibrarySeen(ctx context.Context, seen []domain.SeenFile) error
 }
 
 // Engine performs the changes of the library. Changes run one at a time: planning reads

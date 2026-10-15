@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"time"
 
@@ -64,7 +65,13 @@ type AsideRequest struct {
 	Loose    bool
 	BatchID  string
 	Relation string
-	Files    []AsideFile
+	// Origin is OriginUpload when it is empty. The library scan moves with OriginSamba, so that the
+	// archives it moves are extracted like the copies of Samba (RF-27a, RF-29).
+	Origin string
+	// Taken holds the names that other entries of the same change already have: they are not free
+	// (MoveInto plans several entries in one change). It may be nil.
+	Taken domain.NameSet
+	Files []AsideFile
 }
 
 // AsideFile is one file of a AsideRequest.
@@ -88,14 +95,8 @@ func (u *Unassigned) Put(ctx context.Context, r AsideRequest) (map[string]string
 	places := map[string]string{}
 	err := u.engine.Do(ctx, "unassigned.put", r.Source, func(b *Builder) error {
 		clear(places)
-		entry, found, err := u.repo.BySource(ctx, r.Source)
-		if err != nil {
-			return err
-		}
-		if found {
-			return u.addMissing(ctx, b, entry, r, places)
-		}
-		return u.record(ctx, b, r, places)
+		_, err := u.plan(ctx, b, r, places)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -103,29 +104,57 @@ func (u *Unassigned) Put(ctx context.Context, r AsideRequest) (map[string]string
 	return places, nil
 }
 
+// MoveInto plans the move of r into No asignados inside the change b, which the caller performs and
+// records (see Engine.Do): the library scan moves what it cannot read this way (RF-29). It returns the name
+// of the entry. Put is the same move as a change of its own.
+func (u *Unassigned) MoveInto(ctx context.Context, b *Builder, r AsideRequest) (string, error) {
+	if len(r.Files) == 0 {
+		return "", ErrNoFiles
+	}
+	return u.plan(ctx, b, r, map[string]string{})
+}
+
+// plan is the body of Put and MoveInto: it plans r inside b and returns the name of its entry.
+func (u *Unassigned) plan(ctx context.Context, b *Builder, r AsideRequest, places map[string]string) (string, error) {
+	entry, found, err := u.repo.BySource(ctx, r.Source)
+	if err != nil {
+		return "", err
+	}
+	if found {
+		return entry.Name, u.addMissing(ctx, b, entry, r, places)
+	}
+	return u.record(ctx, b, r, places)
+}
+
 // record plans a new entry: its name, the place of each file, and the moves that bring them
-// there. Its record is written when they are all done.
-func (u *Unassigned) record(ctx context.Context, b *Builder, r AsideRequest, places map[string]string) error {
+// there. Its record is written when they are all done. It returns the entry's name.
+func (u *Unassigned) record(ctx context.Context, b *Builder, r AsideRequest, places map[string]string) (string, error) {
 	names, err := u.takenNames(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
+	maps.Copy(names, r.Taken)
 	name := domain.FreeName(domain.FitName(domain.EntryNameFor(r.Name, r.Loose), r.Loose), r.Loose, names)
-	entry, err := domain.NewUnassignedEntry(r.Source, name, r.Loose, r.BatchID, r.Relation, u.now())
+	var entry domain.UnassignedEntry
+	if r.Origin == domain.OriginSamba {
+		entry, err = domain.NewImportedEntry(r.Source, name, r.Loose, u.now())
+	} else {
+		entry, err = domain.NewUnassignedEntry(r.Source, name, r.Loose, r.BatchID, r.Relation, u.now())
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	if r.Loose && len(r.Files) != 1 {
-		return fmt.Errorf("catalog: a loose entry holds one file, got %d", len(r.Files))
+		return "", fmt.Errorf("catalog: a loose entry holds one file, got %d", len(r.Files))
 	}
 	taken := domain.NameSet{}
 	for _, f := range r.Files {
 		file, err := u.planFile(f, taken, r.Loose)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if err := u.move(b, f.Source, entry, file, places); err != nil {
-			return err
+			return "", err
 		}
 		entry.Files = append(entry.Files, file)
 	}
@@ -137,7 +166,7 @@ func (u *Unassigned) record(ctx context.Context, b *Builder, r AsideRequest, pla
 		entry.ID = id
 		return nil
 	})
-	return nil
+	return entry.Name, nil
 }
 
 // addMissing plans the files of r that the entry does not have yet, each with a place free

@@ -10,6 +10,33 @@ import (
 	"database/sql"
 )
 
+const deleteLibraryFile = `-- name: DeleteLibraryFile :exec
+DELETE FROM library_files WHERE id = ?
+`
+
+func (q *Queries) DeleteLibraryFile(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryFile, id)
+	return err
+}
+
+const deleteLibrarySeen = `-- name: DeleteLibrarySeen :exec
+DELETE FROM library_seen
+`
+
+func (q *Queries) DeleteLibrarySeen(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteLibrarySeen)
+	return err
+}
+
+const deleteLibraryTitle = `-- name: DeleteLibraryTitle :exec
+DELETE FROM library_titles WHERE id = ?
+`
+
+func (q *Queries) DeleteLibraryTitle(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryTitle, id)
+	return err
+}
+
 const getLibraryTitleByFolder = `-- name: GetLibraryTitleByFolder :one
 SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, updated_at
 FROM library_titles WHERE folder = ?
@@ -78,6 +105,21 @@ func (q *Queries) InsertLibraryFile(ctx context.Context, arg InsertLibraryFilePa
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertLibrarySeen = `-- name: InsertLibrarySeen :exec
+INSERT INTO library_seen (rel, size, mtime_ms) VALUES (?, ?, ?)
+`
+
+type InsertLibrarySeenParams struct {
+	Rel     string
+	Size    int64
+	MtimeMs int64
+}
+
+func (q *Queries) InsertLibrarySeen(ctx context.Context, arg InsertLibrarySeenParams) error {
+	_, err := q.db.ExecContext(ctx, insertLibrarySeen, arg.Rel, arg.Size, arg.MtimeMs)
+	return err
 }
 
 const insertLibraryTitle = `-- name: InsertLibraryTitle :one
@@ -182,6 +224,33 @@ func (q *Queries) ListLibraryFiles(ctx context.Context, titleID int64) ([]ListLi
 			&i.TrashEntryID,
 			&i.CreatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibrarySeen = `-- name: ListLibrarySeen :many
+SELECT rel, size, mtime_ms FROM library_seen ORDER BY rel
+`
+
+func (q *Queries) ListLibrarySeen(ctx context.Context) ([]LibrarySeen, error) {
+	rows, err := q.db.QueryContext(ctx, listLibrarySeen)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LibrarySeen
+	for rows.Next() {
+		var i LibrarySeen
+		if err := rows.Scan(&i.Rel, &i.Size, &i.MtimeMs); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

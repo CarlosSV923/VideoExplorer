@@ -191,6 +191,37 @@ func (r records) TrashLibraryFiles(ctx context.Context, ids []int64, entryID int
 	return nil
 }
 
+// DeleteLibraryFile implements application.Records.
+func (r records) DeleteLibraryFile(ctx context.Context, id int64) error {
+	if err := r.q.DeleteLibraryFile(ctx, id); err != nil {
+		return fmt.Errorf("catalog: delete library file: %w", err)
+	}
+	return nil
+}
+
+// DeleteLibraryTitle implements application.Records.
+func (r records) DeleteLibraryTitle(ctx context.Context, id int64) error {
+	if err := r.q.DeleteLibraryTitle(ctx, id); err != nil {
+		return fmt.Errorf("catalog: delete library title: %w", err)
+	}
+	return nil
+}
+
+// ReplaceLibrarySeen implements application.Records: the waiting files of the last scan are replaced.
+func (r records) ReplaceLibrarySeen(ctx context.Context, seen []domain.SeenFile) error {
+	if err := r.q.DeleteLibrarySeen(ctx); err != nil {
+		return fmt.Errorf("catalog: clear waiting files: %w", err)
+	}
+	for _, f := range seen {
+		if err := r.q.InsertLibrarySeen(ctx, sqlcgen.InsertLibrarySeenParams{
+			Rel: f.Rel, Size: f.Stamp.Size, MtimeMs: f.Stamp.ModTime.UnixMilli(),
+		}); err != nil {
+			return fmt.Errorf("catalog: store waiting file: %w", err)
+		}
+	}
+	return nil
+}
+
 // nullInt stores a number that is absent when it is 0.
 func nullInt(n int64) sql.NullInt64 {
 	return sql.NullInt64{Int64: n, Valid: n != 0}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -47,6 +48,20 @@ func (r *LibraryRepository) TitleByFolder(ctx context.Context, folder string) (d
 		Year: int(row.Year), TMDBID: row.TmdbID.Int64, IDTag: row.IDTag != 0, Folder: row.Folder,
 		CreatedAt: created, UpdatedAt: updated,
 	}, true, nil
+}
+
+// Seen returns the readings the last library scan kept of the files it waits for (RF-28, RF-29), by path in
+// lower case.
+func (r *LibraryRepository) Seen(ctx context.Context) (map[string]domain.Stamp, error) {
+	rows, err := r.q.ListLibrarySeen(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: list waiting files: %w", err)
+	}
+	seen := make(map[string]domain.Stamp, len(rows))
+	for _, row := range rows {
+		seen[strings.ToLower(row.Rel)] = domain.Stamp{Size: row.Size, ModTime: time.UnixMilli(row.MtimeMs)}
+	}
+	return seen, nil
 }
 
 // Titles implements application.LibraryRepository: every title of the registry, oldest first.

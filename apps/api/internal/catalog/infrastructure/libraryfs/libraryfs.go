@@ -73,6 +73,32 @@ func (f *FS) Size(p string) (int64, error) {
 	return info.Size(), nil
 }
 
+// ReadHeader returns the first n bytes of the regular file at p inside the library, fewer when the file is
+// shorter (RF-27a: the archives are recognized by their first bytes). A link is never followed (RNF-02).
+func (f *FS) ReadHeader(p string, n int) ([]byte, error) {
+	if err := f.readable(p); err != nil {
+		return nil, err
+	}
+	info, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("libraryfs: %s is not a regular file", p)
+	}
+	file, err := os.Open(p) //nolint:gosec // p was checked by readable and is a regular file of the library
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+	buf := make([]byte, n)
+	m, err := io.ReadFull(file, buf)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return buf[:m], nil
+}
+
 // UnassignedPath implements application.Files.
 func (f *FS) UnassignedPath(elem ...string) string {
 	return filepath.Join(append([]string{f.root, domain.UnassignedDir}, elem...)...)
