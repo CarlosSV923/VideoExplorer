@@ -75,7 +75,7 @@ Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
 Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [ ] Editar/reasignar con vista previa y renombrado reversible
 - [ ] Etiqueta de ID `[tmdbid-]`: activa por defecto al asignar o vincular, quitar/poner desde la ficha (RF-45)
-- [ ] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días
+- [ ] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días; revisar `library_files.video_id ON DELETE CASCADE` (hoy borrar un video borra la fila de sus subtítulos aunque estén en la papelera)
 - [ ] Descargas: archivo con Range y zip *store* (de GameExplorer)
 - [ ] Info técnica (ffprobe)
 - [ ] «Actualizar datos» de TMDB desde la ficha (RF-44, §6)
