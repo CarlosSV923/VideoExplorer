@@ -418,14 +418,18 @@ func TestPlanImportMovies(t *testing.T) {
 			},
 		},
 		{
-			name: "a subtitle with no language or no video is not registered",
+			name: "a subtitle with no language is registered as es-419 with its video, and one with no video moves",
 			input: func() domain.ImportInput {
 				in := baseInput(movieRoot, folderOf("Foo (2010)", "Foo (2010).mkv", "Foo (2010).srt", "Other.es.srt"))
 				in.Read = readingsOf(map[string]domain.FileReading{"Other.es.srt": subtitle("es")})
 				return in
 			}(),
 			check: func(t *testing.T, p domain.ImportPlan) {
-				if got := movedFrom(p); !slices.Equal(got, []string{"Movies/Foo (2010)/Foo (2010).srt", "Movies/Foo (2010)/Other.es.srt"}) {
+				nt := newTitleOf(t, p)
+				if len(nt.Files) != 2 || nt.Files[1].Rel != "Movies/Foo (2010)/Foo (2010).srt" || nt.Files[1].Language != "es-419" || nt.Files[1].VideoRel != "Movies/Foo (2010)/Foo (2010).mkv" {
+					t.Errorf("files = %+v, want the subtitle as es-419 with its video, under its own name", nt.Files)
+				}
+				if got := movedFrom(p); !slices.Equal(got, []string{"Movies/Foo (2010)/Other.es.srt"}) {
 					t.Errorf("moved = %v", got)
 				}
 			},

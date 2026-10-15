@@ -415,3 +415,46 @@ func TestAnUnknownTagLeavesTheTitleFree(t *testing.T) {
 		t.Error("the file was moved")
 	}
 }
+
+// TestASubtitleWithNoLanguageIsRegisteredAsLatinSpanish: a subtitle whose name gives no language is registered
+// with its video as es-419, and it keeps its name on the disk (RF-29, RF-23).
+func TestASubtitleWithNoLanguageIsRegisteredAsLatinSpanish(t *testing.T) {
+	t.Parallel()
+	fx := newImportFixture(t, &importTMDB{configured: false})
+	fx.put(t, "Movies/Foo (2010)/Foo (2010).mkv", []byte("foo"), fx.settled())
+	fx.put(t, "Movies/Foo (2010)/Foo (2010).srt", []byte("sub"), fx.settled())
+	fx.scan(t)
+
+	rows, err := fx.library.Files(t.Context(), mustTitleID(t, fx, "Movies/Foo (2010)"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sub *domain.LibraryFile
+	for i := range rows {
+		if rows[i].Kind == domain.FileSubtitle {
+			sub = &rows[i]
+		}
+	}
+	if sub == nil || sub.Language != "es-419" || sub.Rel != "Movies/Foo (2010)/Foo (2010).srt" {
+		t.Fatalf("subtitle row = %+v, want es-419 under its own name", sub)
+	}
+	if !fx.exists("Movies/Foo (2010)/Foo (2010).srt") {
+		t.Error("the subtitle was renamed or moved")
+	}
+}
+
+// mustTitleID returns the id of the title in a folder of the registry.
+func mustTitleID(t *testing.T, fx *importFixture, folder string) int64 {
+	t.Helper()
+	titles, err := fx.library.Titles(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, title := range titles {
+		if title.Folder == folder {
+			return title.ID
+		}
+	}
+	t.Fatalf("no title in %s", folder)
+	return 0
+}

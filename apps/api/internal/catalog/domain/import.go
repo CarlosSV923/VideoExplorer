@@ -647,9 +647,21 @@ func overlaps(a, b Place) bool {
 	return a.Season == b.Season && a.First <= b.Last && b.First <= a.Last
 }
 
+// ImportedSubtitleLanguage is the language of a subtitle whose name gives none: the usual language of the
+// library (RF-23, decision 2026-10-14). The user may change it later.
+const ImportedSubtitleLanguage = "es-419"
+
+// subtitleLanguageOf returns the language a subtitle is registered with (RF-29).
+func subtitleLanguageOf(r FileReading) string {
+	if r.Language == "" {
+		return ImportedSubtitleLanguage
+	}
+	return r.Language
+}
+
 // assignSubtitles pairs each subtitle with the video whose name its own name starts with (the longest one,
-// RF-23, RF-29): an accepted video of this change, or a video the registry holds. A subtitle with no language
-// or no video is not registered.
+// RF-23, RF-29): an accepted video of this change, or a video the registry holds. A subtitle with no video is
+// not registered; one with no language in its name is registered as ImportedSubtitleLanguage (RF-29).
 func assignSubtitles(subs, accepted []*candidate, rows []LibraryFile) {
 	type parent struct {
 		stem string
@@ -666,13 +678,10 @@ func assignSubtitles(subs, accepted []*candidate, rows []LibraryFile) {
 	}
 	for _, s := range subs {
 		s.ok = false
-		if s.read.Language == "" {
-			continue
-		}
 		name := strings.ToLower(fileStem(s.rel))
 		best := -1
 		for i, pa := range parents {
-			if strings.HasPrefix(name, pa.stem+".") && (best < 0 || len(pa.stem) > len(parents[best].stem)) {
+			if (name == pa.stem || strings.HasPrefix(name, pa.stem+".")) && (best < 0 || len(pa.stem) > len(parents[best].stem)) {
 				best = i
 			}
 		}
@@ -727,7 +736,7 @@ func (p *importPlanner) appendSubtitles(files []LibraryFile, videoLib string, su
 			continue
 		}
 		sf, err := NewSubtitle(SubtitleSpec{
-			Rel: s.lib, VideoRel: videoLib, Language: s.read.Language, Forced: s.read.Forced, SDH: s.read.SDH, Size: s.size,
+			Rel: s.lib, VideoRel: videoLib, Language: subtitleLanguageOf(s.read), Forced: s.read.Forced, SDH: s.read.SDH, Size: s.size,
 		}, p.in.Now)
 		if err == nil {
 			files = append(files, sf)
