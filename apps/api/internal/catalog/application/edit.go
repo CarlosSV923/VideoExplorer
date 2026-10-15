@@ -218,7 +218,7 @@ func (e *Edits) Plan(ctx context.Context, titleID int64, req EditRequest) (EditP
 	if err != nil {
 		return EditPlan{}, err
 	}
-	ev, err := e.assess(ctx, st, req)
+	ev, err := e.assess(ctx, st, req, nil)
 	if err != nil {
 		return EditPlan{}, err
 	}
@@ -240,9 +240,11 @@ type editTitle struct {
 }
 
 // assess checks a request against the title as it is and decides every placement (RF-22 to RF-24, RF-44).
+// idTag is the tag the ID tag action wants (RF-45), nil for an edit that keeps the tag as it is.
 // It changes nothing: the commit runs the same assessment under the engine's lock.
-func (e *Edits) assess(ctx context.Context, st editState, req EditRequest) (*editEval, error) {
+func (e *Edits) assess(ctx context.Context, st editState, req EditRequest, idTag *bool) (*editEval, error) {
 	ev := newEditEval(st)
+	ev.idTag = idTag
 	ev.labels = map[string]string{}
 	for _, l := range req.Labels {
 		ev.labelRels = append(ev.labelRels, l.Rel)
@@ -281,7 +283,7 @@ func (e *Edits) resolveTitle(ctx context.Context, st editState, c TitleChoice, e
 				continue
 			}
 			if lt.ID == cur.ID {
-				return e.keep(cur), nil
+				return e.keepTitle(st, ev)
 			}
 			return e.into(lt), nil
 		}
@@ -362,6 +364,25 @@ func (e *Edits) named(st editState, kind domain.TitleKind, t domain.Title, displ
 		}
 	}
 	return out, nil
+}
+
+// keepTitle is the title the edit keeps. Without the ID tag action it is the title as it is. With it (RF-45) the
+// title takes the tag or loses it, so its folder changes: the title of that name (named), which joins another title
+// that already holds the folder, as an edit does. A free title has no tag, so the action is refused.
+func (e *Edits) keepTitle(st editState, ev *editEval) (*editTitle, error) {
+	cur := st.title
+	if ev.idTag == nil {
+		return e.keep(cur), nil
+	}
+	if cur.TMDBID == 0 {
+		ev.addTitleIssue("free_title")
+		return nil, nil
+	}
+	if *ev.idTag == cur.IDTag {
+		return e.keep(cur), nil
+	}
+	t := domain.Title{Name: cur.DiscTitle, Year: cur.Year, TMDBID: cur.TMDBID, IDTag: *ev.idTag}
+	return e.named(st, cur.Kind, t, cur.Title, ev)
 }
 
 // keep is the title as it is: the identity of the title the edit started from.

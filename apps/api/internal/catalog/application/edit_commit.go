@@ -15,16 +15,24 @@ import (
 // the files move in two passes, so that a file never takes the place of another that has not moved yet. The
 // trash, the renamed versions and the registry change in the same commit; a failure undoes all of it.
 func (e *Edits) Commit(ctx context.Context, titleID int64, req EditRequest) (EditResult, error) {
+	return e.commitWith(ctx, titleID, req.Revision, "edit", func(st editState) (*editEval, error) {
+		return e.assess(ctx, st, req, nil)
+	})
+}
+
+// commitWith runs one change of a title as a journaled operation (RNF-04): the title must still have the revision the
+// plan was made from, the change is assessed again under the engine's lock, and a valid one is recorded.
+func (e *Edits) commitWith(ctx context.Context, titleID int64, revision, kind string, assessFn func(editState) (*editEval, error)) (EditResult, error) {
 	var res EditResult
-	err := e.d.Engine.Do(ctx, "edit", fmt.Sprintf("title:%d", titleID), func(b *Builder) error {
+	err := e.d.Engine.Do(ctx, kind, fmt.Sprintf("title:%d", titleID), func(b *Builder) error {
 		st, err := e.load(ctx, titleID)
 		if err != nil {
 			return err
 		}
-		if st.revision != req.Revision {
+		if st.revision != revision {
 			return ErrPlanChanged
 		}
-		ev, err := e.assess(ctx, st, req)
+		ev, err := assessFn(st)
 		if err != nil {
 			return err
 		}

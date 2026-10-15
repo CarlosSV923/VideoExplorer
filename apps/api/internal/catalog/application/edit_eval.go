@@ -11,8 +11,10 @@ import (
 // editEval is what an assessment of an edit decided: the title it ends in, every file with its choice and its
 // place, the duplicates and the decisions of its placements, and the preview built from them.
 type editEval struct {
-	st        editState
-	id        *editTitle
+	st editState
+	id *editTitle
+	// idTag is the tag the ID tag action wants (RF-45); nil for an edit, which keeps the tag as it is.
+	idTag     *bool
 	videos    []*editVideo
 	subs      []*editSub
 	groups    []*editGroup
@@ -241,6 +243,10 @@ func (e *Edits) placeFiles(ctx context.Context, ev *editEval) error {
 			}
 			v.version = clean
 		}
+		if ev.keepsNames() {
+			v.chapter = domain.ChapterTitleFromName(v.file.Rel, place.Season, place.First, place.Last, "")
+			continue
+		}
 		if err := e.chapterOf(ctx, id, v, ev); err != nil {
 			return err
 		}
@@ -261,6 +267,14 @@ func (e *Edits) placeFiles(ctx context.Context, ev *editEval) error {
 			continue
 		}
 		v.in = e.incomingOf(id, v)
+		if ev.keepsNames() {
+			moves, err := ev.folderMoves(v)
+			if err != nil {
+				return err
+			}
+			v.moves = moves
+			continue
+		}
 		moves, err := domain.PlacementMoves(v.in, v.version)
 		if err != nil {
 			ne, ok := errorsAsName(err)
