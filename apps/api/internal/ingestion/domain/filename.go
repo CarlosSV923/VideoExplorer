@@ -495,8 +495,17 @@ func sameTitle(a, b string) bool {
 
 var titleSeparators = strings.NewReplacer(".", " ", "_", " ")
 
+// normalizeTitle is the form in which two titles are compared (RF-20): case, dots, underscores and spaces do
+// not count, and a dash that stands alone between spaces does not either. Only the comparison ignores it:
+// the title itself keeps the dash.
 func normalizeTitle(title string) string {
-	return strings.Join(strings.Fields(titleSeparators.Replace(strings.ToLower(title))), " ")
+	var words []string
+	for _, w := range strings.Fields(titleSeparators.Replace(strings.ToLower(title))) {
+		if w != "-" {
+			words = append(words, w)
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 // idTagsOf returns the TMDB id and the IMDb id that a file carries in its tags (RF-29): from its own name

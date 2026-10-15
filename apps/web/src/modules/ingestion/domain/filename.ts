@@ -563,12 +563,17 @@ function sameTitle(a: string, b: string): boolean {
   return normalizeTitle(a) === normalizeTitle(b)
 }
 
+/**
+ * The form in which two titles are compared (RF-20): case, dots, underscores and spaces do not count,
+ * and a dash that stands alone between spaces does not either. Only the comparison ignores it: the
+ * title itself keeps the dash.
+ */
 function normalizeTitle(title: string): string {
   return title
     .toLowerCase()
     .replace(/[._]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w !== '')
+    .filter((w) => w !== '' && w !== '-')
     .join(' ')
 }
 

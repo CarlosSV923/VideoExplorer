@@ -298,6 +298,42 @@
         "name": "a Jellyfin TMDB tag ends the title as a bracket group does",
         "input": { "path": "Iron.Man.2008.[tmdbid-1726].mkv", "kind": "video" },
         "expected": { "type": "movie", "title": "Iron Man", "year": 2008, "tmdbId": 1726 }
+      },
+      {
+        "name": "a spaced dash inside a movie title stays in the title",
+        "input": { "path": "Mission - Impossible (1996).mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Mission - Impossible", "year": 1996 }
+      },
+      {
+        "name": "several spaced dashes inside a movie title stay in the title",
+        "input": {
+          "path": "Mission - Impossible - Fallout (2018) [tmdbid-353081].mkv",
+          "kind": "video"
+        },
+        "expected": {
+          "type": "movie",
+          "title": "Mission - Impossible - Fallout",
+          "year": 2018,
+          "tmdbId": 353081
+        }
+      },
+      {
+        "name": "a scene name with dots and no dashes keeps its words, dots become spaces",
+        "input": { "path": "Mission.Impossible.Fallout.2018.1080p.mkv", "kind": "video" },
+        "expected": { "type": "movie", "title": "Mission Impossible Fallout", "year": 2018 }
+      },
+      {
+        "name": "a series file name with a spaced dash keeps it in the title before the marker",
+        "input": {
+          "path": "Monstruo - La historia de Lizzie Borden - S01E01.mkv",
+          "kind": "video"
+        },
+        "expected": {
+          "type": "episode",
+          "title": "Monstruo - La historia de Lizzie Borden",
+          "season": 1,
+          "chapter": 1
+        }
       }
     ]
   },
@@ -458,12 +494,24 @@
         "expected": { "type": "movie", "title": "Iron Man", "year": 2008, "tmdbId": 1726 }
       },
       {
+        "name": "a dotted file name takes the year of a folder whose title has a spaced dash",
+        "input": {
+          "path": "Monstruo - La historia de Lizzie Borden (2026)/Monstruo.La.historia.de.Lizzie.Borden.mkv",
+          "kind": "video"
+        },
+        "expected": {
+          "type": "movie",
+          "title": "Monstruo La historia de Lizzie Borden",
+          "year": 2026
+        }
+      },
+      {
         "name": "a movie folder with no tag gives no id",
         "input": { "path": "Godzilla (2014)/Godzilla (2014).mp4", "kind": "video" },
         "expected": { "type": "movie", "title": "Godzilla", "year": 2014 }
       },
       {
-        "name": "a scene name of a chapter with a year and a release group after the marker gives season and chapter, with no id",
+        "name": "a scene name of a chapter gives season and chapter, takes the folder's year (its title has a spaced dash), and has no id",
         "input": {
           "path": "Monstruo - La historia de Lizzie Borden (2026)/Season 01/Monstruo.La.historia.de.Lizzie.Borden.S01E07.2026.1080P-Dual-Lat.mkv",
           "kind": "video"
@@ -471,6 +519,7 @@
         "expected": {
           "type": "episode",
           "title": "Monstruo La historia de Lizzie Borden",
+          "year": 2026,
           "season": 1,
           "chapter": 7
         }
