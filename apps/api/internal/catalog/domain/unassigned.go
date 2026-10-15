@@ -81,6 +81,21 @@ func NewSambaEntry(name string, loose bool, now time.Time) (UnassignedEntry, err
 	}, nil
 }
 
+// NewImportedEntry checks the values of an entry that the scan of the library moved into _unassigned/ (RF-29).
+// It has no batch and no relation, and its origin is samba: its archives are extracted like the copies of
+// Samba (RF-27a), since nothing in the app extracted them before.
+func NewImportedEntry(source, name string, loose bool, now time.Time) (UnassignedEntry, error) {
+	if source == "" {
+		return UnassignedEntry{}, fmt.Errorf("%w: empty source", ErrInvalidEntry)
+	}
+	if !safeComponent(name) || len(name) > MaxNameBytes {
+		return UnassignedEntry{}, fmt.Errorf("%w: name %q", ErrInvalidEntry, name)
+	}
+	return UnassignedEntry{
+		Source: source, Name: name, Loose: loose, Relation: RelationNone, Origin: OriginSamba, CreatedAt: now,
+	}, nil
+}
+
 // NewUnassignedEntry checks the values of a new entry, which has no files yet.
 func NewUnassignedEntry(source, name string, loose bool, batchID, relation string, now time.Time) (UnassignedEntry, error) {
 	if source == "" {
