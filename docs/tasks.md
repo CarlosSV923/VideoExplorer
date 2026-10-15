@@ -74,7 +74,8 @@ Depende de: 5 · Cubre: RF-27 a RF-29, §9.4
 ## Fase 7 — Edición, papelera, etiquetas de ID y descargas
 Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [x] Editar/reasignar con vista previa y renombrado reversible (RF-44): plan/commit por el motor, cambiar coincidencia de TMDB o título libre (incluido Vincular), tipo, temporada/capítulo, etiqueta de versión, parte e idioma de subtítulo; Mover a No asignados y Mandar a la papelera desde la ficha; endpoints de lectura de títulos y archivos que necesite la ficha
-- [~] Etiqueta de ID `[tmdbid-]`: activa por defecto al asignar o vincular, quitar/poner desde la ficha (RF-45); previo: arreglar el test intermitente `TestProbeGivesUpAfterItsTimeout` (`ingestion/infrastructure/ffprobe`, «text file busy» al ejecutar el ffprobe falso escrito por el test)
+- [x] Etiqueta de ID `[tmdbid-]`: activa por defecto al asignar o vincular, quitar/poner desde la ficha (RF-45); previo: arreglar el test intermitente `TestProbeGivesUpAfterItsTimeout` (`ingestion/infrastructure/ffprobe`, «text file busy» al ejecutar el ffprobe falso escrito por el test)
+- [ ] Vista previa de edición y de etiqueta: listar los duplicados detectados con su propuesta antes de que el usuario decida (como Asignar); hoy solo aparecen tras responder
 - [ ] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días; revisar `library_files.video_id ON DELETE CASCADE` (hoy borrar un video borra la fila de sus subtítulos aunque estén en la papelera); la importación debe ignorar los títulos que están solo en la papelera (hoy `Library.Titles` los devuelve)
 - [ ] Descargas: archivo con Range y zip *store* (de GameExplorer)
 - [ ] Info técnica (ffprobe)
