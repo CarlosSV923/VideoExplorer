@@ -814,6 +814,33 @@ type Health struct {
 // process keeps running and the UI explains the problem (RF-63).
 type HealthStatus string
 
+// IDTagRequest The ID tag action of a title (RF-45): the tag the title takes, checked against the revision of its plan. The answers to the duplicates (RF-24) and the labels of the versions go with it, as in an edit; a video that is not listed keeps its choices.
+type IDTagRequest struct {
+	// IdTag `true` puts the tag [tmdbid-ID] on the title (its folder, and the files of a movie); `false` takes it off.
+	IdTag bool `json:"idTag"`
+
+	// Labels The labels written for the old versions that need one (RF-24), as the plan names them.
+	Labels *[]AssignLabel `json:"labels,omitempty"`
+
+	// Revision The revision of the title that the plan answered (RF-25). A commit with another one is `plan_changed`.
+	Revision string        `json:"revision"`
+	Videos   *[]IDTagVideo `json:"videos,omitempty"`
+}
+
+// IDTagVideo The answer of the form to a video of the title in the ID tag action (RF-24): its label as a version, and its answer to a duplicate of its place. The place and the names of the file are not chosen here.
+type IDTagVideo struct {
+	// Duplicate The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Duplicate *DuplicateDecision `json:"duplicate,omitempty"`
+
+	// FileId The video of the title, as the title page lists it (`GET /library/titles/{id}`).
+	FileId int64 `json:"fileId"`
+
+	// Version The label of the version (RF-24). Empty keeps the label the video has.
+	Version *string `json:"version,omitempty"`
+}
+
 // ImageKind Kind of title image. Each kind has the TMDB size of spec §6: poster w500,
 // backdrop w1280, logo w500, still w300.
 type ImageKind string
@@ -1424,6 +1451,12 @@ type CommitTitleEditJSONRequestBody = EditRequest
 // PlanTitleEditJSONRequestBody defines body for PlanTitleEdit for application/json ContentType.
 type PlanTitleEditJSONRequestBody = EditRequest
 
+// CommitTitleIDTagJSONRequestBody defines body for CommitTitleIDTag for application/json ContentType.
+type CommitTitleIDTagJSONRequestBody = IDTagRequest
+
+// PlanTitleIDTagJSONRequestBody defines body for PlanTitleIDTag for application/json ContentType.
+type PlanTitleIDTagJSONRequestBody = IDTagRequest
+
 // TrashTitleScopeJSONRequestBody defines body for TrashTitleScope for application/json ContentType.
 type TrashTitleScopeJSONRequestBody = LibraryScope
 
@@ -1489,6 +1522,12 @@ type ServerInterface interface {
 	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
 	// (POST /library/titles/{id}/edit/plan)
 	PlanTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId)
+	// CommitTitleIDTag Store the ID tag action of a title as one change of the library (RF-45)
+	// (POST /library/titles/{id}/id-tag/commit)
+	CommitTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId)
+	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
+	// (POST /library/titles/{id}/id-tag/plan)
+	PlanTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId)
 	// TrashTitleScope Send a title, a season or a file to the trash, with its subtitles (RF-44, RF-30)
 	// (POST /library/titles/{id}/trash)
 	TrashTitleScope(w http.ResponseWriter, r *http.Request, id TitleId)
@@ -1839,6 +1878,58 @@ func (siw *ServerInterfaceWrapper) PlanTitleEdit(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PlanTitleEdit(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CommitTitleIDTag operation middleware
+func (siw *ServerInterfaceWrapper) CommitTitleIDTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CommitTitleIDTag(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlanTitleIDTag operation middleware
+func (siw *ServerInterfaceWrapper) PlanTitleIDTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlanTitleIDTag(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2490,6 +2581,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/plan", wrapper.PlanTitleEdit)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/commit", wrapper.CommitTitleEdit)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/id-tag/plan", wrapper.PlanTitleIDTag)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/id-tag/commit", wrapper.CommitTitleIDTag)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/unassigned", wrapper.MoveTitleToUnassigned)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/trash", wrapper.TrashTitleScope)
 
@@ -3442,6 +3535,178 @@ type PlanTitleEdit404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PlanTitleEdit404ApplicationProblemPlusJSONResponse) VisitPlanTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleIDTagRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *CommitTitleIDTagJSONRequestBody
+}
+
+type CommitTitleIDTagResponseObject interface {
+	VisitCommitTitleIDTagResponse(w http.ResponseWriter) error
+}
+
+type CommitTitleIDTag200JSONResponse EditResult
+
+func (response CommitTitleIDTag200JSONResponse) VisitCommitTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleIDTag400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleIDTag400ApplicationProblemPlusJSONResponse) VisitCommitTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleIDTag401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleIDTag401ApplicationProblemPlusJSONResponse) VisitCommitTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleIDTag404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleIDTag404ApplicationProblemPlusJSONResponse) VisitCommitTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleIDTag409ApplicationProblemPlusJSONResponse struct {
+	EditConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleIDTag409ApplicationProblemPlusJSONResponse) VisitCommitTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleIDTag422JSONResponse struct{ EditInvalidJSONResponse }
+
+func (response CommitTitleIDTag422JSONResponse) VisitCommitTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleIDTagRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *PlanTitleIDTagJSONRequestBody
+}
+
+type PlanTitleIDTagResponseObject interface {
+	VisitPlanTitleIDTagResponse(w http.ResponseWriter) error
+}
+
+type PlanTitleIDTag200JSONResponse EditPlan
+
+func (response PlanTitleIDTag200JSONResponse) VisitPlanTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleIDTag400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTitleIDTag400ApplicationProblemPlusJSONResponse) VisitPlanTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleIDTag401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTitleIDTag401ApplicationProblemPlusJSONResponse) VisitPlanTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleIDTag404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTitleIDTag404ApplicationProblemPlusJSONResponse) VisitPlanTitleIDTagResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4466,6 +4731,12 @@ type StrictServerInterface interface {
 	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
 	// (POST /library/titles/{id}/edit/plan)
 	PlanTitleEdit(ctx context.Context, request PlanTitleEditRequestObject) (PlanTitleEditResponseObject, error)
+	// CommitTitleIDTag Store the ID tag action of a title as one change of the library (RF-45)
+	// (POST /library/titles/{id}/id-tag/commit)
+	CommitTitleIDTag(ctx context.Context, request CommitTitleIDTagRequestObject) (CommitTitleIDTagResponseObject, error)
+	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
+	// (POST /library/titles/{id}/id-tag/plan)
+	PlanTitleIDTag(ctx context.Context, request PlanTitleIDTagRequestObject) (PlanTitleIDTagResponseObject, error)
 	// TrashTitleScope Send a title, a season or a file to the trash, with its subtitles (RF-44, RF-30)
 	// (POST /library/titles/{id}/trash)
 	TrashTitleScope(ctx context.Context, request TrashTitleScopeRequestObject) (TrashTitleScopeResponseObject, error)
@@ -4955,6 +5226,72 @@ func (sh *strictHandler) PlanTitleEdit(w http.ResponseWriter, r *http.Request, i
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PlanTitleEditResponseObject); ok {
 		if err := validResponse.VisitPlanTitleEditResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CommitTitleIDTag operation middleware
+func (sh *strictHandler) CommitTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request CommitTitleIDTagRequestObject
+
+	request.Id = id
+
+	var body CommitTitleIDTagJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CommitTitleIDTag(ctx, request.(CommitTitleIDTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CommitTitleIDTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CommitTitleIDTagResponseObject); ok {
+		if err := validResponse.VisitCommitTitleIDTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PlanTitleIDTag operation middleware
+func (sh *strictHandler) PlanTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request PlanTitleIDTagRequestObject
+
+	request.Id = id
+
+	var body PlanTitleIDTagJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PlanTitleIDTag(ctx, request.(PlanTitleIDTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlanTitleIDTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PlanTitleIDTagResponseObject); ok {
+		if err := validResponse.VisitPlanTitleIDTagResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

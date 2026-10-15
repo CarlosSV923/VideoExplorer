@@ -836,6 +836,76 @@ paths:
         '422':
           $ref: '#/components/responses/EditInvalid'
 
+  /library/titles/{id}/id-tag/plan:
+    post:
+      tags: [library]
+      operationId: planTitleIDTag
+      summary: Preview putting the ID tag on a title or taking it off (RF-45)
+      description: |
+        Checks the ID tag action of a linked title and answers its preview, as an edit does (RF-44): the folder the
+        title has after the action, the final path of each video and subtitle (spec §5), the duplicates, and the
+        errors and warnings. The choices of the files stay as they are. A movie and its files take the names of spec
+        §5 with or without the tag; a series moves only its folder, so its chapters and subtitles keep their names. The
+        answers to the duplicates of the places (RF-24) go in `videos`, as in an edit. A free title has no tag: its plan
+        is not valid (`free_title`). Changes nothing.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IDTagRequest'
+      responses:
+        '200':
+          description: The preview. It may hold errors, which `valid` reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/id-tag/commit:
+    post:
+      tags: [library]
+      operationId: commitTitleIDTag
+      summary: Store the ID tag action of a title as one change of the library (RF-45)
+      description: |
+        Checks the action again under the library's lock and performs it as one change, the same way as an edit
+        (RF-44): the folder and the files take their new names, the registry takes the tag, and nothing is
+        overwritten. If anything fails, everything is undone. The request's `revision` must be the one of the plan:
+        when the title changed since, the answer is 409 `plan_changed` (RF-25).
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IDTagRequest'
+      responses:
+        '200':
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EditConflict'
+        '422':
+          $ref: '#/components/responses/EditInvalid'
+
   /library/titles/{id}/unassigned:
     post:
       tags: [library]
@@ -1649,6 +1719,45 @@ components:
               type: string
               description: '`plan_changed`: the title changed since the plan was made; the plan is checked again (RF-25).'
               enum: [plan_changed]
+    IDTagRequest:
+      type: object
+      description: 'The ID tag action of a title (RF-45): the tag the title takes, checked against the revision of its plan. The answers to the duplicates (RF-24) and the labels of the versions go with it, as in an edit; a video that is not listed keeps its choices.'
+      required: [revision, idTag]
+      additionalProperties: false
+      properties:
+        revision:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: The revision of the title that the plan answered (RF-25). A commit with another one is `plan_changed`.
+        idTag:
+          type: boolean
+          description: '`true` puts the tag [tmdbid-ID] on the title (its folder, and the files of a movie); `false` takes it off.'
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/IDTagVideo'
+        labels:
+          type: array
+          description: The labels written for the old versions that need one (RF-24), as the plan names them.
+          items:
+            $ref: '#/components/schemas/AssignLabel'
+    IDTagVideo:
+      type: object
+      description: 'The answer of the form to a video of the title in the ID tag action (RF-24): its label as a version, and its answer to a duplicate of its place. The place and the names of the file are not chosen here.'
+      required: [fileId]
+      additionalProperties: false
+      properties:
+        fileId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The video of the title, as the title page lists it (`GET /library/titles/{id}`).
+        version:
+          type: string
+          maxLength: 255
+          description: The label of the version (RF-24). Empty keeps the label the video has.
+        duplicate:
+          $ref: '#/components/schemas/DuplicateDecision'
     EditRequest:
       type: object
       description: |

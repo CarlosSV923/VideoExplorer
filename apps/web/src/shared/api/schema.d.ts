@@ -634,6 +634,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/titles/{id}/id-tag/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview putting the ID tag on a title or taking it off (RF-45)
+         * @description Checks the ID tag action of a linked title and answers its preview, as an edit does (RF-44): the folder the
+         *     title has after the action, the final path of each video and subtitle (spec §5), the duplicates, and the
+         *     errors and warnings. The choices of the files stay as they are. A movie and its files take the names of spec
+         *     §5 with or without the tag; a series moves only its folder, so its chapters and subtitles keep their names. The
+         *     answers to the duplicates of the places (RF-24) go in `videos`, as in an edit. A free title has no tag: its plan
+         *     is not valid (`free_title`). Changes nothing.
+         */
+        post: operations["planTitleIDTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/id-tag/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store the ID tag action of a title as one change of the library (RF-45)
+         * @description Checks the action again under the library's lock and performs it as one change, the same way as an edit
+         *     (RF-44): the folder and the files take their new names, the registry takes the tag, and nothing is
+         *     overwritten. If anything fails, everything is undone. The request's `revision` must be the one of the plan:
+         *     when the title changed since, the answer is 409 `plan_changed` (RF-25).
+         */
+        post: operations["commitTitleIDTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/titles/{id}/unassigned": {
         parameters: {
             query?: never;
@@ -1105,6 +1153,27 @@ export interface components {
              * @enum {string}
              */
             code: "plan_changed";
+        };
+        /** @description The ID tag action of a title (RF-45): the tag the title takes, checked against the revision of its plan. The answers to the duplicates (RF-24) and the labels of the versions go with it, as in an edit; a video that is not listed keeps its choices. */
+        IDTagRequest: {
+            /** @description The revision of the title that the plan answered (RF-25). A commit with another one is `plan_changed`. */
+            revision: string;
+            /** @description `true` puts the tag [tmdbid-ID] on the title (its folder, and the files of a movie); `false` takes it off. */
+            idTag: boolean;
+            videos?: components["schemas"]["IDTagVideo"][];
+            /** @description The labels written for the old versions that need one (RF-24), as the plan names them. */
+            labels?: components["schemas"]["AssignLabel"][];
+        };
+        /** @description The answer of the form to a video of the title in the ID tag action (RF-24): its label as a version, and its answer to a duplicate of its place. The place and the names of the file are not chosen here. */
+        IDTagVideo: {
+            /**
+             * Format: int64
+             * @description The video of the title, as the title page lists it (`GET /library/titles/{id}`).
+             */
+            fileId: number;
+            /** @description The label of the version (RF-24). Empty keeps the label the video has. */
+            version?: string;
+            duplicate?: components["schemas"]["DuplicateDecision"];
         };
         /**
          * @description The choices of the edit form for a title (RF-44): its new identity (`title`: a title of the library the
@@ -2278,6 +2347,68 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EditRequest"];
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EditConflict"];
+            422: components["responses"]["EditInvalid"];
+        };
+    };
+    planTitleIDTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IDTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The preview. It may hold errors, which `valid` reports. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditPlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    commitTitleIDTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IDTagRequest"];
             };
         };
         responses: {
