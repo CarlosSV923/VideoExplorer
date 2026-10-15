@@ -1250,8 +1250,8 @@ export interface components {
             fileId: number;
             /** @description Its path inside the library now. */
             file: string;
-            /** @description Its path inside the library after the edit (spec §5); the same as `file` when it stays. */
-            finalPath: string;
+            /** @description Its path inside the library after the edit (spec §5); the same as `file` when it stays. Omitted while a duplicate waits for its answer (RF-24), as in the assignment preview. */
+            finalPath?: string;
             changed: boolean;
             duplicates: components["schemas"]["PlanDuplicate"][];
             exactCopy: boolean;
@@ -1267,7 +1267,8 @@ export interface components {
             /** Format: int64 */
             fileId: number;
             file: string;
-            finalPath: string;
+            /** @description Omitted while the video it goes with waits for its answer to a duplicate (RF-24). */
+            finalPath?: string;
             changed: boolean;
         };
         /** @description What an edit did (RF-44): the title it ended in, its folder, and whether it joined another title. */

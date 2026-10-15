@@ -87,7 +87,7 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 			return nil
 		}
 		for _, m := range members {
-			m.skipped, m.moves, m.decision = true, nil, dec
+			m.skipped, m.moves, m.decision, m.decided = true, nil, dec, true
 		}
 		return nil
 	}
@@ -133,6 +133,7 @@ func (e *Edits) decideGroup(ctx context.Context, ev *editEval, g *editGroup) err
 	for _, m := range members {
 		m.moves = movesOfNames(plan.Place, namesOf(m))
 		m.version = ""
+		m.decided = true
 		if dec == domain.DecisionKeepBoth {
 			m.version = plan.Version
 		}

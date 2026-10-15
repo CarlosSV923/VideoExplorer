@@ -1892,7 +1892,7 @@ components:
     EditPlanVideo:
       type: object
       description: A video of the title in the preview (RF-24, RF-44).
-      required: [fileId, file, finalPath, changed, duplicates, exactCopy, allowed]
+      required: [fileId, file, changed, duplicates, exactCopy, allowed]
       additionalProperties: false
       properties:
         fileId:
@@ -1903,7 +1903,7 @@ components:
           description: Its path inside the library now.
         finalPath:
           type: string
-          description: Its path inside the library after the edit (spec §5); the same as `file` when it stays.
+          description: Its path inside the library after the edit (spec §5); the same as `file` when it stays. Omitted while a duplicate waits for its answer (RF-24), as in the assignment preview.
         changed:
           type: boolean
         duplicates:
@@ -1929,7 +1929,7 @@ components:
           type: boolean
     EditPlanSubtitle:
       type: object
-      required: [fileId, file, finalPath, changed]
+      required: [fileId, file, changed]
       additionalProperties: false
       properties:
         fileId:
@@ -1939,6 +1939,7 @@ components:
           type: string
         finalPath:
           type: string
+          description: Omitted while the video it goes with waits for its answer to a duplicate (RF-24).
         changed:
           type: boolean
     EditResult:

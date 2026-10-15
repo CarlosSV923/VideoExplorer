@@ -199,3 +199,65 @@ func TestPartsWithDifferentAnswersStillListTheWholeFile(t *testing.T) {
 	}
 	e.assertNothingJournaled()
 }
+
+// TestTheFinalPathWaitsForTheAnswerToADuplicate checks RF-24 in an edit: a video that has a duplicate and its subtitle
+// have no final path, and do not count as a change, until the answer places them; then they take their final paths
+// (as Asignar does).
+func TestTheFinalPathWaitsForTheAnswerToADuplicate(t *testing.T) {
+	t.Parallel()
+	e := newEditEnv(t, nil)
+	video := e.write(ironFolder+"/Iron Man (2008).mkv", "iron")
+	sub := e.write(ironFolder+"/Iron Man (2008).es.srt", "sub")
+	titleID := e.seedMovie(ironFolder, 0, false,
+		e.video(domain.KindMovie, video, domain.Place{}, ""),
+		mustSubtitle(t, domain.SubtitleSpec{Rel: sub, VideoRel: video, Language: "es", Size: 3}))
+	e.write("Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv", "iron")
+	const (
+		finalVideo = "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv"
+		finalSub   = "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].es.srt"
+	)
+	rows := e.rows(titleID)
+	req := movieChoices(rows, application.TitleChoice{Source: "tmdb", Kind: domain.KindMovie, TMDBID: 1726})
+
+	p := e.plan(titleID, req)
+	if p.Valid {
+		t.Fatal("the duplicate waits for an answer")
+	}
+	v := previewVideo(t, p, video)
+	if v.FinalPath != "" || v.Changed {
+		t.Errorf("waiting: the video has no final path yet: %q changed=%t", v.FinalPath, v.Changed)
+	}
+	if got := subtitleOf(t, p, sub); got.FinalPath != "" || got.Changed {
+		t.Errorf("waiting: the subtitle has no final path yet: %q changed=%t", got.FinalPath, got.Changed)
+	}
+
+	req = decide(withRevision(req, p.Revision), rows, video, domain.DecisionReplace)
+	p = e.plan(titleID, req)
+	if !p.Valid {
+		t.Fatalf("with Replace: %+v", p.Errors)
+	}
+	v = previewVideo(t, p, video)
+	if v.FinalPath != finalVideo || !v.Changed {
+		t.Errorf("answered: the video takes its final path: %q changed=%t", v.FinalPath, v.Changed)
+	}
+	if got := subtitleOf(t, p, sub); got.FinalPath != finalSub || !got.Changed {
+		t.Errorf("answered: the subtitle takes its final path: %q changed=%t", got.FinalPath, got.Changed)
+	}
+	e.commit(titleID, withRevision(req, p.Revision))
+	if !e.exists(finalVideo) || !e.exists(finalSub) {
+		t.Error("the video and its subtitle are where the plan said")
+	}
+	e.assertNothingJournaled()
+}
+
+// subtitleOf returns the subtitle of the plan whose path before the edit is rel.
+func subtitleOf(t *testing.T, p application.EditPlan, rel string) application.EditedSubtitle {
+	t.Helper()
+	for _, s := range p.Subtitles {
+		if s.File == rel {
+			return s
+		}
+	}
+	t.Fatalf("the plan has no subtitle %s: %+v", rel, p.Subtitles)
+	return application.EditedSubtitle{}
+}

@@ -55,8 +55,10 @@ type editVideo struct {
 	group *editGroup
 	// skipped is true when the duplicates' answer Omitir keeps it where it is (RF-24).
 	skipped bool
-	// The duplicates of its place, when it has any, and the decision the form gave them.
+	// The duplicates of its place, when it has any, and the decision the form gave them. decided is true once the
+	// answer places the video or keeps it where it is (RF-24).
 	decision  domain.Decision
+	decided   bool
 	occ       []domain.Occupant
 	dups      domain.Duplicates
 	hasDups   bool
@@ -385,6 +387,12 @@ func (ev *editEval) groupPlaces() {
 	}
 }
 
+// waiting reports whether the video has duplicates and no answer has placed it or kept it yet (RF-24). Its final path
+// stays empty until then, as Asignar leaves it.
+func (v *editVideo) waiting() bool {
+	return v.hasDups && !v.decided
+}
+
 // mover reports whether the video changes its path (RF-44): only those leave the duplicates' search.
 func (v *editVideo) mover() bool {
 	return !strings.EqualFold(v.finalOfVideo(), v.file.Rel)
@@ -450,8 +458,11 @@ func (ev *editEval) finish(st editState, id *editTitle) {
 		if !v.bad && v.chosen {
 			final = v.finalOfVideo()
 		}
+		if v.waiting() {
+			final = ""
+		}
 		ev.moves = append(ev.moves, movesOfNamesFor(v.moves)...)
-		pv := EditedVideo{FileID: v.file.ID, File: v.file.Rel, FinalPath: final, Changed: !strings.EqualFold(final, v.file.Rel), Decision: v.decision, Version: v.version}
+		pv := EditedVideo{FileID: v.file.ID, File: v.file.Rel, FinalPath: final, Changed: changedPath(final, v.file.Rel), Decision: v.decision, Version: v.version}
 		// Only a video with duplicates has a title to compare the folders with (ev.id is set by then).
 		if v.hasDups {
 			p := previewOfDuplicates(v.dups, v.occ, v.occLabels, ev.folderChanged())
@@ -465,7 +476,11 @@ func (ev *editEval) finish(st editState, id *editTitle) {
 		if s.video != nil && !s.video.bad && s.video.chosen && !s.video.skipped {
 			final = finalPath(s.video.moves, s.file.Rel)
 		}
-		plan.Subtitles = append(plan.Subtitles, EditedSubtitle{FileID: s.file.ID, File: s.file.Rel, FinalPath: final, Changed: !strings.EqualFold(final, s.file.Rel)})
+		// A subtitle goes with its video, so it has no final path while the video waits for its answer.
+		if s.video != nil && s.video.waiting() {
+			final = ""
+		}
+		plan.Subtitles = append(plan.Subtitles, EditedSubtitle{FileID: s.file.ID, File: s.file.Rel, FinalPath: final, Changed: changedPath(final, s.file.Rel)})
 	}
 	for _, rel := range ev.labelsGiven() {
 		ev.addIssue(0, "version", "unknown", rel)
@@ -475,6 +490,12 @@ func (ev *editEval) finish(st editState, id *editTitle) {
 	plan.Warnings = ev.warns
 	plan.Valid = len(ev.issues) == 0
 	ev.plan = plan
+}
+
+// changedPath reports whether a file moves to final. An empty final path (a duplicate waiting for its answer) moves
+// nothing yet, so it is not a change.
+func changedPath(final, rel string) bool {
+	return final != "" && !strings.EqualFold(final, rel)
 }
 
 // movesOfNamesFor returns the moves of a file group that really change a path (From != To).

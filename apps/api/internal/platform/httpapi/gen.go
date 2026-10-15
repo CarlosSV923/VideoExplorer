@@ -679,10 +679,12 @@ type EditPlan struct {
 
 // EditPlanSubtitle defines model for EditPlanSubtitle.
 type EditPlanSubtitle struct {
-	Changed   bool   `json:"changed"`
-	File      string `json:"file"`
-	FileId    int64  `json:"fileId"`
-	FinalPath string `json:"finalPath"`
+	Changed bool   `json:"changed"`
+	File    string `json:"file"`
+	FileId  int64  `json:"fileId"`
+
+	// FinalPath Omitted while the video it goes with waits for its answer to a duplicate (RF-24).
+	FinalPath *string `json:"finalPath,omitempty"`
 }
 
 // EditPlanVideo A video of the title in the preview (RF-24, RF-44).
@@ -702,8 +704,8 @@ type EditPlanVideo struct {
 	File   string `json:"file"`
 	FileId int64  `json:"fileId"`
 
-	// FinalPath Its path inside the library after the edit (spec §5); the same as `file` when it stays.
-	FinalPath string `json:"finalPath"`
+	// FinalPath Its path inside the library after the edit (spec §5); the same as `file` when it stays. Omitted while a duplicate waits for its answer (RF-24), as in the assignment preview.
+	FinalPath *string `json:"finalPath,omitempty"`
 
 	// Proposal The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
 	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.

@@ -126,11 +126,14 @@ func editPlanToAPI(p application.EditPlan) httpapi.EditPlan {
 		item := httpapi.EditPlanVideo{
 			FileId:     v.FileID,
 			File:       v.File,
-			FinalPath:  v.FinalPath,
 			Changed:    v.Changed,
 			Duplicates: []httpapi.PlanDuplicate{},
 			ExactCopy:  v.ExactCopy,
 			Allowed:    []httpapi.DuplicateDecision{},
+		}
+		if v.FinalPath != "" {
+			finalPath := v.FinalPath
+			item.FinalPath = &finalPath
 		}
 		for _, d := range v.Duplicates {
 			item.Duplicates = append(item.Duplicates, duplicateToAPI(d))
@@ -159,9 +162,12 @@ func editPlanToAPI(p application.EditPlan) httpapi.EditPlan {
 		out.Videos = append(out.Videos, item)
 	}
 	for _, s := range p.Subtitles {
-		out.Subtitles = append(out.Subtitles, httpapi.EditPlanSubtitle{
-			FileId: s.FileID, File: s.File, FinalPath: s.FinalPath, Changed: s.Changed,
-		})
+		sub := httpapi.EditPlanSubtitle{FileId: s.FileID, File: s.File, Changed: s.Changed}
+		if s.FinalPath != "" {
+			finalPath := s.FinalPath
+			sub.FinalPath = &finalPath
+		}
+		out.Subtitles = append(out.Subtitles, sub)
 	}
 	return out
 }
