@@ -544,6 +544,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The titles of the library (RF-40, RF-43)
+         * @description The titles that have at least one file out of the trash, by id. A title whose files are all in
+         *     the trash is not in the library (RF-30): it is not listed, and it keeps its registry for RF-31.
+         */
+        get: operations["listLibraryTitles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A title of the library with its files (RF-43)
+         * @description The title with its videos and their subtitles, the files that are out of the trash. The poster is
+         *     the file name that `/api/images/poster/{file}` serves, when TMDB is configured and knows the title
+         *     (spec §6); it is omitted otherwise. A chapter of a free series carries the title read from its name.
+         */
+        get: operations["getLibraryTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -945,6 +988,72 @@ export interface components {
             /** @description The poster's file for `GET /images/poster/{file}`; omitted when there is none. */
             posterFile?: string;
         };
+        LibraryTitles: {
+            titles: components["schemas"]["LibraryTitleSummary"][];
+        };
+        LibraryTitleSummary: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["TitleKind"];
+            /** @description The title the user sees (the TMDB title, or the free name). */
+            title: string;
+            /** @description The year of the premiere or of the first broadcast; 0 when unknown. */
+            year: number;
+            /**
+             * Format: int64
+             * @description The TMDB id of a linked title; omitted for a free title.
+             */
+            tmdbId?: number;
+            /** @description Whether the tag [tmdbid-ID] is on in the folder and the files (RF-45). */
+            idTag: boolean;
+        };
+        /** @description A title of the library with its videos (RF-43). */
+        LibraryTitle: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["TitleKind"];
+            title: string;
+            /** @description The disc title <T> of spec §5, the name of its folder and files. */
+            discTitle: string;
+            year: number;
+            /**
+             * Format: int64
+             * @description The TMDB id of a linked title; omitted for a free title.
+             */
+            tmdbId?: number;
+            idTag: boolean;
+            /** @description The poster file name that `/api/images/poster/{file}` serves; omitted when there is none. */
+            poster?: string;
+            videos: components["schemas"]["LibraryVideo"][];
+        };
+        /** @description A video of the title, with its subtitles. A movie has a part (0 for the whole movie); a series, a season and chapters. */
+        LibraryVideo: {
+            /** Format: int64 */
+            id: number;
+            /** @description The path inside the library, with "/" separators (for display only; the server builds every path). */
+            path: string;
+            /** Format: int64 */
+            size: number;
+            /** @description The label of a version (RF-24); empty for the only file of its place. */
+            version: string;
+            part: number;
+            /** @description The season of a chapter (0 holds the specials); omitted for a movie. */
+            season?: number;
+            chapter?: number;
+            lastChapter?: number;
+            /** @description The title of a chapter of a free series, read from its name (spec §6); omitted otherwise. */
+            chapterTitle?: string;
+            subtitles: components["schemas"]["LibrarySubtitle"][];
+        };
+        LibrarySubtitle: {
+            /** Format: int64 */
+            id: number;
+            path: string;
+            /** @description The language of spec §5 (`es`, `es-419`, `en`). */
+            language: string;
+            forced: boolean;
+            sdh: boolean;
+        };
         TitleSearch: {
             /** @description False when TMDB is not configured or did not answer. */
             tmdbAvailable: boolean;
@@ -1178,6 +1287,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+        TitleId: number;
         /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
         EntryId: number;
         /**
@@ -1830,6 +1941,52 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listLibraryTitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The titles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTitles"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getLibraryTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The title. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTitle"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

@@ -21,6 +21,7 @@ type (
 	metadataAPI  = metadatahttp.Handler
 	ingestionAPI = ingestionhttp.Handler
 	assignAPI    = catalogshttp.Handler
+	libraryAPI   = catalogshttp.LibraryHandler
 	sectionAPI   = catalogshttp.SectionHandler
 	scanAPI      = catalogshttp.ScanHandler
 )
@@ -33,6 +34,7 @@ type api struct {
 	*metadataAPI
 	*ingestionAPI
 	*assignAPI
+	*libraryAPI
 	*sectionAPI
 	*scanAPI
 }
@@ -47,13 +49,14 @@ var _ httpapi.StrictServerInterface = api{}
 // request logging and panic recovery wrap everything (RNF-02). WithRequest puts
 // the request in the context: the image operation needs it for
 // http.ServeContent (Range and conditional requests).
-func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler, assign *catalogshttp.Handler, section *catalogshttp.SectionHandler, scans *catalogshttp.ScanHandler) http.Handler {
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler, assign *catalogshttp.Handler, section *catalogshttp.SectionHandler, scans *catalogshttp.ScanHandler, library *catalogshttp.LibraryHandler) http.Handler {
 	server := api{
 		systemAPI:    health,
 		identityAPI:  identity,
 		metadataAPI:  metadata,
 		ingestionAPI: ingestion,
 		assignAPI:    assign,
+		libraryAPI:   library,
 		sectionAPI:   section,
 		scanAPI:      scans,
 	}
