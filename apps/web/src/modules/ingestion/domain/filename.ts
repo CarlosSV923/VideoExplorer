@@ -28,6 +28,10 @@ export interface FileAnalysis {
   readonly language?: string
   readonly forced?: boolean
   readonly sdh?: boolean
+  /** TMDB id of a tag [tmdbid-N] or {tmdb-N}, from the name or the nearest folder (RF-29). */
+  readonly tmdbId?: number
+  /** IMDb id of a tag [imdbid-ttN] (RF-29), found the same way. */
+  readonly imdbId?: string
 }
 
 type Draft = { -readonly [K in keyof FileAnalysis]: FileAnalysis[K] }
@@ -93,6 +97,8 @@ const BARE_NUMBER = /^\d{1,3}$/
 const REGION = /^(?:[A-Za-z]{2}|\d{3})$/
 const BRACKET_GROUP = /\[[^\]]*\]/g
 const SEPARATORS = /[()._]/g
+/** Id tags of a title (RF-29, §5): [tmdbid-N] (Jellyfin), {tmdb-N} and [imdbid-ttN]. */
+const ID_TAG = /\[tmdbid-(\d+)\]|\{tmdb-(\d+)\}|\[imdbid-(tt\d+)\]/gi
 
 /**
  * The technical tags that end a title: resolution, source, streaming service, codec,
@@ -242,6 +248,9 @@ export function analyzeFile(relPath: string, kind: MediaKind): FileAnalysis {
   const picked = pickTitle(name, folder)
 
   const draft: Draft = { type: 'unknown' }
+  const ids = idTagsOf(cut.name, dirs)
+  if (ids.tmdbId !== 0) draft.tmdbId = ids.tmdbId
+  if (ids.imdbId !== '') draft.imdbId = ids.imdbId
   if (name.episode !== null && name.episode.invalid) {
     setTitle(draft, picked)
   } else if (name.episode !== null) {
@@ -269,6 +278,28 @@ export function analyzeFile(relPath: string, kind: MediaKind): FileAnalysis {
   if (cut.tags.forced) draft.forced = true
   if (cut.tags.sdh) draft.sdh = true
   return draft
+}
+
+/**
+ * The TMDB id and the IMDb id that a file carries in its tags (RF-29): from its own name
+ * first, else from its folders, the nearest first. A tag that does not read as an id is
+ * ignored. 0 and '' when there is none.
+ */
+function idTagsOf(name: string, dirs: readonly string[]): { tmdbId: number; imdbId: string } {
+  let tmdbId = 0
+  let imdbId = ''
+  for (const n of [name, ...[...dirs].reverse()]) {
+    for (const m of n.matchAll(ID_TAG)) {
+      const digits = m[1] ?? m[2] ?? ''
+      if (tmdbId === 0 && digits !== '') {
+        const id = Number(digits)
+        if (id > 0 && Number.isSafeInteger(id)) tmdbId = id
+      }
+      if (imdbId === '' && m[3] !== undefined) imdbId = m[3].toLowerCase()
+    }
+    if (tmdbId !== 0 && imdbId !== '') break
+  }
+  return { tmdbId, imdbId }
 }
 
 function setTitle(draft: Draft, picked: Titled): void {
@@ -432,6 +463,7 @@ function parseName(name: string): NameParts {
  */
 function tokenize(name: string): string[] {
   const words = name
+    .replace(ID_TAG, ' ')
     .replace(BRACKET_GROUP, ' ')
     .replace(SEPARATORS, ' ')
     .split(/\s+/)

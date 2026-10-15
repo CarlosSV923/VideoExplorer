@@ -43,6 +43,8 @@ type expectedAnalysis struct {
 	Language    string `json:"language"`
 	Forced      bool   `json:"forced"`
 	SDH         bool   `json:"sdh"`
+	TMDBID      int64  `json:"tmdbId"`
+	IMDbID      string `json:"imdbId"`
 }
 
 func loadFilenameVectors(t *testing.T) filenameVectors {
@@ -73,6 +75,8 @@ func toExpected(a domain.Analysis) expectedAnalysis {
 		Language:    a.Language,
 		Forced:      a.Forced,
 		SDH:         a.SDH,
+		TMDBID:      a.TMDBID,
+		IMDbID:      a.IMDbID,
 	}
 }
 

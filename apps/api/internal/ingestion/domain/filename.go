@@ -3,6 +3,7 @@ package domain
 import (
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -39,6 +40,11 @@ type Analysis struct {
 	Forced bool
 	// SDH is the hearing-impaired flag of a subtitle (.sdh, and .cc or .hi).
 	SDH bool
+	// TMDBID is the TMDB id of a tag [tmdbid-N] or {tmdb-N} (RF-29), in the file's name or else in the
+	// nearest folder that has one; 0 when there is none. The tags are not part of the title.
+	TMDBID int64
+	// IMDbID is the IMDb id of a tag [imdbid-ttN] (RF-29), found the same way; "" when there is none.
+	IMDbID string
 }
 
 // AnalyzeFile reads what a file says about itself (RF-20). relPath is the path of the
@@ -57,6 +63,7 @@ func AnalyzeFile(relPath string, kind FileKind) Analysis {
 	folderTitle, folderYear := folderTitles(dirs, seasonAt, hasSeason)
 
 	out := Analysis{Language: tags.language, Forced: tags.forced, SDH: tags.sdh}
+	out.TMDBID, out.IMDbID = idTagsOf(base, dirs)
 	switch {
 	case name.episode != nil && name.episode.invalid:
 		out.Type = TypeUnknown
@@ -129,6 +136,8 @@ var (
 	bareNumber    = regexp.MustCompile(`^\d{1,3}$`)
 	regionPattern = regexp.MustCompile(`^(?:[A-Za-z]{2}|\d{3})$`)
 	bracketGroup  = regexp.MustCompile(`\[[^\]]*\]`)
+	// idTagPattern matches the id tags of a title (RF-29, §5): [tmdbid-N] (Jellyfin), {tmdb-N} and [imdbid-ttN].
+	idTagPattern = regexp.MustCompile(`(?i)\[tmdbid-(\d+)\]|\{tmdb-(\d+)\}|\[imdbid-(tt\d+)\]`)
 
 	// tagPattern matches the technical tags that end a title: resolution, source,
 	// streaming service, codec, HDR, bit depth, audio and their scene group.
@@ -374,6 +383,7 @@ func parseName(name string) nameParts {
 // tokenize splits a name into words at dots, underscores and spaces. Brackets (site
 // tags, TMDB ids) go, parentheses separate, and "H.264" becomes one codec token.
 func tokenize(name string) []string {
+	name = idTagPattern.ReplaceAllString(name, " ")
 	words := strings.Fields(separators.Replace(bracketGroup.ReplaceAllString(name, " ")))
 	tokens := make([]string, 0, len(words))
 	for i := 0; i < len(words); i++ {
@@ -487,6 +497,33 @@ var titleSeparators = strings.NewReplacer(".", " ", "_", " ")
 
 func normalizeTitle(title string) string {
 	return strings.Join(strings.Fields(titleSeparators.Replace(strings.ToLower(title))), " ")
+}
+
+// idTagsOf returns the TMDB id and the IMDb id that a file carries in its tags (RF-29): from its own name
+// first, else from its folders, the nearest first. A tag that does not read as an id is ignored.
+func idTagsOf(name string, dirs []string) (int64, string) {
+	var tmdb int64
+	var imdb string
+	names := []string{name}
+	for i := len(dirs) - 1; i >= 0; i-- {
+		names = append(names, dirs[i])
+	}
+	for _, n := range names {
+		for _, m := range idTagPattern.FindAllStringSubmatch(n, -1) {
+			if tmdb == 0 && m[1]+m[2] != "" {
+				if id, err := strconv.ParseInt(m[1]+m[2], 10, 64); err == nil && id > 0 {
+					tmdb = id
+				}
+			}
+			if imdb == "" && m[3] != "" {
+				imdb = strings.ToLower(m[3])
+			}
+		}
+		if tmdb != 0 && imdb != "" {
+			break
+		}
+	}
+	return tmdb, imdb
 }
 
 func atoi(digits string) int {
