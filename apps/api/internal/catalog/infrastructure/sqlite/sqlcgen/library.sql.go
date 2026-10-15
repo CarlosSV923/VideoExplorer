@@ -318,6 +318,15 @@ func (q *Queries) MoveLibraryFile(ctx context.Context, arg MoveLibraryFileParams
 	return err
 }
 
+const releaseLibraryFileRel = `-- name: ReleaseLibraryFileRel :exec
+UPDATE library_files SET rel = 'released:' || id WHERE id = ?
+`
+
+func (q *Queries) ReleaseLibraryFileRel(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, releaseLibraryFileRel, id)
+	return err
+}
+
 const trashLibraryFile = `-- name: TrashLibraryFile :exec
 UPDATE library_files SET trash_entry_id = ? WHERE id = ?
 `
@@ -329,5 +338,74 @@ type TrashLibraryFileParams struct {
 
 func (q *Queries) TrashLibraryFile(ctx context.Context, arg TrashLibraryFileParams) error {
 	_, err := q.db.ExecContext(ctx, trashLibraryFile, arg.TrashEntryID, arg.ID)
+	return err
+}
+
+const updateLibraryFile = `-- name: UpdateLibraryFile :exec
+UPDATE library_files SET title_id = ?, rel = ?, season = ?, first_chapter = ?, last_chapter = ?, part = ?, version = ?,
+       language = ?, forced = ?, sdh = ?
+WHERE id = ?
+`
+
+type UpdateLibraryFileParams struct {
+	TitleID      int64
+	Rel          string
+	Season       sql.NullInt64
+	FirstChapter sql.NullInt64
+	LastChapter  sql.NullInt64
+	Part         int64
+	Version      string
+	Language     string
+	Forced       int64
+	Sdh          int64
+	ID           int64
+}
+
+func (q *Queries) UpdateLibraryFile(ctx context.Context, arg UpdateLibraryFileParams) error {
+	_, err := q.db.ExecContext(ctx, updateLibraryFile,
+		arg.TitleID,
+		arg.Rel,
+		arg.Season,
+		arg.FirstChapter,
+		arg.LastChapter,
+		arg.Part,
+		arg.Version,
+		arg.Language,
+		arg.Forced,
+		arg.Sdh,
+		arg.ID,
+	)
+	return err
+}
+
+const updateLibraryTitle = `-- name: UpdateLibraryTitle :exec
+UPDATE library_titles SET kind = ?, title = ?, disc_title = ?, year = ?, tmdb_id = ?, id_tag = ?, folder = ?, updated_at = ?
+WHERE id = ?
+`
+
+type UpdateLibraryTitleParams struct {
+	Kind      string
+	Title     string
+	DiscTitle string
+	Year      int64
+	TmdbID    sql.NullInt64
+	IDTag     int64
+	Folder    string
+	UpdatedAt string
+	ID        int64
+}
+
+func (q *Queries) UpdateLibraryTitle(ctx context.Context, arg UpdateLibraryTitleParams) error {
+	_, err := q.db.ExecContext(ctx, updateLibraryTitle,
+		arg.Kind,
+		arg.Title,
+		arg.DiscTitle,
+		arg.Year,
+		arg.TmdbID,
+		arg.IDTag,
+		arg.Folder,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }

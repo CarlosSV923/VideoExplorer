@@ -107,6 +107,14 @@ type Records interface {
 	// InsertLibraryFiles stores files of a title, in order. A subtitle's video must be stored
 	// before it, in the same change or earlier (RF-23).
 	InsertLibraryFiles(ctx context.Context, titleID int64, files []domain.LibraryFile) error
+	// SaveLibraryTitle stores the identity of a title that an edit changed: its kind, names, tag and folder (RF-44).
+	SaveLibraryTitle(ctx context.Context, title domain.LibraryTitle) error
+	// ReleaseLibraryFileRel frees the path of a registered file that the change moves, so that the paths it takes
+	// are free in the registry whatever the order of its records (RF-44). SaveLibraryFile stores the new values.
+	ReleaseLibraryFileRel(ctx context.Context, id int64) error
+	// SaveLibraryFile stores the title, path, place, version, language and flags of a registered file that an
+	// edit changed (RF-44). It is called after ReleaseLibraryFileRel for the same file.
+	SaveLibraryFile(ctx context.Context, f domain.LibraryFile) error
 	// MoveLibraryFile records the new path and version of a registered file that the change
 	// renamed. A subtitle, or a video without a version, gives version "".
 	MoveLibraryFile(ctx context.Context, id int64, rel, version string) error

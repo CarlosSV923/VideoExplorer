@@ -767,6 +767,75 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /library/titles/{id}/edit/plan:
+    post:
+      tags: [library]
+      operationId: planTitleEdit
+      summary: Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
+      description: |
+        Checks the choices of the edit form for a title of the library and answers its preview: the title's
+        identity after the edit, the final path of each video and subtitle (spec §5), the duplicates of each
+        place and the answers they accept (RF-24), and the errors and warnings. Changes nothing. `valid` is
+        true when the same request can be committed. Every video and subtitle of the title needs a choice.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditRequest'
+      responses:
+        '200':
+          description: The preview. It may hold errors, which `valid` reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/edit/commit:
+    post:
+      tags: [library]
+      operationId: commitTitleEdit
+      summary: Store the edit of a title as one change of the library (RF-44)
+      description: |
+        Checks the choices again under the library's lock and performs them as one change: the files move
+        and are renamed to their final paths, the replaced files go to the trash with their subtitles, the
+        old versions take their labels, and the registry takes the new values. Nothing is overwritten. If
+        anything fails, everything is undone. The request's `revision` must be the one of the plan: when the
+        title changed since, the answer is 409 `plan_changed` and the plan is checked again (RF-25).
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditRequest'
+      responses:
+        '200':
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EditConflict'
+        '422':
+          $ref: '#/components/responses/EditInvalid'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -868,6 +937,22 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/AssignPlan'
+    EditConflict:
+      description: |
+        The edit cannot be stored on the title as the plan saw it: the title changed since (`plan_changed`).
+        Nothing was changed; the plan is checked again (RF-25, RF-44).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/EditProblem'
+    EditInvalid:
+      description: |
+        The choices do not form an edit that can be stored. The body is the plan of the same choices, with the
+        errors that stop it (RF-25, RF-44).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EditPlan'
     BadGateway:
       description: The image is not cached and TMDB could not provide it.
       content:
@@ -1474,6 +1559,216 @@ components:
           type: string
           pattern: '^[A-Za-z0-9_-]{1,128}\.(jpe?g|png)$'
           description: The poster's file for `GET /images/poster/{file}`; omitted when there is none.
+    EditProblem:
+      description: RFC 9457 problem details of an edit, with the stable reason in `code`.
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              description: '`plan_changed`: the title changed since the plan was made; the plan is checked again (RF-25).'
+              enum: [plan_changed]
+    EditRequest:
+      type: object
+      description: |
+        The choices of the edit form for a title (RF-44): its new identity (`title`: a title of the library the
+        files join, a TMDB title, or a free name), the place and version of each video, the language and flags
+        of each subtitle, and the labels of the old versions that need one (RF-24). Every video and subtitle of
+        the title needs a choice; the server takes every path from the registry and from spec §5.
+      required: [revision, title, videos, subtitles]
+      additionalProperties: false
+      properties:
+        revision:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: The revision of the title that the plan answered (RF-25). A commit with another one is `plan_changed`.
+        title:
+          $ref: '#/components/schemas/TitleChoice'
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditVideo'
+        subtitles:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditSubtitle'
+        labels:
+          type: array
+          description: The labels written for the old versions that need one (RF-24), as the plan names them.
+          items:
+            $ref: '#/components/schemas/AssignLabel'
+    EditVideo:
+      type: object
+      description: |
+        What one video of the title becomes (RF-22, RF-44). A movie takes a part (0 for the whole movie); a series
+        takes a season, a chapter and, for a file with several chapters, the last one. `chapterTitle` is the title
+        of a chapter of a free series (it is read from the name on the disk when the title is opened).
+      required: [fileId]
+      additionalProperties: false
+      properties:
+        fileId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The video of the title, as the title page lists it (`GET /library/titles/{id}`).
+        part:
+          type: integer
+          minimum: 0
+          maximum: 999
+        season:
+          type: integer
+          minimum: 0
+          maximum: 999
+        chapter:
+          type: integer
+          minimum: 1
+          maximum: 999
+        lastChapter:
+          type: integer
+          minimum: 1
+          maximum: 999
+        chapterTitle:
+          type: string
+          maxLength: 255
+        version:
+          type: string
+          maxLength: 255
+          description: The label of the version (RF-24); empty for the only file of its place.
+        duplicate:
+          $ref: '#/components/schemas/DuplicateDecision'
+    EditSubtitle:
+      type: object
+      description: 'What one subtitle of the title becomes (RF-23): its language and its flags. It goes with its video.'
+      required: [fileId, language]
+      additionalProperties: false
+      properties:
+        fileId:
+          type: integer
+          format: int64
+          minimum: 1
+        language:
+          type: string
+          minLength: 2
+          maxLength: 16
+          description: ISO 639-1 with an optional region, as spec §5 writes it (`es`, `en`, `es-419`).
+        forced:
+          type: boolean
+        sdh:
+          type: boolean
+    EditPlan:
+      type: object
+      description: |
+        The preview of an edit (RF-44). It changes nothing. `valid` is true when the same request can be committed;
+        `errors` say what stops it and `warnings` what does not.
+      required: [titleId, revision, valid, kind, title, folder, videos, subtitles, errors, warnings]
+      additionalProperties: false
+      properties:
+        titleId:
+          type: integer
+          format: int64
+        revision:
+          type: string
+          description: The revision the commit must send back (RF-25).
+        valid:
+          type: boolean
+        kind:
+          $ref: '#/components/schemas/TitleKind'
+        title:
+          type: string
+          description: The name of the title after the edit (its disc title, or the title of the library it joins).
+        folder:
+          type: string
+          description: The title's folder after the edit, inside the library, with "/" separators.
+        mergeInto:
+          type: integer
+          format: int64
+          description: The title of the library the files join when the edit joins another title (RF-44); omitted otherwise.
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditPlanVideo'
+        subtitles:
+          type: array
+          items:
+            $ref: '#/components/schemas/EditPlanSubtitle'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanIssue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanIssue'
+    EditPlanVideo:
+      type: object
+      description: A video of the title in the preview (RF-24, RF-44).
+      required: [fileId, file, finalPath, changed, duplicates, exactCopy, allowed]
+      additionalProperties: false
+      properties:
+        fileId:
+          type: integer
+          format: int64
+        file:
+          type: string
+          description: Its path inside the library now.
+        finalPath:
+          type: string
+          description: Its path inside the library after the edit (spec §5); the same as `file` when it stays.
+        changed:
+          type: boolean
+        duplicates:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanDuplicate'
+        exactCopy:
+          type: boolean
+        allowed:
+          type: array
+          description: The answers that a duplicate accepts. Empty without a duplicate.
+          items:
+            $ref: '#/components/schemas/DuplicateDecision'
+        proposal:
+          $ref: '#/components/schemas/DuplicateDecision'
+        decision:
+          $ref: '#/components/schemas/DuplicateDecision'
+        version:
+          type: string
+        versionProposal:
+          type: string
+        versionIncomplete:
+          type: boolean
+    EditPlanSubtitle:
+      type: object
+      required: [fileId, file, finalPath, changed]
+      additionalProperties: false
+      properties:
+        fileId:
+          type: integer
+          format: int64
+        file:
+          type: string
+        finalPath:
+          type: string
+        changed:
+          type: boolean
+    EditResult:
+      type: object
+      description: 'What an edit did (RF-44): the title it ended in, its folder, and whether it joined another title.'
+      required: [titleId, folder, merged, changed]
+      additionalProperties: false
+      properties:
+        titleId:
+          type: integer
+          format: int64
+        folder:
+          type: string
+        merged:
+          type: boolean
+        changed:
+          type: boolean
+          description: False when the edit changed nothing.
     LibraryTitles:
       type: object
       required: [titles]

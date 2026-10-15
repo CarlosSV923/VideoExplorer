@@ -126,6 +126,21 @@ func (e DuplicateDecision) Valid() bool {
 	}
 }
 
+// Defines values for EditProblemCode.
+const (
+	EditProblemCodePlanChanged EditProblemCode = "plan_changed"
+)
+
+// Valid indicates whether the value is a known member of the EditProblemCode enum.
+func (e EditProblemCode) Valid() bool {
+	switch e {
+	case EditProblemCodePlanChanged:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EntryProblemCode.
 const (
 	EntryProblemCodeAssigning EntryProblemCode = "assigning"
@@ -614,6 +629,140 @@ type CreateBatchRequest struct {
 // `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
 // `keep_both` is not allowed when parts and versions are involved (RF-22).
 type DuplicateDecision string
+
+// EditPlan The preview of an edit (RF-44). It changes nothing. `valid` is true when the same request can be committed;
+// `errors` say what stops it and `warnings` what does not.
+type EditPlan struct {
+	Errors []PlanIssue `json:"errors"`
+
+	// Folder The title's folder after the edit, inside the library, with "/" separators.
+	Folder string `json:"folder"`
+
+	// Kind A movie (Movies/) or a series (TV Shows/), spec §2.
+	Kind TitleKind `json:"kind"`
+
+	// MergeInto The title of the library the files join when the edit joins another title (RF-44); omitted otherwise.
+	MergeInto *int64 `json:"mergeInto,omitempty"`
+
+	// Revision The revision the commit must send back (RF-25).
+	Revision  string             `json:"revision"`
+	Subtitles []EditPlanSubtitle `json:"subtitles"`
+
+	// Title The name of the title after the edit (its disc title, or the title of the library it joins).
+	Title    string          `json:"title"`
+	TitleId  int64           `json:"titleId"`
+	Valid    bool            `json:"valid"`
+	Videos   []EditPlanVideo `json:"videos"`
+	Warnings []PlanIssue     `json:"warnings"`
+}
+
+// EditPlanSubtitle defines model for EditPlanSubtitle.
+type EditPlanSubtitle struct {
+	Changed   bool   `json:"changed"`
+	File      string `json:"file"`
+	FileId    int64  `json:"fileId"`
+	FinalPath string `json:"finalPath"`
+}
+
+// EditPlanVideo A video of the title in the preview (RF-24, RF-44).
+type EditPlanVideo struct {
+	// Allowed The answers that a duplicate accepts. Empty without a duplicate.
+	Allowed []DuplicateDecision `json:"allowed"`
+	Changed bool                `json:"changed"`
+
+	// Decision The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Decision   *DuplicateDecision `json:"decision,omitempty"`
+	Duplicates []PlanDuplicate    `json:"duplicates"`
+	ExactCopy  bool               `json:"exactCopy"`
+
+	// File Its path inside the library now.
+	File   string `json:"file"`
+	FileId int64  `json:"fileId"`
+
+	// FinalPath Its path inside the library after the edit (spec §5); the same as `file` when it stays.
+	FinalPath string `json:"finalPath"`
+
+	// Proposal The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Proposal          *DuplicateDecision `json:"proposal,omitempty"`
+	Version           *string            `json:"version,omitempty"`
+	VersionIncomplete *bool              `json:"versionIncomplete,omitempty"`
+	VersionProposal   *string            `json:"versionProposal,omitempty"`
+}
+
+// EditProblem RFC 9457 problem details of an edit, with the stable reason in `code`.
+type EditProblem struct {
+	// Code `plan_changed`: the title changed since the plan was made; the plan is checked again (RF-25).
+	Code   EditProblemCode `json:"code"`
+	Detail *string         `json:"detail,omitempty"`
+	Status int             `json:"status"`
+	Title  string          `json:"title"`
+	Type   *string         `json:"type,omitempty"`
+}
+
+// EditProblemCode `plan_changed`: the title changed since the plan was made; the plan is checked again (RF-25).
+type EditProblemCode string
+
+// EditRequest The choices of the edit form for a title (RF-44): its new identity (`title`: a title of the library the
+// files join, a TMDB title, or a free name), the place and version of each video, the language and flags
+// of each subtitle, and the labels of the old versions that need one (RF-24). Every video and subtitle of
+// the title needs a choice; the server takes every path from the registry and from spec §5.
+type EditRequest struct {
+	// Labels The labels written for the old versions that need one (RF-24), as the plan names them.
+	Labels *[]AssignLabel `json:"labels,omitempty"`
+
+	// Revision The revision of the title that the plan answered (RF-25). A commit with another one is `plan_changed`.
+	Revision  string         `json:"revision"`
+	Subtitles []EditSubtitle `json:"subtitles"`
+
+	// Title The title a video goes to (RF-21). Which fields apply depends on `source`.
+	Title  TitleChoice `json:"title"`
+	Videos []EditVideo `json:"videos"`
+}
+
+// EditResult What an edit did (RF-44): the title it ended in, its folder, and whether it joined another title.
+type EditResult struct {
+	// Changed False when the edit changed nothing.
+	Changed bool   `json:"changed"`
+	Folder  string `json:"folder"`
+	Merged  bool   `json:"merged"`
+	TitleId int64  `json:"titleId"`
+}
+
+// EditSubtitle What one subtitle of the title becomes (RF-23): its language and its flags. It goes with its video.
+type EditSubtitle struct {
+	FileId int64 `json:"fileId"`
+	Forced *bool `json:"forced,omitempty"`
+
+	// Language ISO 639-1 with an optional region, as spec §5 writes it (`es`, `en`, `es-419`).
+	Language string `json:"language"`
+	Sdh      *bool  `json:"sdh,omitempty"`
+}
+
+// EditVideo What one video of the title becomes (RF-22, RF-44). A movie takes a part (0 for the whole movie); a series
+// takes a season, a chapter and, for a file with several chapters, the last one. `chapterTitle` is the title
+// of a chapter of a free series (it is read from the name on the disk when the title is opened).
+type EditVideo struct {
+	Chapter      *int    `json:"chapter,omitempty"`
+	ChapterTitle *string `json:"chapterTitle,omitempty"`
+
+	// Duplicate The answer to a duplicate (RF-24): `replace` sends the file that is there to the trash,
+	// `keep_both` keeps it as a version with its label, `skip` leaves the new file in No asignados.
+	// `keep_both` is not allowed when parts and versions are involved (RF-22).
+	Duplicate *DuplicateDecision `json:"duplicate,omitempty"`
+
+	// FileId The video of the title, as the title page lists it (`GET /library/titles/{id}`).
+	FileId      int64 `json:"fileId"`
+	LastChapter *int  `json:"lastChapter,omitempty"`
+	Part        *int  `json:"part,omitempty"`
+	Season      *int  `json:"season,omitempty"`
+
+	// Version The label of the version (RF-24); empty for the only file of its place.
+	Version *string `json:"version,omitempty"`
+}
 
 // EntryProblem RFC 9457 problem details of a change of an entry, with the stable reason in `code`.
 type EntryProblem struct {
@@ -1157,6 +1306,13 @@ type BadRequest = Problem
 // Conflict RFC 9457 problem details.
 type Conflict = Problem
 
+// EditConflict RFC 9457 problem details of an edit, with the stable reason in `code`.
+type EditConflict = EditProblem
+
+// EditInvalid The preview of an edit (RF-44). It changes nothing. `valid` is true when the same request can be committed;
+// `errors` say what stops it and `warnings` what does not.
+type EditInvalid = EditPlan
+
 // EntryConflict RFC 9457 problem details of a change of an entry, with the stable reason in `code`.
 type EntryConflict = EntryProblem
 
@@ -1226,6 +1382,12 @@ type CreateBatchJSONRequestBody = CreateBatchRequest
 // SubmitJobPasswordJSONRequestBody defines body for SubmitJobPassword for application/json ContentType.
 type SubmitJobPasswordJSONRequestBody = PasswordRequest
 
+// CommitTitleEditJSONRequestBody defines body for CommitTitleEdit for application/json ContentType.
+type CommitTitleEditJSONRequestBody = EditRequest
+
+// PlanTitleEditJSONRequestBody defines body for PlanTitleEdit for application/json ContentType.
+type PlanTitleEditJSONRequestBody = EditRequest
+
 // CommitAssignJSONRequestBody defines body for CommitAssign for application/json ContentType.
 type CommitAssignJSONRequestBody = AssignRequest
 
@@ -1279,6 +1441,12 @@ type ServerInterface interface {
 	// GetLibraryTitle A title of the library with its files (RF-43)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(w http.ResponseWriter, r *http.Request, id TitleId)
+	// CommitTitleEdit Store the edit of a title as one change of the library (RF-44)
+	// (POST /library/titles/{id}/edit/commit)
+	CommitTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId)
+	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
+	// (POST /library/titles/{id}/edit/plan)
+	PlanTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId)
 	// GetScans The two scans of the library and when each last finished (RF-28)
 	// (GET /scans)
 	GetScans(w http.ResponseWriter, r *http.Request)
@@ -1571,6 +1739,58 @@ func (siw *ServerInterfaceWrapper) GetLibraryTitle(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetLibraryTitle(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CommitTitleEdit operation middleware
+func (siw *ServerInterfaceWrapper) CommitTitleEdit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CommitTitleEdit(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlanTitleEdit operation middleware
+func (siw *ServerInterfaceWrapper) PlanTitleEdit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlanTitleEdit(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2168,6 +2388,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles", wrapper.ListLibraryTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/plan", wrapper.PlanTitleEdit)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/commit", wrapper.CommitTitleEdit)
 
 	return m
 }
@@ -2181,6 +2403,10 @@ type BadGatewayApplicationProblemPlusJSONResponse Problem
 type BadRequestApplicationProblemPlusJSONResponse Problem
 
 type ConflictApplicationProblemPlusJSONResponse Problem
+
+type EditConflictApplicationProblemPlusJSONResponse EditProblem
+
+type EditInvalidJSONResponse EditPlan
 
 type EntryConflictApplicationProblemPlusJSONResponse EntryProblem
 
@@ -2942,6 +3168,178 @@ type GetLibraryTitle404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetLibraryTitle404ApplicationProblemPlusJSONResponse) VisitGetLibraryTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleEditRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *CommitTitleEditJSONRequestBody
+}
+
+type CommitTitleEditResponseObject interface {
+	VisitCommitTitleEditResponse(w http.ResponseWriter) error
+}
+
+type CommitTitleEdit200JSONResponse EditResult
+
+func (response CommitTitleEdit200JSONResponse) VisitCommitTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleEdit400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleEdit400ApplicationProblemPlusJSONResponse) VisitCommitTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleEdit401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleEdit401ApplicationProblemPlusJSONResponse) VisitCommitTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleEdit404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleEdit404ApplicationProblemPlusJSONResponse) VisitCommitTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleEdit409ApplicationProblemPlusJSONResponse struct {
+	EditConflictApplicationProblemPlusJSONResponse
+}
+
+func (response CommitTitleEdit409ApplicationProblemPlusJSONResponse) VisitCommitTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitTitleEdit422JSONResponse struct{ EditInvalidJSONResponse }
+
+func (response CommitTitleEdit422JSONResponse) VisitCommitTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleEditRequestObject struct {
+	Id   TitleId `json:"id"`
+	Body *PlanTitleEditJSONRequestBody
+}
+
+type PlanTitleEditResponseObject interface {
+	VisitPlanTitleEditResponse(w http.ResponseWriter) error
+}
+
+type PlanTitleEdit200JSONResponse EditPlan
+
+func (response PlanTitleEdit200JSONResponse) VisitPlanTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleEdit400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTitleEdit400ApplicationProblemPlusJSONResponse) VisitPlanTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleEdit401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTitleEdit401ApplicationProblemPlusJSONResponse) VisitPlanTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTitleEdit404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTitleEdit404ApplicationProblemPlusJSONResponse) VisitPlanTitleEditResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3830,6 +4228,12 @@ type StrictServerInterface interface {
 	// GetLibraryTitle A title of the library with its files (RF-43)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(ctx context.Context, request GetLibraryTitleRequestObject) (GetLibraryTitleResponseObject, error)
+	// CommitTitleEdit Store the edit of a title as one change of the library (RF-44)
+	// (POST /library/titles/{id}/edit/commit)
+	CommitTitleEdit(ctx context.Context, request CommitTitleEditRequestObject) (CommitTitleEditResponseObject, error)
+	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
+	// (POST /library/titles/{id}/edit/plan)
+	PlanTitleEdit(ctx context.Context, request PlanTitleEditRequestObject) (PlanTitleEditResponseObject, error)
 	// GetScans The two scans of the library and when each last finished (RF-28)
 	// (GET /scans)
 	GetScans(ctx context.Context, request GetScansRequestObject) (GetScansResponseObject, error)
@@ -4247,6 +4651,72 @@ func (sh *strictHandler) GetLibraryTitle(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetLibraryTitleResponseObject); ok {
 		if err := validResponse.VisitGetLibraryTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CommitTitleEdit operation middleware
+func (sh *strictHandler) CommitTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request CommitTitleEditRequestObject
+
+	request.Id = id
+
+	var body CommitTitleEditJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CommitTitleEdit(ctx, request.(CommitTitleEditRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CommitTitleEdit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CommitTitleEditResponseObject); ok {
+		if err := validResponse.VisitCommitTitleEditResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PlanTitleEdit operation middleware
+func (sh *strictHandler) PlanTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request PlanTitleEditRequestObject
+
+	request.Id = id
+
+	var body PlanTitleEditJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PlanTitleEdit(ctx, request.(PlanTitleEditRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlanTitleEdit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PlanTitleEditResponseObject); ok {
+		if err := validResponse.VisitPlanTitleEditResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

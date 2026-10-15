@@ -231,3 +231,49 @@ func nullInt(n int64) sql.NullInt64 {
 func episodeInt(p domain.Place, n int) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(n), Valid: p.Episode}
 }
+
+// SaveLibraryTitle implements application.Records (RF-44): the identity of a title an edit changed.
+func (r records) SaveLibraryTitle(ctx context.Context, t domain.LibraryTitle) error {
+	if err := r.q.UpdateLibraryTitle(ctx, sqlcgen.UpdateLibraryTitleParams{
+		Kind:      string(t.Kind),
+		Title:     t.Title,
+		DiscTitle: t.DiscTitle,
+		Year:      int64(t.Year),
+		TmdbID:    nullInt(t.TMDBID),
+		IDTag:     boolInt(t.IDTag),
+		Folder:    t.Folder,
+		UpdatedAt: formatTime(t.UpdatedAt),
+		ID:        t.ID,
+	}); err != nil {
+		return fmt.Errorf("catalog: update library title: %w", err)
+	}
+	return nil
+}
+
+// ReleaseLibraryFileRel implements application.Records (RF-44): the file's path is freed for the edit's moves.
+func (r records) ReleaseLibraryFileRel(ctx context.Context, id int64) error {
+	if err := r.q.ReleaseLibraryFileRel(ctx, id); err != nil {
+		return fmt.Errorf("catalog: release library file: %w", err)
+	}
+	return nil
+}
+
+// SaveLibraryFile implements application.Records (RF-44): the values of a registered file an edit changed.
+func (r records) SaveLibraryFile(ctx context.Context, f domain.LibraryFile) error {
+	if err := r.q.UpdateLibraryFile(ctx, sqlcgen.UpdateLibraryFileParams{
+		TitleID:      f.TitleID,
+		Rel:          f.Rel,
+		Season:       episodeInt(f.Place, f.Place.Season),
+		FirstChapter: episodeInt(f.Place, f.Place.First),
+		LastChapter:  episodeInt(f.Place, f.Place.Last),
+		Part:         int64(f.Place.Part),
+		Version:      f.Version,
+		Language:     f.Language,
+		Forced:       boolInt(f.Forced),
+		Sdh:          boolInt(f.SDH),
+		ID:           f.ID,
+	}); err != nil {
+		return fmt.Errorf("catalog: update library file: %w", err)
+	}
+	return nil
+}

@@ -569,3 +569,13 @@ func (m *memStore) UpdateUnassignedFile(_ context.Context, entryID int64, f doma
 	}
 	return errors.New("no such file in the entry")
 }
+
+// SaveLibraryTitle implements application.Records. The edit's own tests run over SQLite (RF-44), so the store
+// keeps no edited title.
+func (m *memStore) SaveLibraryTitle(context.Context, domain.LibraryTitle) error { return nil }
+
+// ReleaseLibraryFileRel implements application.Records. See SaveLibraryTitle.
+func (m *memStore) ReleaseLibraryFileRel(context.Context, int64) error { return nil }
+
+// SaveLibraryFile implements application.Records. See SaveLibraryTitle.
+func (m *memStore) SaveLibraryFile(context.Context, domain.LibraryFile) error { return nil }

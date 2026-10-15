@@ -45,6 +45,12 @@ func NewDuplicateFinder(repo LibraryRepository, files Files, hasher PartialHashe
 // waits to be assigned (in _unassigned/). Only the videos of the same size as the new one are read
 // for their partial hash.
 func (d *DuplicateFinder) Find(ctx context.Context, folder string, target domain.Target, incoming string) (domain.Duplicates, error) {
+	return d.FindExcept(ctx, folder, target, incoming, nil)
+}
+
+// FindExcept is Find without the videos whose paths (lower case) are in skip: an edit leaves out the videos
+// that it moves, since they do not hold the place once it is done (RF-44).
+func (d *DuplicateFinder) FindExcept(ctx context.Context, folder string, target domain.Target, incoming string, skip map[string]bool) (domain.Duplicates, error) {
 	existing, err := d.registered(ctx, folder)
 	if err != nil {
 		return domain.Duplicates{}, err
@@ -54,6 +60,15 @@ func (d *DuplicateFinder) Find(ctx context.Context, folder string, target domain
 		return domain.Duplicates{}, err
 	}
 	existing = append(existing, onDisk...)
+	if len(skip) > 0 {
+		kept := existing[:0:0]
+		for _, e := range existing {
+			if !skip[strings.ToLower(e.Rel)] {
+				kept = append(kept, e)
+			}
+		}
+		existing = kept
+	}
 
 	size, err := d.files.Size(d.files.LibraryPath(incoming))
 	if err != nil {

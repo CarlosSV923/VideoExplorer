@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sort"
 	"strings"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
@@ -73,7 +72,7 @@ func NewLibraryViews(repo LibraryRepository, tmdb TMDB, log *slog.Logger) *Libra
 
 // Titles returns the titles of the library: those with at least one file out of the trash (RF-30), by id.
 func (v *LibraryViews) Titles(ctx context.Context) ([]TitleSummary, error) {
-	live, err := liveTitles(ctx, v.repo)
+	live, _, err := classifyTitles(ctx, v.repo)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +86,7 @@ func (v *LibraryViews) Titles(ctx context.Context) ([]TitleSummary, error) {
 // Title returns a title of the library with its files that are out of the trash (RF-43). The poster comes
 // from TMDB through its cache when TMDB is configured; a failure there leaves it out and is logged.
 func (v *LibraryViews) Title(ctx context.Context, id int64) (TitleDetail, error) {
-	live, err := liveTitles(ctx, v.repo)
+	live, _, err := classifyTitles(ctx, v.repo)
 	if err != nil {
 		return TitleDetail{}, err
 	}
@@ -146,27 +145,6 @@ func videoViews(title domain.LibraryTitle, files []domain.LibraryFile) []VideoVi
 		out = append(out, v)
 	}
 	return out
-}
-
-// liveTitles returns the titles of the registry that have at least one file out of the trash, by id (RF-30).
-// A title whose files are all in the trash is not in the library: it keeps its registry for RF-31.
-func liveTitles(ctx context.Context, repo LibraryRepository) ([]domain.LibraryTitle, error) {
-	titles, err := repo.Titles(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var live []domain.LibraryTitle
-	for _, t := range titles {
-		files, err := repo.Files(ctx, t.ID)
-		if err != nil {
-			return nil, err
-		}
-		if anyLive(files) {
-			live = append(live, t)
-		}
-	}
-	sort.SliceStable(live, func(i, j int) bool { return live[i].ID < live[j].ID })
-	return live, nil
 }
 
 // anyLive reports whether one of the files is out of the trash.

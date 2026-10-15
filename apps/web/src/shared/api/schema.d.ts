@@ -587,6 +587,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/titles/{id}/edit/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
+         * @description Checks the choices of the edit form for a title of the library and answers its preview: the title's
+         *     identity after the edit, the final path of each video and subtitle (spec §5), the duplicates of each
+         *     place and the answers they accept (RF-24), and the errors and warnings. Changes nothing. `valid` is
+         *     true when the same request can be committed. Every video and subtitle of the title needs a choice.
+         */
+        post: operations["planTitleEdit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/edit/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store the edit of a title as one change of the library (RF-44)
+         * @description Checks the choices again under the library's lock and performs them as one change: the files move
+         *     and are renamed to their final paths, the replaced files go to the trash with their subtitles, the
+         *     old versions take their labels, and the registry takes the new values. Nothing is overwritten. If
+         *     anything fails, everything is undone. The request's `revision` must be the one of the plan: when the
+         *     title changed since, the answer is 409 `plan_changed` and the plan is checked again (RF-25).
+         */
+        post: operations["commitTitleEdit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -988,6 +1035,118 @@ export interface components {
             /** @description The poster's file for `GET /images/poster/{file}`; omitted when there is none. */
             posterFile?: string;
         };
+        /** @description RFC 9457 problem details of an edit, with the stable reason in `code`. */
+        EditProblem: components["schemas"]["Problem"] & {
+            /**
+             * @description `plan_changed`: the title changed since the plan was made; the plan is checked again (RF-25).
+             * @enum {string}
+             */
+            code: "plan_changed";
+        };
+        /**
+         * @description The choices of the edit form for a title (RF-44): its new identity (`title`: a title of the library the
+         *     files join, a TMDB title, or a free name), the place and version of each video, the language and flags
+         *     of each subtitle, and the labels of the old versions that need one (RF-24). Every video and subtitle of
+         *     the title needs a choice; the server takes every path from the registry and from spec §5.
+         */
+        EditRequest: {
+            /** @description The revision of the title that the plan answered (RF-25). A commit with another one is `plan_changed`. */
+            revision: string;
+            title: components["schemas"]["TitleChoice"];
+            videos: components["schemas"]["EditVideo"][];
+            subtitles: components["schemas"]["EditSubtitle"][];
+            /** @description The labels written for the old versions that need one (RF-24), as the plan names them. */
+            labels?: components["schemas"]["AssignLabel"][];
+        };
+        /**
+         * @description What one video of the title becomes (RF-22, RF-44). A movie takes a part (0 for the whole movie); a series
+         *     takes a season, a chapter and, for a file with several chapters, the last one. `chapterTitle` is the title
+         *     of a chapter of a free series (it is read from the name on the disk when the title is opened).
+         */
+        EditVideo: {
+            /**
+             * Format: int64
+             * @description The video of the title, as the title page lists it (`GET /library/titles/{id}`).
+             */
+            fileId: number;
+            part?: number;
+            season?: number;
+            chapter?: number;
+            lastChapter?: number;
+            chapterTitle?: string;
+            /** @description The label of the version (RF-24); empty for the only file of its place. */
+            version?: string;
+            duplicate?: components["schemas"]["DuplicateDecision"];
+        };
+        /** @description What one subtitle of the title becomes (RF-23): its language and its flags. It goes with its video. */
+        EditSubtitle: {
+            /** Format: int64 */
+            fileId: number;
+            /** @description ISO 639-1 with an optional region, as spec §5 writes it (`es`, `en`, `es-419`). */
+            language: string;
+            forced?: boolean;
+            sdh?: boolean;
+        };
+        /**
+         * @description The preview of an edit (RF-44). It changes nothing. `valid` is true when the same request can be committed;
+         *     `errors` say what stops it and `warnings` what does not.
+         */
+        EditPlan: {
+            /** Format: int64 */
+            titleId: number;
+            /** @description The revision the commit must send back (RF-25). */
+            revision: string;
+            valid: boolean;
+            kind: components["schemas"]["TitleKind"];
+            /** @description The name of the title after the edit (its disc title, or the title of the library it joins). */
+            title: string;
+            /** @description The title's folder after the edit, inside the library, with "/" separators. */
+            folder: string;
+            /**
+             * Format: int64
+             * @description The title of the library the files join when the edit joins another title (RF-44); omitted otherwise.
+             */
+            mergeInto?: number;
+            videos: components["schemas"]["EditPlanVideo"][];
+            subtitles: components["schemas"]["EditPlanSubtitle"][];
+            errors: components["schemas"]["PlanIssue"][];
+            warnings: components["schemas"]["PlanIssue"][];
+        };
+        /** @description A video of the title in the preview (RF-24, RF-44). */
+        EditPlanVideo: {
+            /** Format: int64 */
+            fileId: number;
+            /** @description Its path inside the library now. */
+            file: string;
+            /** @description Its path inside the library after the edit (spec §5); the same as `file` when it stays. */
+            finalPath: string;
+            changed: boolean;
+            duplicates: components["schemas"]["PlanDuplicate"][];
+            exactCopy: boolean;
+            /** @description The answers that a duplicate accepts. Empty without a duplicate. */
+            allowed: components["schemas"]["DuplicateDecision"][];
+            proposal?: components["schemas"]["DuplicateDecision"];
+            decision?: components["schemas"]["DuplicateDecision"];
+            version?: string;
+            versionProposal?: string;
+            versionIncomplete?: boolean;
+        };
+        EditPlanSubtitle: {
+            /** Format: int64 */
+            fileId: number;
+            file: string;
+            finalPath: string;
+            changed: boolean;
+        };
+        /** @description What an edit did (RF-44): the title it ended in, its folder, and whether it joined another title. */
+        EditResult: {
+            /** Format: int64 */
+            titleId: number;
+            folder: string;
+            merged: boolean;
+            /** @description False when the edit changed nothing. */
+            changed: boolean;
+        };
         LibraryTitles: {
             titles: components["schemas"]["LibraryTitleSummary"][];
         };
@@ -1274,6 +1433,30 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["AssignPlan"];
+            };
+        };
+        /**
+         * @description The edit cannot be stored on the title as the plan saw it: the title changed since (`plan_changed`).
+         *     Nothing was changed; the plan is checked again (RF-25, RF-44).
+         */
+        EditConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["EditProblem"];
+            };
+        };
+        /**
+         * @description The choices do not form an edit that can be stored. The body is the plan of the same choices, with the
+         *     errors that stop it (RF-25, RF-44).
+         */
+        EditInvalid: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EditPlan"];
             };
         };
         /** @description The image is not cached and TMDB could not provide it. */
@@ -1987,6 +2170,68 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    planTitleEdit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditRequest"];
+            };
+        };
+        responses: {
+            /** @description The preview. It may hold errors, which `valid` reports. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditPlan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    commitTitleEdit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditRequest"];
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EditConflict"];
+            422: components["responses"]["EditInvalid"];
         };
     };
 }

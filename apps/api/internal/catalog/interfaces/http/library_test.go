@@ -31,7 +31,7 @@ func (libraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, erro
 
 func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 	t.Parallel()
-	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil)
+	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil)
 	got, err := h.GetLibraryTitle(t.Context(), httpapi.GetLibraryTitleRequestObject{Id: 7})
 	if err != nil {
 		t.Fatalf("GetLibraryTitle: %v", err)
@@ -60,7 +60,7 @@ func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 
 func TestATitleOutOfTheLibraryAnswersNotFound(t *testing.T) {
 	t.Parallel()
-	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil)
+	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil)
 	got, err := h.GetLibraryTitle(t.Context(), httpapi.GetLibraryTitleRequestObject{Id: 99})
 	if err != nil {
 		t.Fatalf("GetLibraryTitle: %v", err)

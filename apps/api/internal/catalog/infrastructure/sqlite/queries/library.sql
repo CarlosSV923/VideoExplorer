@@ -46,3 +46,15 @@ DELETE FROM library_seen;
 
 -- name: InsertLibrarySeen :exec
 INSERT INTO library_seen (rel, size, mtime_ms) VALUES (?, ?, ?);
+
+-- name: UpdateLibraryTitle :exec
+UPDATE library_titles SET kind = ?, title = ?, disc_title = ?, year = ?, tmdb_id = ?, id_tag = ?, folder = ?, updated_at = ?
+WHERE id = ?;
+
+-- name: UpdateLibraryFile :exec
+UPDATE library_files SET title_id = ?, rel = ?, season = ?, first_chapter = ?, last_chapter = ?, part = ?, version = ?,
+       language = ?, forced = ?, sdh = ?
+WHERE id = ?;
+
+-- name: ReleaseLibraryFileRel :exec
+UPDATE library_files SET rel = 'released:' || id WHERE id = ?;

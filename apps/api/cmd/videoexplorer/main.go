@@ -159,7 +159,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler, newLibrary(conn, meta, log)))
+		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler, newLibrary(cfg, conn, catalog, meta, ingest.Service, log)))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)

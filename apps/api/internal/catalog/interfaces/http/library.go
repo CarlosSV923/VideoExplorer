@@ -13,15 +13,16 @@ import (
 // LibraryHandler implements the reads of the title pages (RF-40, RF-43) of httpapi.StrictServerInterface.
 type LibraryHandler struct {
 	views *application.LibraryViews
+	edits *application.Edits
 	log   *slog.Logger
 }
 
-// NewLibraryHandler builds the handler over the library reads. log may be nil.
-func NewLibraryHandler(views *application.LibraryViews, log *slog.Logger) *LibraryHandler {
+// NewLibraryHandler builds the handler over the library reads and the edits of a title (RF-44). log may be nil.
+func NewLibraryHandler(views *application.LibraryViews, edits *application.Edits, log *slog.Logger) *LibraryHandler {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &LibraryHandler{views: views, log: log}
+	return &LibraryHandler{views: views, edits: edits, log: log}
 }
 
 // ListLibraryTitles implements httpapi.StrictServerInterface (RF-40): the titles of the library.
