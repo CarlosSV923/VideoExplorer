@@ -136,6 +136,19 @@ var percent = regexp.MustCompile(`(\d{1,3})%`)
 func (e *Extractor) Extract(ctx context.Context, archive, dest, password string, listing application.Listing,
 	progress func(int),
 ) (string, error) {
+	// A zip whose names use the Windows separator is normalized after 7zz (RF-10c). Its unsafe names are
+	// refused here, before anything is written.
+	zipped, err := isZip(archive)
+	if err != nil {
+		return "", fmt.Errorf("%w: read archive: %w", application.ErrCorrupt, err)
+	}
+	var moves []separatorMove
+	if zipped {
+		if moves, err = planSeparators(listing.Entries); err != nil {
+			return "", err
+		}
+	}
+
 	args := []string{"x", "-y", "-bsp1", "-bso0", "-bse2", "-sccUTF-8", "-o" + dest, passwordArg(password), "--", archive}
 	cmd := exec.CommandContext(ctx, e.bin, args...) //nolint:gosec // fixed binary, paths built by the app
 	var stderr bytes.Buffer
@@ -170,6 +183,9 @@ func (e *Extractor) Extract(ctx context.Context, archive, dest, password string,
 		// 7zz cannot apply Unix modes stored in archives made on Linux. The
 		// data is intact: verify proves it below (phase 0.5 finding).
 		warning = attributeWarning
+	}
+	if err := normalizeSeparators(dest, moves); err != nil {
+		return "", err
 	}
 	if err := verify(dest, listing); err != nil {
 		return "", err
