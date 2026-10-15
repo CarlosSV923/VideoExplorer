@@ -474,18 +474,22 @@ func folderTitles(dirs []string, seasonAt int, hasSeason bool) (string, int) {
 
 // pickTitle takes the title and year of the file when it has a title, else those of
 // its folders. A generic name with no year (movie.mkv) is no title of its own, so the
-// folders decide, and with no folder title there is none. The file's year wins; without
-// one, the folder's year comes only when the file's title is the folder's title (RF-20).
+// folders decide, and with no folder title there is none. When the file's title is the
+// folder's title, the folder's title is used as written, with its spaced dash (RF-20).
+// The file's year wins; without one, the folder's year comes only in that case.
 func pickTitle(name nameParts, folderTitle string, folderYear int) (string, int) {
 	generic := name.year == 0 && isGenericName(name.title)
 	if name.title == "" || generic {
 		return folderTitle, folderYear
 	}
-	year := name.year
-	if year == 0 && folderTitle != "" && sameTitle(name.title, folderTitle) {
-		year = folderYear
+	if folderTitle != "" && sameTitle(name.title, folderTitle) {
+		year := name.year
+		if year == 0 {
+			year = folderYear
+		}
+		return folderTitle, year
 	}
-	return name.title, year
+	return name.title, name.year
 }
 
 // sameTitle compares two titles ignoring case, dots, underscores and spaces (RF-20).

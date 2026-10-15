@@ -547,15 +547,17 @@ function titledOf(folderName: string): Titled {
 /**
  * The title and year of the file when it has its own title, else those of its folders.
  * A generic name with no year (movie.mkv) is no title of its own, so the folders decide,
- * and with no folder title there is none. The file's year wins; without one, the folder's
- * year comes only when the file's title is the folder's title (RF-20).
+ * and with no folder title there is none. When the file's title is the folder's title, the
+ * folder's title is used as written, with its spaced dash (RF-20). The file's year wins;
+ * without one, the folder's year comes only in that case.
  */
 function pickTitle(name: NameParts, folder: Titled): Titled {
   const generic = name.year === 0 && isGenericName(name.title)
   if (name.title === '' || generic) return folder
-  const takesFolderYear =
-    name.year === 0 && folder.title !== '' && sameTitle(name.title, folder.title)
-  return { title: name.title, year: takesFolderYear ? folder.year : name.year }
+  if (folder.title !== '' && sameTitle(name.title, folder.title)) {
+    return { title: folder.title, year: name.year === 0 ? folder.year : name.year }
+  }
+  return { title: name.title, year: name.year }
 }
 
 /** Compares two titles ignoring case, dots, underscores and spaces (RF-20). */
