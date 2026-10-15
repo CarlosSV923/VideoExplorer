@@ -37,7 +37,7 @@ func slowBinary(t *testing.T) string {
 		t.Skip("the fake ffprobe is a shell script")
 	}
 	script := filepath.Join(t.TempDir(), "ffprobe")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nexec sleep 30\n"), 0o700); err != nil { //nolint:gosec // a test program that must run
+	if err := writeProgram(script, []byte("#!/bin/sh\nexec sleep 30\n")); err != nil {
 		t.Fatal(err)
 	}
 	return script
