@@ -40,6 +40,8 @@ export function MarkerScreen({
       'edit',
       'collection',
       'search',
+      'unassigned',
+      'assign',
     ].includes(screen) &&
     typeof catalog.libraryTitles === 'function'
   ) {

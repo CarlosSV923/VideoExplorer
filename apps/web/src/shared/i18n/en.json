@@ -15,7 +15,10 @@
     "clear": "Clear",
     "previous": "Previous",
     "next": "Next",
-    "retry": "Retry"
+    "retry": "Retry",
+    "download": "Download",
+    "moreActions": "More actions",
+    "separator": "·"
   },
   "login": {
     "title": "Sign in",
@@ -130,6 +133,163 @@
     "planError": {
       "plan_changed": "The title changed.",
       "duplicate": "A duplicate needs a decision."
+    }
+  },
+  "unassigned": {
+    "heading": "Unassigned",
+    "subtitle": "{{count}} visible entries",
+    "refresh": "Read again",
+    "assign": "Assign",
+    "trash": "Move to trash",
+    "delete": "Delete permanently",
+    "remove": "Remove",
+    "password": "Password",
+    "unlock": "Continue",
+    "entryActions": "Actions for {{name}}",
+    "fileActions": "Actions for {{name}}",
+    "fileCount_one": "1 file",
+    "fileCount_other": "{{count}} files",
+    "origin": { "upload": "Upload", "samba": "Samba" },
+    "relation": { "parts": "Parts", "episodes": "Chapters from one series", "none": "No relation" },
+    "status": {
+      "ready": "Ready to assign",
+      "copying": "Copying…",
+      "assigning": "Assigning",
+      "copyingBody": "It will be available when the copy finishes and its size stops changing.",
+      "assigningBody": "This entry is open in another tab and has no actions."
+    },
+    "hidden": {
+      "title": "No visible files",
+      "body": "It only contains content inside hidden or system folders. Review it over Samba; actions are disabled so unseen content is not deleted."
+    },
+    "empty": {
+      "title": "Nothing to assign",
+      "body": "Upload a video or copy it over Samba to the Unassigned folder."
+    },
+    "confirmDelete": {
+      "title": "Delete permanently?",
+      "entryBody": "The whole entry and its files will be deleted. This cannot be undone.",
+      "fileBody": "The file and its subtitles will be deleted. This cannot be undone."
+    },
+    "errors": { "assigning": "This entry is being assigned in another tab." },
+    "job": {
+      "progress": "Progress: {{progress}}%",
+      "status": {
+        "uploading": "Uploading",
+        "uploaded": "Ready to extract",
+        "waiting_parts": "Waiting for parts",
+        "extracting": "Extracting",
+        "needs_password": "Needs password",
+        "filtering": "Filtering",
+        "done": "Ready to assign",
+        "discarded": "Discarded",
+        "failed": "Error",
+        "cancelled": "Cancelled"
+      },
+      "failure": {
+        "wrong_password": "The password did not open the archive.",
+        "archive_corrupt": "The archive is corrupt.",
+        "parts_missing": "Archive parts are missing.",
+        "unknown": "The file could not be processed."
+      }
+    }
+  },
+  "assign": {
+    "title": "Assign",
+    "confirmAll": "Confirm all",
+    "tmdbUnavailable": "TMDB could not be searched. You can use a free name and link it later.",
+    "videos": { "title": "Videos in this entry" },
+    "video": {
+      "loose": "Loose file",
+      "unknownType": "Unknown type",
+      "type": { "movie": "Movie", "series": "Chapter", "unknown": "Unknown" },
+      "place": "Keep unassigned",
+      "keep": "Place",
+      "season": "Season",
+      "chapter": "First chapter",
+      "lastChapter": "Last chapter",
+      "part": "Part number",
+      "chapterTitle": "Chapter title"
+    },
+    "titlePicker": {
+      "label": "Destination title",
+      "choose": "Choose title",
+      "existing": "In your library",
+      "tmdb": "TMDB title",
+      "dialogTitle": "Choose title",
+      "dialogSubtitle": "Titles already in your library appear first.",
+      "search": "Search title",
+      "library": "In your library · Assign to existing",
+      "tmdbResults": "TMDB results",
+      "free": "Free name",
+      "freeName": "Title",
+      "freeYear": "Year (optional)",
+      "useFree": "Use free name",
+      "tmdbUnavailable": "TMDB is unavailable. You can type a free name."
+    },
+    "subtitles": {
+      "title": "Subtitles",
+      "file": "Subtitle file",
+      "language": "Language",
+      "forced": "Forced",
+      "sdh": "SDH",
+      "count_one": "1 subtitle associated",
+      "count_other": "{{count}} subtitles associated"
+    },
+    "duplicate": {
+      "title": "Duplicate",
+      "choice": "Duplicate decision",
+      "replace": "Replace",
+      "keep_both": "Keep both",
+      "skip": "Skip",
+      "exact": "Exact copy",
+      "version": "Version label",
+      "incomplete": "Complete the label: the audio language is missing."
+    },
+    "issue": {
+      "generic": "Review a field before saving.",
+      "missing": "A required value is missing.",
+      "unknown": "This value could not be interpreted.",
+      "required": "This value is required.",
+      "incomplete": "The label is incomplete.",
+      "duplicate": "A duplicate has no decision.",
+      "parts_and_whole": "Parts and the whole movie cannot be kept together.",
+      "tmdb_unavailable": "TMDB is unavailable; use a free name."
+    },
+    "preview": {
+      "title": "Preview",
+      "body": "Nothing moves until you save. If anything fails, everything returns to Unassigned.",
+      "emptyTitle": "Preview to see paths",
+      "emptyBody": "The preview renews the lock and shows duplicates and decisions.",
+      "button": "Preview",
+      "open": "Preview"
+    },
+    "save": "Save",
+    "saveReason": {
+      "noPreview": "Preview before saving.",
+      "invalid": "Review the marked fields.",
+      "duplicate": "Decide every duplicate before saving.",
+      "incompleteLabel": "Complete the version labels."
+    },
+    "cancel": {
+      "title": "Cancel assignment?",
+      "body": "Unsaved changes will be lost, but the files will stay in Unassigned.",
+      "confirm": "Cancel assignment"
+    },
+    "errors": {
+      "assigning": "Another tab is assigning this entry.",
+      "lockLost": "The entry was released after inactivity. Open Assign again.",
+      "planChanged": "The destination changed while you reviewed it. Preview again.",
+      "validation": "The plan has errors. Review the marked fields.",
+      "generic": "The assignment could not be completed. Nothing moved."
+    },
+    "shortcuts": {
+      "title": "Shortcuts",
+      "navigate": "change video",
+      "replace": "Replace",
+      "keepBoth": "Keep both",
+      "skip": "Skip",
+      "accept": "Accept suggestion"
     }
   },
   "screens": {

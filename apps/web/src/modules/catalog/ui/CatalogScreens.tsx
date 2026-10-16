@@ -6,6 +6,8 @@ import { EditScreen } from './EditScreen'
 import { HomeScreen } from './HomeScreen'
 import { SearchScreen } from './SearchScreen'
 import { TitleDetailScreen } from './TitleDetailScreen'
+import { UnassignedScreen } from './UnassignedScreen'
+import { AssignScreen } from './AssignScreen'
 
 export type CatalogScreenProps = {
   screen: string
@@ -38,6 +40,8 @@ export function CatalogScreen({ screen, id, search }: CatalogScreenProps) {
   if (screen === 'collection' && id) return <CollectionScreen id={id} />
   if (screen === 'search') return <SearchScreen queryText={search?.q ?? ''} />
   if (screen === 'edit' && id) return <EditScreen id={id} />
+  if (screen === 'unassigned') return <UnassignedScreen />
+  if (screen === 'assign' && id) return <AssignScreen id={id} />
   return (
     <LibraryLayout>
       <EmptyState title="" body="" />
