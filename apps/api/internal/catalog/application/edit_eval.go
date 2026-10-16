@@ -311,10 +311,17 @@ func (ev *editEval) preserveUnaffectedNames(v *editVideo, moves []domain.Move) [
 }
 
 // sameIdentity reports whether the edit resolves to this title, rather than linking or merging into another
-// title. The folder comparison also includes the current ID-tag state.
+// title. A linked title's folder may be non-canonical because RF-29 preserves imported names, so identity is
+// determined by kind, TMDB id and ID-tag state rather than by the folder string.
 func (ev *editEval) sameIdentity() bool {
-	return ev.id != nil && ev.id.merge == nil && ev.id.kind == ev.st.title.Kind &&
-		ev.id.tmdbID == ev.st.title.TMDBID && strings.EqualFold(ev.id.folder, ev.st.title.Folder)
+	if ev.id == nil || ev.id.merge != nil || ev.id.kind != ev.st.title.Kind || ev.id.tmdbID != ev.st.title.TMDBID ||
+		ev.id.title.IDTag != ev.st.title.IDTag {
+		return false
+	}
+	if ev.id.tmdbID != 0 {
+		return true
+	}
+	return ev.id.title.Name == ev.st.title.DiscTitle && ev.id.title.Year == ev.st.title.Year
 }
 
 func (ev *editEval) videoChoiceUnchanged(v *editVideo) bool {

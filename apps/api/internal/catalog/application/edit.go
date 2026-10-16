@@ -305,6 +305,11 @@ func (e *Edits) resolveTitle(ctx context.Context, st editState, c TitleChoice, e
 			ev.addTitleIssue("in_trash")
 			return nil, nil
 		}
+		// Selecting the same linked title is not a change of identity (RF-44), even when RF-29
+		// imported it under a non-canonical folder name. Keep that folder and its file names.
+		if c.Kind == cur.Kind && c.TMDBID == cur.TMDBID && cur.TMDBID != 0 {
+			return e.keep(cur), nil
+		}
 		tt, err := e.d.TMDB.Title(ctx, c.Kind, c.TMDBID)
 		switch {
 		case isNotFound(err):

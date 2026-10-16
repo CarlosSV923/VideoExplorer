@@ -16,7 +16,7 @@ import (
 	catalogsqlite "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/infrastructure/sqlite"
 )
 
-// editTMDB answers the titles and the chapters the edits ask for: Iron Man (2008) and Breaking Bad (2008),
+// editTMDB answers the titles and the chapters the edits ask for: Iron Man (2008), Alien: Romulus (2024) and Breaking Bad (2008),
 // whose chapters are named as their episode numbers. Season 9 is one TMDB does not know.
 type editTMDB struct{}
 
@@ -30,6 +30,8 @@ func (editTMDB) Title(_ context.Context, kind domain.TitleKind, id int64) (appli
 	switch {
 	case kind == domain.KindMovie && id == 1726:
 		return application.TMDBTitle{ID: 1726, Title: "Iron Man", DiscTitle: "Iron Man", Year: 2008, PosterFile: "poster.jpg"}, nil
+	case kind == domain.KindMovie && id == 945961:
+		return application.TMDBTitle{ID: 945961, Title: "Alien: Romulus", DiscTitle: "Alien: Romulus", Year: 2024}, nil
 	case kind == domain.KindSeries && id == 1396:
 		return application.TMDBTitle{ID: 1396, Title: "Breaking Bad", DiscTitle: "Breaking Bad", Year: 2008}, nil
 	}
@@ -238,21 +240,42 @@ func TestLinkingAFreeMovieRenamesItsFolderAndFilesAndTagsIt(t *testing.T) {
 func TestChoosingTheCurrentMatchKeepsEveryExistingName(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name   string
-		folder string
-		file   string
-		idTag  bool
+		name    string
+		folder  string
+		file    string
+		title   string
+		year    int
+		tmdbID  int64
+		matchID int64
+		idTag   bool
 	}{
 		{
-			name:   "imported filename",
-			folder: ironFolder,
-			file:   ironFolder + "/Iron Man (2008) [imdbid-tt18412256].mkv",
+			name:    "imported filename",
+			folder:  ironFolder,
+			file:    ironFolder + "/Iron Man (2008) [imdbid-tt18412256].mkv",
+			title:   "Iron Man",
+			year:    2008,
+			tmdbID:  1726,
+			matchID: 1726,
 		},
 		{
-			name:   "canonical filename",
-			folder: ironFolder + " [tmdbid-1726]",
-			file:   ironFolder + " [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv",
-			idTag:  true,
+			name:    "canonical filename",
+			folder:  ironFolder + " [tmdbid-1726]",
+			file:    ironFolder + " [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv",
+			title:   "Iron Man",
+			year:    2008,
+			tmdbID:  1726,
+			matchID: 1726,
+			idTag:   true,
+		},
+		{
+			name:    "imported folder whose colon differs from the canonical name",
+			folder:  "Movies/Alien Romulus (2024)",
+			file:    "Movies/Alien Romulus (2024)/Alien Romulus (2024) [imdbid-tt18412256].mkv",
+			title:   "Alien: Romulus",
+			year:    2024,
+			tmdbID:  945961,
+			matchID: 945961,
 		},
 	}
 	for _, tc := range cases {
@@ -261,12 +284,16 @@ func TestChoosingTheCurrentMatchKeepsEveryExistingName(t *testing.T) {
 			t.Parallel()
 			e := newEditEnv(t, nil)
 			e.write(tc.file, "iron")
-			titleID := e.seedMovie(tc.folder, 1726, tc.idTag, e.video(domain.KindMovie, tc.file, domain.Place{}, ""))
-			req := movieChoices(e.rows(titleID), application.TitleChoice{Source: "tmdb", Kind: domain.KindMovie, TMDBID: 1726})
+			title, err := domain.NewLibraryTitle(domain.KindMovie, tc.title, tc.title, tc.year, tc.tmdbID, tc.idTag, tc.folder, libraryNow)
+			if err != nil {
+				t.Fatal(err)
+			}
+			titleID := recordTitle(t, e.conn, title, e.video(domain.KindMovie, tc.file, domain.Place{}, ""))
+			req := movieChoices(e.rows(titleID), application.TitleChoice{Source: "tmdb", Kind: domain.KindMovie, TMDBID: tc.matchID})
 
 			p := e.plan(titleID, req)
-			if !p.Valid || p.Videos[0].Changed || p.Videos[0].FinalPath != tc.file {
-				t.Fatalf("same match changed the imported name: valid=%v changed=%v final=%q errors=%+v", p.Valid, p.Videos[0].Changed, p.Videos[0].FinalPath, p.Errors)
+			if !p.Valid || p.Folder != tc.folder || p.Videos[0].Changed || p.Videos[0].FinalPath != tc.file {
+				t.Fatalf("same match changed the imported name: valid=%v folder=%q changed=%v final=%q errors=%+v", p.Valid, p.Folder, p.Videos[0].Changed, p.Videos[0].FinalPath, p.Errors)
 			}
 		})
 	}
