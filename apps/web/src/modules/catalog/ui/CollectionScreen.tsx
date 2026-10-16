@@ -25,15 +25,27 @@ export function CollectionScreen({ id }: { id: number }) {
       </LibraryLayout>
     )
   const collection = query.data
+  const present = collection.movies.filter((movie) => movie.inLibrary).length
   return (
     <LibraryLayout>
-      <PageHeader title={collection.name} subtitle={collection.overview} />
+      <PageHeader
+        title={collection.name}
+        subtitle={t('library.collectionCount', {
+          present,
+          total: collection.movies.length,
+        })}
+      />
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 py-8 sm:grid-cols-3 lg:grid-cols-5">
         {collection.movies.map((movie) => (
           <Poster
             key={movie.id}
             title={movie.title}
-            meta={`${String(movie.year)} · ${movie.originalTitle}`}
+            meta={[
+              movie.year || undefined,
+              t(movie.inLibrary ? 'library.inLibrary' : 'library.notInLibrary'),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
             dimmed={!movie.inLibrary}
             {...(movie.poster ? { image: movie.poster } : {})}
             {...(movie.libraryTitleId

@@ -20,7 +20,7 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
   const metadata = useMetadataPorts()
   const ports = useCatalogPorts()
   const [confirm, setConfirm] = useState<'unassigned' | 'trash' | null>(null)
-  const [season, setSeason] = useState('0')
+  const [season, setSeason] = useState<number | null>(null)
   const refresh = useMutation({
     mutationFn: () => metadata.refreshTitleMetadata(id),
     onSuccess: () => undefined,
@@ -54,8 +54,12 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
       </LibraryLayout>
     )
   const title = query.data
-  const selectedSeason =
-    title.seasons.find((value) => value.number === Number(season)) ?? title.seasons[0]
+  const initialSeason =
+    title.seasons.find((value) => value.number > 0 && value.episodes.length > 0)?.number ??
+    title.seasons.find((value) => value.number === 0 && value.episodes.length > 0)?.number ??
+    title.seasons.find((value) => value.number > 0)?.number ??
+    title.seasons[0]?.number
+  const selectedSeason = title.seasons.find((value) => value.number === (season ?? initialSeason))
   return (
     <LibraryLayout>
       <TitleHeader
@@ -102,15 +106,31 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
               label={t('library.seasons')}
               options={title.seasons.map((value) => ({
                 value: String(value.number),
-                label:
-                  value.number === 0
-                    ? t('library.specials')
-                    : t('library.season', { number: value.number }),
+                label: (
+                  <>
+                    {value.number === 0
+                      ? t('library.specials')
+                      : t('library.season', { number: value.number })}{' '}
+                    <span aria-hidden="true" className="text-ink-2">
+                      {t('library.seasonProgress', {
+                        present: value.episodes.filter((episode) => episode.status === 'present')
+                          .length,
+                        total: value.episodes.length,
+                      })}
+                    </span>
+                  </>
+                ),
               }))}
-              value={selectedSeason ? String(selectedSeason.number) : season}
-              onChange={setSeason}
+              value={selectedSeason ? String(selectedSeason.number) : ''}
+              onChange={(value) => {
+                setSeason(Number(value))
+              }}
             />
-            {selectedSeason && <EpisodeList title={title} season={selectedSeason} />}
+            {selectedSeason ? (
+              <EpisodeList title={title} season={selectedSeason} />
+            ) : (
+              <p className="m-0 text-body text-ink-2">{t('library.seasonEmpty')}</p>
+            )}
           </section>
         )}
         {title.collection && <CollectionInline collection={title.collection} />}

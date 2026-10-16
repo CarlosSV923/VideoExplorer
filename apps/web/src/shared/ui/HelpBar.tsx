@@ -102,7 +102,7 @@ export function PageHeader({
     <header className="page-padding flex flex-wrap items-end justify-between gap-4 border-b border-line pt-7 pb-5">
       <div className="flex min-w-0 flex-col gap-2">
         {back}
-        <h1 className="m-0 text-page-title font-display break-words uppercase">{title}</h1>
+        <h1 className="m-0 text-page-title font-display break-words">{title}</h1>
         {subtitle}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}

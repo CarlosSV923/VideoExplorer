@@ -15,6 +15,8 @@ export function EpisodeList({
 }) {
   const { t } = useTranslation()
   const language = useLanguage()
+  if (season.episodes.length === 0)
+    return <p className="m-0 text-body text-ink-2">{t('library.seasonEmpty')}</p>
   return (
     <div className="flex flex-col gap-3">
       {season.episodes.map((episode) => (

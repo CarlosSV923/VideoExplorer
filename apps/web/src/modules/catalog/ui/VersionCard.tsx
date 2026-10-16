@@ -6,8 +6,7 @@ import { useCatalogPorts } from '../application/ports'
 import type { LibraryTitle } from '../domain/types'
 import { Button, ConfirmDialog, Menu, StatusChip } from '@/shared/ui'
 import { MoreIcon } from '@/shared/ui/icons'
-import { formatDuration } from '@/shared/i18n/format'
-import { useLanguage } from '@/shared/i18n/hooks'
+import { useFormat } from '@/shared/i18n/hooks'
 import type { Kind } from '../application/search'
 
 export function VersionCard({
@@ -23,7 +22,7 @@ export function VersionCard({
   const ports = useCatalogPorts()
   const [technical, setTechnical] = useState(false)
   const [confirm, setConfirm] = useState<'move' | 'trash' | null>(null)
-  const language = useLanguage()
+  const format = useFormat()
   const move = useMutation({
     mutationFn: () => ports.moveTitleToUnassigned(titleId, { kind: 'file', fileId: video.id }),
     onSuccess: () => {
@@ -53,8 +52,7 @@ export function VersionCard({
           <p className="m-0 mt-1 font-mono-file text-mono text-ink-2">{video.path}</p>
           <p className="m-0 mt-1 text-body-sm text-ink-2">
             {video.part ? t('library.part', { count: video.part }) : ''}
-            {video.version ? ` · ${video.version}` : ''} ·{' '}
-            {t('library.bytes', { count: video.size })}
+            {video.version ? ` · ${video.version}` : ''} · {format.size(video.size)}
           </p>
         </div>
         <Menu
@@ -108,7 +106,7 @@ export function VersionCard({
         <dl className="grid auto-fit grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 border-t border-line pt-3 text-body-sm">
           <div>
             <dt className="text-ink-3">{t('library.duration')}</dt>
-            <dd className="m-0">{formatDuration(technicalQuery.data.duration, language, t)}</dd>
+            <dd className="m-0">{format.duration(technicalQuery.data.duration)}</dd>
           </div>
           <div>
             <dt className="text-ink-3">{t('library.resolution')}</dt>

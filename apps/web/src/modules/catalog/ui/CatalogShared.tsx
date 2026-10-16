@@ -21,7 +21,7 @@ export function LoadingGrid() {
 export function PosterFor({ title, href }: { title: LibraryTitleSummary; href?: string }) {
   const { t } = useTranslation()
   const chips = [
-    title.missingEpisodes !== undefined ? (
+    title.missingEpisodes !== undefined && title.missingEpisodes > 0 ? (
       <StatusChip key="missing" tone="warning" solid>
         {t('library.missingCount', { count: title.missingEpisodes })}
       </StatusChip>

@@ -4,6 +4,7 @@ import type { LibraryTitle } from '../domain/types'
 import { Button, Chip, LinkButton } from '@/shared/ui'
 import { EditIcon, RefreshIcon } from '@/shared/ui/icons'
 import { kindLabel } from './CatalogLabels'
+import { useFormat } from '@/shared/i18n/hooks'
 
 export function TitleHeader({
   title,
@@ -15,6 +16,7 @@ export function TitleHeader({
   refreshing: boolean
 }) {
   const { t } = useTranslation()
+  const format = useFormat()
   return (
     <section className="relative -mx-[var(--page-x,16px)] overflow-hidden border-b border-line">
       <div className="relative min-h-[360px] p-6 pt-12 md:p-12">
@@ -41,6 +43,9 @@ export function TitleHeader({
             <h1 className="m-0 text-display font-display">{title.title}</h1>
             <p className="m-0 text-body-sm text-ink-2">
               {title.year || t('library.unknownYear')}
+              {title.kind === 'movie' && title.runtime > 0
+                ? ` · ${format.duration(title.runtime * 60)}`
+                : ''}
               {title.originalTitle ? ` · ${title.originalTitle}` : ''}
             </p>
             {title.genres.length > 0 && (

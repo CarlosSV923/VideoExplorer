@@ -6,7 +6,6 @@ import { type Kind, sortTitles, type Sort } from '../application/search'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { ChipGroup, EmptyState, PageHeader, SegmentedControl } from '@/shared/ui'
 import { LoadingGrid, PosterFor } from './CatalogShared'
-import { kindLabel } from './CatalogLabels'
 
 export function BrowseScreen({
   kind,
@@ -55,7 +54,7 @@ export function BrowseScreen({
   return (
     <LibraryLayout>
       <PageHeader
-        title={kindLabel(kind, t)}
+        title={kind === 'movie' ? t('library.movies') : t('library.seriesPlural')}
         subtitle={t('library.titleCount', { count: filtered.length })}
       />
       <div className="flex flex-wrap items-center justify-between gap-4 py-6">

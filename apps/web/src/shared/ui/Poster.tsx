@@ -65,7 +65,8 @@ export function Poster({
           </span>
         )}
       </div>
-      {meta && <span className="mt-2 block text-caption text-ink-2">{meta}</span>}
+      <span className="mt-2 block line-clamp-3 text-body-sm font-semibold text-ink-1">{title}</span>
+      {meta && <span className="block text-caption text-ink-2">{meta}</span>}
     </>
   )
   const accessibleName = [title, meta, ...accessibleChips].filter(Boolean).join(', ')
