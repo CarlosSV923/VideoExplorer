@@ -118,8 +118,12 @@ func TestDetectsJellyfinRootsAndTranslatesFolders(t *testing.T) {
 		UpdateType string `json:"UpdateType"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Emby-Token") != secret {
-			t.Errorf("X-Emby-Token = %q, want the configured key", r.Header.Get("X-Emby-Token"))
+		wantAuth := `MediaBrowser Token="` + secret + `"`
+		if r.Header.Get("Authorization") != wantAuth {
+			t.Errorf("Authorization = %q, want %q", r.Header.Get("Authorization"), wantAuth)
+		}
+		if got := r.Header.Get("X-Emby-Token"); got != "" {
+			t.Errorf("X-Emby-Token = %q, want it absent", got)
 		}
 		if r.URL.RawQuery != "" {
 			t.Errorf("query = %q, want no credentials in the URL", r.URL.RawQuery)

@@ -33,7 +33,7 @@ const (
 )
 
 // Config contains only adapter configuration. The API key is kept here and is
-// sent only as X-Emby-Token; it is never put in a URL or an error.
+// sent only as an Authorization token; it is never put in a URL or an error.
 type Config struct {
 	URL               string
 	APIKey            string
@@ -236,7 +236,7 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body any,
 			req.Header.Set("Content-Type", "application/json")
 		}
 		if c.cfg.APIKey != "" {
-			req.Header.Set("X-Emby-Token", c.cfg.APIKey)
+			req.Header.Set("Authorization", `MediaBrowser Token="`+c.cfg.APIKey+`"`)
 		}
 		res, doErr := c.http.Do(req)
 		if doErr != nil {
