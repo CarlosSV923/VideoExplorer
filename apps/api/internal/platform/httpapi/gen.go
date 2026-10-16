@@ -1086,8 +1086,8 @@ type LibraryTitle struct {
 	// Logo Local `/api/images/logo/{file}` route selected according to RF-61; omitted when there is none.
 	Logo *string `json:"logo,omitempty"`
 
-	// MissingEpisodes Missing episodes in normal seasons only; specials (season 0), movies and free titles count as zero (RF-40, RF-43a).
-	MissingEpisodes int `json:"missingEpisodes"`
+	// MissingEpisodes Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a).
+	MissingEpisodes *int `json:"missingEpisodes,omitempty"`
 
 	// OriginalTitle The original title from TMDB; empty for free titles or when unavailable.
 	OriginalTitle string `json:"originalTitle"`
@@ -1119,8 +1119,8 @@ type LibraryTitleSummary struct {
 	// Kind A movie (Movies/) or a series (TV Shows/), spec §2.
 	Kind TitleKind `json:"kind"`
 
-	// MissingEpisodes Missing episodes in normal seasons only; zero for movies, free titles and specials (RF-40, RF-43a).
-	MissingEpisodes int `json:"missingEpisodes"`
+	// MissingEpisodes Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a).
+	MissingEpisodes *int `json:"missingEpisodes,omitempty"`
 
 	// Title The title the user sees (the TMDB title, or the free name).
 	Title string `json:"title"`

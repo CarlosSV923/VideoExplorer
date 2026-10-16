@@ -2365,7 +2365,7 @@ components:
             $ref: '#/components/schemas/LibraryTitleSummary'
     LibraryTitleSummary:
       type: object
-      required: [id, kind, title, year, idTag, missingEpisodes]
+      required: [id, kind, title, year, idTag]
       additionalProperties: false
       properties:
         id:
@@ -2393,7 +2393,7 @@ components:
         missingEpisodes:
           type: integer
           minimum: 0
-          description: Missing episodes in normal seasons only; zero for movies, free titles and specials (RF-40, RF-43a).
+          description: Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a).
     LibraryTitle:
       type: object
       description: A title of the library with its videos (RF-43).
@@ -2405,7 +2405,6 @@ components:
           discTitle,
           year,
           idTag,
-          missingEpisodes,
           originalTitle,
           overview,
           runtime,
@@ -2440,7 +2439,7 @@ components:
         missingEpisodes:
           type: integer
           minimum: 0
-          description: Missing episodes in normal seasons only; specials (season 0), movies and free titles count as zero (RF-40, RF-43a).
+          description: Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a).
         originalTitle:
           type: string
           description: The original title from TMDB; empty for free titles or when unavailable.

@@ -1557,8 +1557,8 @@ export interface components {
             tmdbId?: number;
             /** @description Whether the tag [tmdbid-ID] is on in the folder and the files (RF-45). */
             idTag: boolean;
-            /** @description Missing episodes in normal seasons only; zero for movies, free titles and specials (RF-40, RF-43a). */
-            missingEpisodes: number;
+            /** @description Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a). */
+            missingEpisodes?: number;
         };
         /** @description A title of the library with its videos (RF-43). */
         LibraryTitle: {
@@ -1575,8 +1575,8 @@ export interface components {
              */
             tmdbId?: number;
             idTag: boolean;
-            /** @description Missing episodes in normal seasons only; specials (season 0), movies and free titles count as zero (RF-40, RF-43a). */
-            missingEpisodes: number;
+            /** @description Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a). */
+            missingEpisodes?: number;
             /** @description The original title from TMDB; empty for free titles or when unavailable. */
             originalTitle: string;
             /** @description The localized TMDB synopsis; empty for free titles or when unavailable. */

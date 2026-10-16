@@ -22,9 +22,9 @@ type TitleSummary struct {
 	// TMDBID is 0 for a free title.
 	TMDBID int64
 	IDTag  bool
-	// MissingEpisodes is the number of emitted episodes missing from normal seasons; it is zero for movies,
-	// free titles and specials (RF-40, RF-43a).
-	MissingEpisodes int
+	// MissingEpisodes is the last successfully calculated number of emitted episodes missing from normal
+	// seasons. It is nil until the first calculation (RF-40, RF-43a).
+	MissingEpisodes *int
 }
 
 // TitleDetail is a title with its videos, as the page of the title shows them (RF-43).
@@ -203,8 +203,12 @@ func (v *LibraryViews) Titles(ctx context.Context) ([]TitleSummary, error) {
 	out := make([]TitleSummary, 0, len(live))
 	for _, t := range live {
 		summary := summaryOf(t)
-		if t.TMDBID > 0 {
-			v.enrichSummary(ctx, t, &summary)
+		if t.Kind == domain.KindSeries {
+			missing, err := v.storedMissingEpisodes(ctx, t.ID)
+			if err != nil {
+				return nil, err
+			}
+			summary.MissingEpisodes = missing
 		}
 		out = append(out, summary)
 	}
@@ -234,6 +238,7 @@ func (v *LibraryViews) Title(ctx context.Context, id int64) (TitleDetail, error)
 		return TitleDetail{}, err
 	}
 	out := TitleDetail{TitleSummary: summaryOf(title), DiscTitle: title.DiscTitle}
+	out.MissingEpisodes = v.readMissingEpisodes(ctx, title.ID)
 	out.Videos = videoViews(title, files)
 	if title.TMDBID > 0 && v.tmdb != nil && v.tmdb.Configured() {
 		if rich, ok := v.tmdb.(LibraryMetadata); ok {
@@ -260,25 +265,24 @@ func summaryOf(t domain.LibraryTitle) TitleSummary {
 	return TitleSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Year: t.Year, TMDBID: t.TMDBID, IDTag: t.IDTag}
 }
 
-func (v *LibraryViews) enrichSummary(ctx context.Context, title domain.LibraryTitle, summary *TitleSummary) {
-	if title.Kind != domain.KindSeries || v.tmdb == nil || !v.tmdb.Configured() {
-		return
-	}
-	rich, ok := v.tmdb.(LibraryMetadata)
+func (v *LibraryViews) storedMissingEpisodes(ctx context.Context, titleID int64) (*int, error) {
+	store, ok := v.repo.(MissingEpisodesStore)
 	if !ok {
-		return
+		return nil, nil
 	}
-	metadata, err := rich.Details(ctx, title.Kind, title.TMDBID)
+	missing, err := store.MissingEpisodes(ctx, titleID)
 	if err != nil {
-		v.log.WarnContext(ctx, "missing episode count not read from TMDB", "title", title.ID, "error", err)
-		return
+		return nil, err
 	}
-	files, err := v.repo.Files(ctx, title.ID)
+	return missing, nil
+}
+
+func (v *LibraryViews) readMissingEpisodes(ctx context.Context, titleID int64) *int {
+	missing, err := v.storedMissingEpisodes(ctx, titleID)
 	if err != nil {
-		v.log.WarnContext(ctx, "files not read for missing episode count", "title", title.ID, "error", err)
-		return
+		v.log.WarnContext(ctx, "stored missing episode count not read", "title", titleID, "error", err)
 	}
-	_, summary.MissingEpisodes = episodeViews(metadata.Seasons, videoViews(title, files), v.now())
+	return missing
 }
 
 func (v *LibraryViews) applyMetadata(ctx context.Context, out *TitleDetail, metadata TitleMetadata, title domain.LibraryTitle, now time.Time) {
@@ -297,8 +301,52 @@ func (v *LibraryViews) applyMetadata(ctx context.Context, out *TitleDetail, meta
 	}
 	out.Collection = collectionView(metadata.Collection, v.collectionLibrary(ctx), title)
 	if title.Kind == domain.KindSeries {
-		out.Seasons, out.MissingEpisodes = episodeViews(metadata.Seasons, out.Videos, now)
+		var missing int
+		out.Seasons, missing = episodeViews(metadata.Seasons, out.Videos, now)
+		out.MissingEpisodes = &missing
+		if store, ok := v.repo.(MissingEpisodesStore); ok {
+			if err := store.SetMissingEpisodes(ctx, title.ID, missing); err != nil {
+				v.log.WarnContext(ctx, "missing episode count not saved", "title", title.ID, "error", err)
+			}
+		}
 	}
+}
+
+// RefreshMissingEpisodes recalculates the persisted count for every live linked series. It is intended for
+// the library scan's background work (RF-28, RF-43a); failures for one title leave its previous value intact.
+func (v *LibraryViews) RefreshMissingEpisodes(ctx context.Context) error {
+	store, ok := v.repo.(MissingEpisodesStore)
+	if !ok || v.tmdb == nil || !v.tmdb.Configured() {
+		return nil
+	}
+	rich, ok := v.tmdb.(LibraryMetadata)
+	if !ok {
+		return nil
+	}
+	live, _, err := classifyTitles(ctx, v.repo)
+	if err != nil {
+		return err
+	}
+	for _, title := range live {
+		if title.Kind != domain.KindSeries || title.TMDBID == 0 {
+			continue
+		}
+		metadata, err := rich.Details(ctx, title.Kind, title.TMDBID)
+		if err != nil {
+			v.log.WarnContext(ctx, "missing episode count not refreshed from TMDB", "title", title.ID, "error", err)
+			continue
+		}
+		files, err := v.repo.Files(ctx, title.ID)
+		if err != nil {
+			v.log.WarnContext(ctx, "files not read for missing episode count", "title", title.ID, "error", err)
+			continue
+		}
+		_, missing := episodeViews(metadata.Seasons, videoViews(title, files), v.now())
+		if err := store.SetMissingEpisodes(ctx, title.ID, missing); err != nil {
+			v.log.WarnContext(ctx, "missing episode count not saved", "title", title.ID, "error", err)
+		}
+	}
+	return nil
 }
 
 func (v *LibraryViews) collectionLibrary(ctx context.Context) map[int64]int64 {

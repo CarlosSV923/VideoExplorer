@@ -238,17 +238,22 @@ func asciiName(name string) string {
 
 // summaryToAPI returns the contract's view of a title in the list.
 func summaryToAPI(t application.TitleSummary) httpapi.LibraryTitleSummary {
-	return httpapi.LibraryTitleSummary{
-		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, Year: t.Year, TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, MissingEpisodes: t.MissingEpisodes,
+	out := httpapi.LibraryTitleSummary{Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, Year: t.Year, TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag}
+	if t.MissingEpisodes != nil {
+		out.MissingEpisodes = t.MissingEpisodes
 	}
+	return out
 }
 
 // detailToAPI returns the contract's view of a title with its videos.
 func detailToAPI(t application.TitleDetail) httpapi.LibraryTitle {
 	out := httpapi.LibraryTitle{
 		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, DiscTitle: t.DiscTitle, Year: t.Year,
-		TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, MissingEpisodes: t.MissingEpisodes, OriginalTitle: t.OriginalTitle,
+		TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, OriginalTitle: t.OriginalTitle,
 		Overview: t.Overview, Runtime: t.Runtime, Genres: append([]string(nil), t.Genres...), Seasons: make([]httpapi.LibrarySeason, 0, len(t.Seasons)), Videos: make([]httpapi.LibraryVideo, 0, len(t.Videos)),
+	}
+	if t.MissingEpisodes != nil {
+		out.MissingEpisodes = t.MissingEpisodes
 	}
 	if t.Poster != "" {
 		poster := imageURL("poster", t.Poster)

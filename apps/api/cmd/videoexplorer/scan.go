@@ -29,16 +29,19 @@ func newScans(ctx context.Context, cfg config.Config, conn *sql.DB, catalog cata
 	if err != nil {
 		return scansWiring{}, err
 	}
+	library := catalogsqlite.NewLibraryRepository(conn)
+	metadataRefresh := catalogapplication.NewLibraryViews(library, tmdbOf{svc: meta.Service}, log)
 	scanner, err := catalogapplication.NewScanner(ctx, catalogapplication.ScanDeps{
-		Section:         catalog.Section,
-		Arrivals:        arrivalsOf{ingest: ingest},
-		Library:         imp,
-		Store:           catalogsqlite.NewScanRepository(conn),
-		UnassignedEvery: cfg.UnassignedScanInterval,
-		LibraryEvery:    cfg.LibraryScanInterval,
-		Now:             time.Now,
-		After:           time.After,
-		Log:             log,
+		Section:                catalog.Section,
+		Arrivals:               arrivalsOf{ingest: ingest},
+		Library:                imp,
+		LibraryMetadataRefresh: metadataRefresh,
+		Store:                  catalogsqlite.NewScanRepository(conn),
+		UnassignedEvery:        cfg.UnassignedScanInterval,
+		LibraryEvery:           cfg.LibraryScanInterval,
+		Now:                    time.Now,
+		After:                  time.After,
+		Log:                    log,
 	})
 	if err != nil {
 		return scansWiring{}, fmt.Errorf("start the scans: %w", err)

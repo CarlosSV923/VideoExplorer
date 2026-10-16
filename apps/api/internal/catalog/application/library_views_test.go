@@ -11,8 +11,9 @@ import (
 
 // viewRepo is the registry the reads see: titles with their files, and nothing else.
 type viewRepo struct {
-	titles []domain.LibraryTitle
-	files  map[int64][]domain.LibraryFile
+	titles  []domain.LibraryTitle
+	files   map[int64][]domain.LibraryFile
+	missing map[int64]*int
 }
 
 func (r *viewRepo) TitleByFolder(_ context.Context, folder string) (domain.LibraryTitle, bool, error) {
@@ -28,6 +29,23 @@ func (r *viewRepo) Titles(context.Context) ([]domain.LibraryTitle, error) { retu
 
 func (r *viewRepo) Files(_ context.Context, titleID int64) ([]domain.LibraryFile, error) {
 	return r.files[titleID], nil
+}
+
+func (r *viewRepo) MissingEpisodes(_ context.Context, titleID int64) (*int, error) {
+	value := r.missing[titleID]
+	if value == nil {
+		return nil, nil
+	}
+	copy := *value
+	return &copy, nil
+}
+
+func (r *viewRepo) SetMissingEpisodes(_ context.Context, titleID int64, count int) error {
+	if r.missing == nil {
+		r.missing = map[int64]*int{}
+	}
+	r.missing[titleID] = &count
+	return nil
 }
 
 // viewTMDB answers the posters of the titles it knows, or fails.
@@ -104,6 +122,28 @@ func TestTheLibraryListsOnlyTitlesWithAFileOutOfTheTrash(t *testing.T) {
 	}
 	if got[0].TMDBID != 1726 || !got[0].IDTag || got[1].TMDBID != 0 || got[1].IDTag {
 		t.Errorf("the link and the tag: %+v", got)
+	}
+}
+
+func TestTheTitleListReadsTheStoredCountWithoutCallingTMDB(t *testing.T) {
+	t.Parallel()
+	count := 4
+	series := domain.LibraryTitle{ID: 5, Kind: domain.KindSeries, Title: "Show", DiscTitle: "Show", Year: 2020, TMDBID: 100, Folder: "TV Shows/Show (2020)"}
+	repo := &viewRepo{
+		titles:  []domain.LibraryTitle{series},
+		files:   map[int64][]domain.LibraryFile{5: {liveFile(50, 5, "TV Shows/Show (2020)/Season 01/Show - S01E01.mkv")}},
+		missing: map[int64]*int{5: &count},
+	}
+	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}}
+	got, err := NewLibraryViews(repo, tmdb, nil).Titles(t.Context())
+	if err != nil {
+		t.Fatalf("Titles: %v", err)
+	}
+	if len(got) != 1 || got[0].MissingEpisodes == nil || *got[0].MissingEpisodes != count {
+		t.Fatalf("titles = %+v, want stored count %d", got, count)
+	}
+	if tmdb.calls != 0 {
+		t.Fatalf("TMDB Details calls = %d, want 0", tmdb.calls)
 	}
 }
 
@@ -250,8 +290,8 @@ func TestTheSeriesPageMarksPresentMissingAndUpcomingEpisodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Title: %v", err)
 	}
-	if len(got.Seasons) != 2 || got.Seasons[0].Number != 0 || got.MissingEpisodes != 1 {
-		t.Fatalf("seasons=%+v missing=%d", got.Seasons, got.MissingEpisodes)
+	if len(got.Seasons) != 2 || got.Seasons[0].Number != 0 || got.MissingEpisodes == nil || *got.MissingEpisodes != 1 {
+		t.Fatalf("seasons=%+v missing=%v", got.Seasons, got.MissingEpisodes)
 	}
 	if got.Seasons[0].Episodes[0].Status != EpisodeMissing {
 		t.Errorf("special status = %q, want missing without affecting count", got.Seasons[0].Episodes[0].Status)
@@ -276,7 +316,7 @@ func TestFreeTitleHasNoTMDBMissingEpisodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Title: %v", err)
 	}
-	if got.OriginalTitle != "" || len(got.Seasons) != 0 || got.MissingEpisodes != 0 || tmdb.calls != 0 {
+	if got.OriginalTitle != "" || len(got.Seasons) != 0 || got.MissingEpisodes != nil || tmdb.calls != 0 {
 		t.Errorf("free title = %+v, TMDB calls=%d", got, tmdb.calls)
 	}
 }
@@ -289,7 +329,54 @@ func TestTMDBWithoutCachedDetailsDoesNotBreakTheTitlePage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Title: %v", err)
 	}
-	if got.Title != linked.Title || got.DiscTitle != linked.DiscTitle || got.Poster != "" || got.MissingEpisodes != 0 {
+	if got.Title != linked.Title || got.DiscTitle != linked.DiscTitle || got.Poster != "" || got.MissingEpisodes != nil {
 		t.Errorf("record-only title = %+v", got)
+	}
+}
+
+func TestTheTitlePageKeepsThePreviousCountWhenTMDBIsUnavailable(t *testing.T) {
+	t.Parallel()
+	previous := 7
+	series := domain.LibraryTitle{ID: 1, Kind: domain.KindSeries, Title: "Show", DiscTitle: "Show", TMDBID: 100, Folder: "TV Shows/Show"}
+	repo := &viewRepo{titles: []domain.LibraryTitle{series}, files: map[int64][]domain.LibraryFile{1: {{ID: 10, TitleID: 1, Kind: domain.FileVideo, Rel: "show.mkv", Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}}, missing: map[int64]*int{1: &previous}}
+	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, err: ErrTMDBUnavailable}
+	got, err := NewLibraryViews(repo, tmdb, nil).Title(t.Context(), 1)
+	if err != nil {
+		t.Fatalf("Title: %v", err)
+	}
+	if got.MissingEpisodes == nil || *got.MissingEpisodes != previous {
+		t.Fatalf("missing count = %v, want previous count %d", got.MissingEpisodes, previous)
+	}
+	if stored, _ := repo.MissingEpisodes(t.Context(), 1); stored == nil || *stored != previous {
+		t.Fatalf("stored count = %v, want previous count %d", stored, previous)
+	}
+}
+
+func TestRefreshMissingEpisodesKeepsThePreviousValueWhenTMDBFails(t *testing.T) {
+	t.Parallel()
+	previous := 3
+	series := domain.LibraryTitle{ID: 1, Kind: domain.KindSeries, Title: "Show", DiscTitle: "Show", TMDBID: 100, Folder: "TV Shows/Show"}
+	tests := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{name: "TMDB answers", want: 1},
+		{name: "TMDB fails", err: ErrTMDBUnavailable, want: previous},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &viewRepo{titles: []domain.LibraryTitle{series}, files: map[int64][]domain.LibraryFile{1: {{ID: 10, TitleID: 1, Kind: domain.FileVideo, Rel: "show.mkv", Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}}, missing: map[int64]*int{1: &previous}}
+			metadata := TitleMetadata{Seasons: []SeasonMetadata{{Number: 1, Episodes: []EpisodeMetadata{{Number: 1, AirDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, {Number: 2, AirDate: time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)}}}}}
+			tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: metadata, err: tt.err}
+			if err := NewLibraryViews(repo, tmdb, nil, func() time.Time { return time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC) }).RefreshMissingEpisodes(t.Context()); err != nil {
+				t.Fatalf("RefreshMissingEpisodes: %v", err)
+			}
+			stored, _ := repo.MissingEpisodes(t.Context(), 1)
+			if stored == nil || *stored != tt.want {
+				t.Fatalf("stored count = %v, want %d", stored, tt.want)
+			}
+		})
 	}
 }

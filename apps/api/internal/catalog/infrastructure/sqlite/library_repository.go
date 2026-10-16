@@ -21,6 +21,8 @@ type LibraryRepository struct {
 
 var _ application.LibraryRepository = (*LibraryRepository)(nil)
 
+var _ application.MissingEpisodesStore = (*LibraryRepository)(nil)
+
 // NewLibraryRepository builds the repository over an open database.
 func NewLibraryRepository(db *sql.DB) *LibraryRepository {
 	return &LibraryRepository{q: sqlcgen.New(db)}
@@ -116,4 +118,27 @@ func (r *LibraryRepository) Files(ctx context.Context, titleID int64) ([]domain.
 		})
 	}
 	return files, nil
+}
+
+// MissingEpisodes implements application.MissingEpisodesStore. NULL is returned before the first
+// successful calculation.
+func (r *LibraryRepository) MissingEpisodes(ctx context.Context, titleID int64) (*int, error) {
+	value, err := r.q.GetMissingEpisodes(ctx, titleID)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: read missing episode count: %w", err)
+	}
+	if !value.Valid {
+		return nil, nil
+	}
+	count := int(value.Int64)
+	return &count, nil
+}
+
+// SetMissingEpisodes implements application.MissingEpisodesStore and keeps the successful count for later
+// list reads (RF-40, RF-43a).
+func (r *LibraryRepository) SetMissingEpisodes(ctx context.Context, titleID int64, count int) error {
+	if err := r.q.SetMissingEpisodes(ctx, sqlcgen.SetMissingEpisodesParams{MissingEpisodes: sql.NullInt64{Int64: int64(count), Valid: true}, ID: titleID}); err != nil {
+		return fmt.Errorf("catalog: save missing episode count: %w", err)
+	}
+	return nil
 }

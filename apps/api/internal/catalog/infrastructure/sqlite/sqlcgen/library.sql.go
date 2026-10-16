@@ -43,9 +43,22 @@ SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, u
 FROM library_titles WHERE folder = ?
 `
 
-func (q *Queries) GetLibraryTitleByFolder(ctx context.Context, folder string) (LibraryTitle, error) {
+type GetLibraryTitleByFolderRow struct {
+	ID        int64
+	Kind      string
+	Title     string
+	DiscTitle string
+	Year      int64
+	TmdbID    sql.NullInt64
+	IDTag     int64
+	Folder    string
+	CreatedAt string
+	UpdatedAt string
+}
+
+func (q *Queries) GetLibraryTitleByFolder(ctx context.Context, folder string) (GetLibraryTitleByFolderRow, error) {
 	row := q.db.QueryRowContext(ctx, getLibraryTitleByFolder, folder)
-	var i LibraryTitle
+	var i GetLibraryTitleByFolderRow
 	err := row.Scan(
 		&i.ID,
 		&i.Kind,
@@ -59,6 +72,17 @@ func (q *Queries) GetLibraryTitleByFolder(ctx context.Context, folder string) (L
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getMissingEpisodes = `-- name: GetMissingEpisodes :one
+SELECT missing_episodes FROM library_titles WHERE id = ?
+`
+
+func (q *Queries) GetMissingEpisodes(ctx context.Context, id int64) (sql.NullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getMissingEpisodes, id)
+	var missing_episodes sql.NullInt64
+	err := row.Scan(&missing_episodes)
+	return missing_episodes, err
 }
 
 const insertLibraryFile = `-- name: InsertLibraryFile :one
@@ -254,15 +278,28 @@ SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, u
 FROM library_titles ORDER BY id
 `
 
-func (q *Queries) ListLibraryTitles(ctx context.Context) ([]LibraryTitle, error) {
+type ListLibraryTitlesRow struct {
+	ID        int64
+	Kind      string
+	Title     string
+	DiscTitle string
+	Year      int64
+	TmdbID    sql.NullInt64
+	IDTag     int64
+	Folder    string
+	CreatedAt string
+	UpdatedAt string
+}
+
+func (q *Queries) ListLibraryTitles(ctx context.Context) ([]ListLibraryTitlesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLibraryTitles)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []LibraryTitle
+	var items []ListLibraryTitlesRow
 	for rows.Next() {
-		var i LibraryTitle
+		var i ListLibraryTitlesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
@@ -334,6 +371,20 @@ func (q *Queries) RestoreLibraryFile(ctx context.Context, arg RestoreLibraryFile
 		arg.VideoID,
 		arg.ID,
 	)
+	return err
+}
+
+const setMissingEpisodes = `-- name: SetMissingEpisodes :exec
+UPDATE library_titles SET missing_episodes = ? WHERE id = ?
+`
+
+type SetMissingEpisodesParams struct {
+	MissingEpisodes sql.NullInt64
+	ID              int64
+}
+
+func (q *Queries) SetMissingEpisodes(ctx context.Context, arg SetMissingEpisodesParams) error {
+	_, err := q.db.ExecContext(ctx, setMissingEpisodes, arg.MissingEpisodes, arg.ID)
 	return err
 }
 

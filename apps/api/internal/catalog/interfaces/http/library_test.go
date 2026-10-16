@@ -45,7 +45,7 @@ func (richLibraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, 
 	return []domain.LibraryFile{{ID: 71, TitleID: 7, Kind: domain.FileVideo, Rel: "TV Shows/Show (2020)/Season 01/Show - S01E01.mkv", Size: 10, Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}, nil
 }
 
-type richLibraryTMDB struct{}
+type richLibraryTMDB struct{ calls *int }
 
 func (richLibraryTMDB) Configured() bool { return true }
 func (richLibraryTMDB) SearchTitles(context.Context, domain.TitleKind, string, int) ([]application.TMDBTitle, error) {
@@ -60,11 +60,34 @@ func (richLibraryTMDB) Chapters(context.Context, int64, int, int, int) (applicat
 	return application.TMDBChapters{}, nil
 }
 
-func (richLibraryTMDB) Details(context.Context, domain.TitleKind, int64) (application.TitleMetadata, error) {
+func (t richLibraryTMDB) Details(context.Context, domain.TitleKind, int64) (application.TitleMetadata, error) {
+	if t.calls != nil {
+		(*t.calls)++
+	}
 	return application.TitleMetadata{
 		Title: "Show", OriginalTitle: "The Show", Overview: "A synopsis", Backdrop: "backdrop.jpg", Poster: "poster.jpg", Logo: "logo.png", Genres: []string{"Drama"},
 		Seasons: []application.SeasonMetadata{{Number: 0}, {Number: 1, Episodes: []application.EpisodeMetadata{{ID: 11, Number: 1, Title: "Pilot", Overview: "First", Still: "still.jpg", AirDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, {ID: 12, Number: 2, Title: "Second", AirDate: time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)}}}},
 	}, nil
+}
+
+func TestTheTitleListDoesNotAskTMDBForEachSeries(t *testing.T) {
+	t.Parallel()
+	calls := 0
+	h := NewLibraryHandler(application.NewLibraryViews(richLibraryRegistry{}, richLibraryTMDB{calls: &calls}, nil), nil, nil, nil)
+	got, err := h.ListLibraryTitles(t.Context(), httpapi.ListLibraryTitlesRequestObject{})
+	if err != nil {
+		t.Fatalf("ListLibraryTitles: %v", err)
+	}
+	response, ok := got.(httpapi.ListLibraryTitles200JSONResponse)
+	if !ok {
+		t.Fatalf("response = %T, want 200", got)
+	}
+	if len(response.Titles) != 1 || response.Titles[0].MissingEpisodes != nil {
+		t.Fatalf("titles = %+v, want one title without an unknown count", response.Titles)
+	}
+	if calls != 0 {
+		t.Fatalf("TMDB Details calls = %d, want 0", calls)
+	}
 }
 
 func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {

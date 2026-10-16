@@ -61,16 +61,17 @@ type LibrarySeen struct {
 }
 
 type LibraryTitle struct {
-	ID        int64
-	Kind      string
-	Title     string
-	DiscTitle string
-	Year      int64
-	TmdbID    sql.NullInt64
-	IDTag     int64
-	Folder    string
-	CreatedAt string
-	UpdatedAt string
+	ID              int64
+	Kind            string
+	Title           string
+	DiscTitle       string
+	Year            int64
+	TmdbID          sql.NullInt64
+	IDTag           int64
+	Folder          string
+	CreatedAt       string
+	UpdatedAt       string
+	MissingEpisodes sql.NullInt64
 }
 
 type MediaProbe struct {

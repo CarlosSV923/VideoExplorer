@@ -17,3 +17,10 @@ type LibraryRepository interface {
 	// Titles returns every title of the registry (RF-21: the search of Asignar looks in them first).
 	Titles(ctx context.Context) ([]domain.LibraryTitle, error)
 }
+
+// MissingEpisodesStore keeps the last successful count of emitted episodes missing from normal seasons
+// (RF-40, RF-43a). A nil value means that the series has not been calculated yet.
+type MissingEpisodesStore interface {
+	MissingEpisodes(ctx context.Context, titleID int64) (*int, error)
+	SetMissingEpisodes(ctx context.Context, titleID int64, count int) error
+}

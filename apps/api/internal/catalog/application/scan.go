@@ -23,6 +23,12 @@ type LibraryScan interface {
 	Scan(ctx context.Context) error
 }
 
+// LibraryMetadataRefresh recalculates cached library metadata after a library scan. It runs in the
+// background so TMDB latency or failure never blocks the scan (RF-28, RF-43a).
+type LibraryMetadataRefresh interface {
+	RefreshMissingEpisodes(ctx context.Context) error
+}
+
 // ScanStore keeps, for each scan, when it last finished (RF-28), so that the times survive a restart.
 type ScanStore interface {
 	// Finished returns when each scan last finished. A scan that never did is absent.
@@ -39,6 +45,8 @@ type ScanDeps struct {
 	Arrivals Arrivals
 	// Library is the scan of the library. May be nil: the scan then only records its time.
 	Library LibraryScan
+	// LibraryMetadataRefresh is started after a successful library scan, in the background. May be nil.
+	LibraryMetadataRefresh LibraryMetadataRefresh
 	// Store keeps the times the scans finished.
 	Store ScanStore
 	// UnassignedEvery and LibraryEvery are the intervals of the two scans (UNASSIGNED_SCAN_INTERVAL and
@@ -222,7 +230,17 @@ func (s *Scanner) scan(ctx context.Context, kind domain.ScanKind) error {
 		if s.d.Library == nil {
 			return nil
 		}
-		return s.d.Library.Scan(ctx)
+		if err := s.d.Library.Scan(ctx); err != nil {
+			return err
+		}
+		if s.d.LibraryMetadataRefresh != nil {
+			go func() {
+				if err := s.d.LibraryMetadataRefresh.RefreshMissingEpisodes(ctx); err != nil {
+					s.d.Log.WarnContext(ctx, "library metadata refresh failed", "error", err)
+				}
+			}()
+		}
+		return nil
 	default:
 		return fmt.Errorf("catalog: unknown scan %q", kind)
 	}

@@ -36,6 +36,12 @@ UPDATE library_files SET trash_rel = rel, rel = 'trash:' || id, trash_entry_id =
 SELECT id, kind, title, disc_title, year, tmdb_id, id_tag, folder, created_at, updated_at
 FROM library_titles ORDER BY id;
 
+-- name: GetMissingEpisodes :one
+SELECT missing_episodes FROM library_titles WHERE id = ?;
+
+-- name: SetMissingEpisodes :exec
+UPDATE library_titles SET missing_episodes = ? WHERE id = ?;
+
 -- name: DeleteLibraryFile :exec
 DELETE FROM library_files WHERE id = ?;
 

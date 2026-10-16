@@ -86,6 +86,24 @@ type fakeLibrary struct {
 	started chan struct{}
 }
 
+type fakeMetadataRefresh struct {
+	started chan struct{}
+	gate    chan struct{}
+	err     error
+}
+
+func (f *fakeMetadataRefresh) RefreshMissingEpisodes(ctx context.Context) error {
+	f.started <- struct{}{}
+	if f.gate != nil {
+		select {
+		case <-f.gate:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return f.err
+}
+
 func (f *fakeLibrary) Scan(ctx context.Context) error {
 	f.mu.Lock()
 	f.calls++
@@ -264,6 +282,35 @@ func TestNewScannerRejectsWhatItCannotRun(t *testing.T) {
 			tt.edit(&d)
 			if _, err := application.NewScanner(t.Context(), d); err == nil {
 				t.Fatal("NewScanner accepted a scanner it cannot run")
+			}
+		})
+	}
+}
+
+func TestTheLibraryScanStartsMetadataRefreshInTheBackground(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "TMDB answers"},
+		{name: "TMDB fails", err: errors.New("TMDB unavailable")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			r := newScanRig(t, nil, nil)
+			refresh := &fakeMetadataRefresh{started: make(chan struct{}, 1), gate: make(chan struct{}), err: tt.err}
+			d := r.deps()
+			d.LibraryMetadataRefresh = refresh
+			s := r.newScanner(d)
+			s.Trigger()
+			r.awaitSave(domain.ScanLibrary)
+			await(t, refresh.started, "metadata refresh")
+			close(refresh.gate)
+			if at, ok := r.store.when(domain.ScanLibrary); !ok || at.IsZero() {
+				t.Fatalf("library scan was not saved after background refresh: %v %v", at, ok)
 			}
 		})
 	}
