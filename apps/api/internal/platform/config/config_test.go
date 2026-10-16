@@ -50,6 +50,7 @@ func TestLoadAppliesDefaults(t *testing.T) {
 		{"SessionTTL", cfg.SessionTTL, 720 * time.Hour},
 		{"CookieSecure", cfg.CookieSecure, false},
 		{"TMDBLanguage", cfg.TMDBLanguage, "es-MX"},
+		{"JellyfinLibraryPath", cfg.JellyfinLibraryPath, ""},
 		{"TrashRetentionDays", cfg.TrashRetentionDays, 30},
 		{"ExtractConcurrency", cfg.ExtractConcurrency, 1},
 		{"UnassignedScanInterval", cfg.UnassignedScanInterval, 5 * time.Minute},
@@ -87,6 +88,7 @@ func TestLoadReadsOverrides(t *testing.T) {
 	env["TMDB_LANGUAGE"] = "en-US"
 	env["JELLYFIN_URL"] = "http://jellyfin:8096"
 	env["JELLYFIN_API_KEY"] = "key"
+	env["JELLYFIN_LIBRARY_PATH"] = "/mnt/media"
 	env["TRASH_RETENTION_DAYS"] = "7"
 	env["EXTRACT_CONCURRENCY"] = "2"
 	env["UNASSIGNED_SCAN_INTERVAL"] = "2m"
@@ -104,7 +106,7 @@ func TestLoadReadsOverrides(t *testing.T) {
 	if cfg.SessionTTL != 24*time.Hour || !cfg.CookieSecure || cfg.TMDBReadToken != "token" || cfg.TMDBLanguage != "en-US" {
 		t.Errorf("session or TMDB values not read: %+v", cfg)
 	}
-	if cfg.JellyfinURL != "http://jellyfin:8096" || cfg.JellyfinAPIKey != "key" {
+	if cfg.JellyfinURL != "http://jellyfin:8096" || cfg.JellyfinAPIKey != "key" || cfg.JellyfinLibraryPath != "/mnt/media" {
 		t.Errorf("Jellyfin values not read: %+v", cfg)
 	}
 	if cfg.TrashRetentionDays != 7 || cfg.ExtractConcurrency != 2 || cfg.UnassignedScanInterval != 2*time.Minute || cfg.LibraryScanInterval != 30*time.Minute {
@@ -249,6 +251,9 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 			e["JELLYFIN_URL"] = "ftp://jellyfin"
 			e["JELLYFIN_API_KEY"] = "key"
 		}, "must be an http or https URL"},
+		{"Jellyfin library path relative", func(e map[string]string) {
+			e["JELLYFIN_LIBRARY_PATH"] = "media"
+		}, "JELLYFIN_LIBRARY_PATH"},
 		{"movies dir with separator", func(e map[string]string) { e["MOVIES_DIR"] = "Movies/HD" }, "MOVIES_DIR"},
 		{"series dir hidden", func(e map[string]string) { e["SERIES_DIR"] = ".videoexplorer" }, "SERIES_DIR"},
 		{"movies dir reserved", func(e map[string]string) { e["MOVIES_DIR"] = "_unassigned" }, "MOVIES_DIR"},

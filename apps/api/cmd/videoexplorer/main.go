@@ -124,6 +124,12 @@ func run(cfg config.Config, log *slog.Logger) error {
 	} else if n > 0 {
 		log.Info("interrupted library changes undone", "operations", n)
 	}
+	mediaServer, err := newMediaServer(cfg, log)
+	if err != nil {
+		return fmt.Errorf("configure media server: %w", err)
+	}
+	catalog.Engine.SetCommitHook(cfg.LibraryPath, cfg.MoviesDir, cfg.SeriesDir, mediaServer.NotifyFolders)
+	mediaServer.Start(ctx)
 	go catalog.Trash.RunPurge(ctx, time.Hour, time.Duration(cfg.TrashRetentionDays)*24*time.Hour, log)
 
 	ingest := newIngestion(conn, log, ctx.Done())

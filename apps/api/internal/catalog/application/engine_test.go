@@ -1,9 +1,11 @@
 package application_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +77,31 @@ func TestDoPerformsThePlanAndRecordsItOnce(t *testing.T) {
 	}
 	if pending, _ := f.journal.Pending(t.Context()); len(pending) != 0 {
 		t.Errorf("journal keeps %d operations after the commit", len(pending))
+	}
+}
+
+func TestCommitHookRunsAfterSuccessfulCommitWithTitleOrSeasonFolders(t *testing.T) {
+	t.Parallel()
+
+	f := newFixture(t)
+	src := f.staged(t, "episode.mkv", "video")
+	dst := filepath.Join(f.root, "TV Shows", "Show (2020)", "Season 01", "episode.mkv")
+	var called []string
+	eng := engine(f.files, f.journal)
+	eng.SetCommitHook(f.root, "Movies", "TV Shows", func(_ context.Context, folders []string) {
+		called = append([]string(nil), folders...)
+	})
+
+	if err := eng.Do(t.Context(), "test.move", "episode", func(b *application.Builder) error {
+		if err := b.Mkdir(filepath.Dir(dst)); err != nil {
+			return err
+		}
+		return b.Move(src, dst)
+	}); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if got, want := called, []string{"TV Shows/Show (2020)/Season 01"}; !slices.Equal(got, want) {
+		t.Fatalf("hook folders = %v, want %v", got, want)
 	}
 }
 

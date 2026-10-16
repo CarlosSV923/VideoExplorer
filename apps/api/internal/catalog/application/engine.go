@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -150,8 +151,17 @@ type Engine struct {
 	now     func() time.Time
 	newID   func() string
 	log     *slog.Logger
+	hook    CommitHook
+	root    string
+	movies  string
+	series  string
 	mu      sync.Mutex
 }
+
+// CommitHook observes folders touched by a successful journal commit. It is a
+// generic event boundary: catalog does not import any media-server context.
+// Implementations must return quickly and handle their own failures.
+type CommitHook func(context.Context, []string)
 
 // NewEngine builds the engine over the library's files and its journal. now and log may
 // be nil.
@@ -163,6 +173,19 @@ func NewEngine(files Files, journal Journal, now func() time.Time, log *slog.Log
 		log = slog.New(slog.DiscardHandler)
 	}
 	return &Engine{files: files, journal: journal, now: now, newID: randomName, log: log}
+}
+
+// SetCommitHook installs the event emitted after a successful commit. Paths
+// passed to the hook are relative to libraryRoot and identify a movie title or
+// a series season. The hook is intentionally optional for catalog callers and
+// tests that do not configure a media server.
+func (e *Engine) SetCommitHook(libraryRoot, moviesDir, seriesDir string, hook CommitHook) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.root = filepath.Clean(libraryRoot)
+	e.movies = moviesDir
+	e.series = seriesDir
+	e.hook = hook
 }
 
 // randomName returns a random name for a folder or an operation: hex, never a path.
@@ -340,8 +363,86 @@ func (e *Engine) Do(ctx context.Context, kind, source string, build func(*Builde
 	if err := e.journal.Commit(ctx, op.ID, record); err != nil {
 		return e.fail(ctx, op, fmt.Errorf("catalog: record the change: %w", err))
 	}
+	e.notifyCommit(context.WithoutCancel(ctx), plan)
 	e.removeScratch(op.ID)
 	return nil
+}
+
+func (e *Engine) notifyCommit(ctx context.Context, plan domain.Plan) {
+	if e.hook == nil {
+		return
+	}
+	folders := e.affectedFolders(plan)
+	if len(folders) == 0 {
+		return
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			e.log.Error("library commit hook failed", "error", recovered)
+		}
+	}()
+	e.hook(ctx, folders)
+}
+
+// affectedFolders translates absolute operation paths into the title or
+// season folders that Jellyfin needs to rescan. Both sides of a rename are
+// included; metadata, trash and No asignados paths are ignored.
+func (e *Engine) affectedFolders(plan domain.Plan) []string {
+	if e.root == "" || e.movies == "" || e.series == "" {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	for _, step := range plan.Steps {
+		for _, raw := range []string{step.From, step.To} {
+			if folder := e.affectedFolder(raw); folder != "" {
+				seen[folder] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for folder := range seen {
+		out = append(out, folder)
+	}
+	slices.Sort(out)
+	filtered := out[:0]
+	for _, folder := range out {
+		child := false
+		for _, other := range out {
+			if other != folder && strings.HasPrefix(other, folder+"/") {
+				child = true
+				break
+			}
+		}
+		if !child {
+			filtered = append(filtered, folder)
+		}
+	}
+	return filtered
+}
+
+func (e *Engine) affectedFolder(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	rel, err := filepath.Rel(e.root, raw)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	if len(parts) < 2 || parts[0] == "_unassigned" || parts[0] == ".videoexplorer" {
+		return ""
+	}
+	switch parts[0] {
+	case e.movies:
+		return strings.Join(parts[:2], "/")
+	case e.series:
+		if len(parts) >= 3 {
+			return strings.Join(parts[:3], "/")
+		}
+		return strings.Join(parts[:2], "/")
+	default:
+		return ""
+	}
 }
 
 // checkTargets refuses a plan that would overwrite something the library holds now. A

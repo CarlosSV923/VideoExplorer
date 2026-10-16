@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"path"
 	"reflect"
 	"slices"
 	"strings"
@@ -59,8 +60,9 @@ type Config struct {
 	TMDBLanguage string `env:"TMDB_LANGUAGE" envDefault:"es-MX"`
 
 	// Jellyfin is optional: both the URL and the API key, or neither (RF-50).
-	JellyfinURL    string `env:"JELLYFIN_URL"`
-	JellyfinAPIKey string `env:"JELLYFIN_API_KEY"`
+	JellyfinURL         string `env:"JELLYFIN_URL"`
+	JellyfinAPIKey      string `env:"JELLYFIN_API_KEY"`
+	JellyfinLibraryPath string `env:"JELLYFIN_LIBRARY_PATH"`
 
 	// TrashRetentionDays is how long trashed items are kept before they are purged (RF-30).
 	TrashRetentionDays int `env:"TRASH_RETENTION_DAYS" envDefault:"30"`
@@ -175,6 +177,9 @@ func (c Config) validate() error {
 	}
 	if c.JellyfinURL != "" && !validHTTPURL(c.JellyfinURL) {
 		errs = append(errs, fmt.Errorf("JELLYFIN_URL %q must be an http or https URL", c.JellyfinURL))
+	}
+	if c.JellyfinLibraryPath != "" && !path.IsAbs(c.JellyfinLibraryPath) {
+		errs = append(errs, fmt.Errorf("JELLYFIN_LIBRARY_PATH %q must be an absolute path", c.JellyfinLibraryPath))
 	}
 	errs = append(errs, validateFolderName("MOVIES_DIR", c.MoviesDir), validateFolderName("SERIES_DIR", c.SeriesDir))
 	if c.MoviesDir == c.SeriesDir {
