@@ -60,3 +60,5 @@ export async function changeLanguage(instance: i18n, language: Language) {
   rememberLanguage(language)
   document.documentElement.lang = language
 }
+
+export { formatDate, formatDuration, formatRelative, formatSize } from './format'
