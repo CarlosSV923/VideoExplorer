@@ -95,6 +95,8 @@ type Journal interface {
 type Records interface {
 	// InsertTrash stores a trash entry with its files and returns its id.
 	InsertTrash(ctx context.Context, entry domain.TrashEntry) (int64, error)
+	// DeleteTrashEntry removes an entry and any retained library metadata for its files.
+	DeleteTrashEntry(ctx context.Context, id int64) error
 	// InsertUnassigned stores an entry of No asignados with its files and returns its id.
 	InsertUnassigned(ctx context.Context, entry domain.UnassignedEntry) (int64, error)
 	// AddUnassignedFiles adds files to an entry of No asignados that exists.
@@ -118,6 +120,8 @@ type Records interface {
 	// MoveLibraryFile records the new path and version of a registered file that the change
 	// renamed. A subtitle, or a video without a version, gives version "".
 	MoveLibraryFile(ctx context.Context, id int64, rel, version string) error
+	// RestoreLibraryFile clears its trash link and writes the title, final path and version.
+	RestoreLibraryFile(ctx context.Context, f domain.LibraryFile) error
 	// RemoveUnassignedFiles forgets the files that left an entry of No asignados (sources are
 	// their staging paths, the key of each file of the entry).
 	RemoveUnassignedFiles(ctx context.Context, entryID int64, sources []string) error

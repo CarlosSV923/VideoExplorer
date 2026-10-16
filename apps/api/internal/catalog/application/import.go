@@ -142,7 +142,19 @@ func (im *LibraryImport) snapshot(ctx context.Context) (domain.ImportInput, erro
 		if err != nil {
 			return in, err
 		}
-		in.Titles = append(in.Titles, domain.RegisteredTitle{Title: t, Files: files})
+		// A title whose only files are in the trash is not part of the disk's
+		// import state. Keep the registry row itself: Assign uses it to answer
+		// `in_trash` until the entry is restored or purged (RF-30, RF-31a).
+		liveFiles := make([]domain.LibraryFile, 0, len(files))
+		for _, f := range files {
+			if f.TrashEntryID == 0 {
+				liveFiles = append(liveFiles, f)
+			}
+		}
+		if len(files) > 0 && len(liveFiles) == 0 {
+			continue
+		}
+		in.Titles = append(in.Titles, domain.RegisteredTitle{Title: t, Files: liveFiles})
 	}
 	in.Seen, err = im.d.Seen.Seen(ctx)
 	if err != nil {

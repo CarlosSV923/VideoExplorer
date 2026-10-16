@@ -48,6 +48,26 @@ func (m *memStore) InsertTrash(_ context.Context, e domain.TrashEntry) (int64, e
 	return e.ID, nil
 }
 
+func (m *memStore) DeleteEntry(_ context.Context, id int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.failRecords {
+		m.failRecords = false
+		return errors.New("database is closed")
+	}
+	for i, e := range m.trash {
+		if e.ID == id {
+			m.trash = append(m.trash[:i], m.trash[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (m *memStore) DeleteTrashEntry(_ context.Context, id int64) error {
+	return m.DeleteEntry(context.Background(), id)
+}
+
 func (m *memStore) InsertUnassigned(_ context.Context, e domain.UnassignedEntry) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -385,6 +405,18 @@ func (m *memStore) MoveLibraryFile(_ context.Context, id int64, rel, version str
 		if m.files[i].ID == id {
 			m.files[i].Rel = rel
 			m.files[i].Version = version
+		}
+	}
+	return nil
+}
+
+// RestoreLibraryFile implements Records for trash tests.
+func (m *memStore) RestoreLibraryFile(_ context.Context, f domain.LibraryFile) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range m.files {
+		if m.files[i].ID == f.ID {
+			m.files[i] = f
 		}
 	}
 	return nil

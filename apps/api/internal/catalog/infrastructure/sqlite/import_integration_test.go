@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,6 +71,7 @@ func readNames(rel string, subtitle bool) domain.FileReading {
 
 // importFixture is a library on a temporary disk, with the real registry, journal, section and scan.
 type importFixture struct {
+	conn    *sql.DB
 	root    string
 	files   *libraryfs.FS
 	library *catalogsqlite.LibraryRepository
@@ -110,7 +112,7 @@ func newImportFixture(t *testing.T, tmdb *importTMDB) *importFixture {
 	if err != nil {
 		t.Fatalf("NewLibraryImport: %v", err)
 	}
-	return &importFixture{root: root, files: files, library: library, section: unassignedRepo, tmdb: tmdb, imp: imp, now: now}
+	return &importFixture{conn: conn, root: root, files: files, library: library, section: unassignedRepo, tmdb: tmdb, imp: imp, now: now}
 }
 
 // put writes a file of the library with the given modification time (old files are settled, RF-27).
@@ -162,6 +164,66 @@ func (fx *importFixture) scan(t *testing.T) {
 	t.Helper()
 	if err := fx.imp.Scan(t.Context()); err != nil {
 		t.Fatalf("Scan: %v", err)
+	}
+}
+
+func TestImportIgnoresTitlesWhoseOnlyRegisteredFilesAreInTrash(t *testing.T) {
+	t.Parallel()
+	fx := newImportFixture(t, &importTMDB{})
+	old := fx.now.Add(-time.Hour)
+	rel := "Movies/Only Trash (2020)/Only Trash (2020).mkv"
+	fx.put(t, rel, []byte("video bytes"), old)
+	fx.scan(t)
+	titles, err := fx.library.Titles(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var title domain.LibraryTitle
+	for _, candidate := range titles {
+		if candidate.Folder == "Movies/Only Trash (2020)" {
+			title = candidate
+		}
+	}
+	if title.ID == 0 {
+		t.Fatalf("import did not register test title: %+v", titles)
+	}
+	rows, err := fx.library.Files(t.Context(), title.ID)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("registered files: %+v, %v", rows, err)
+	}
+	trashDir := "only-trash"
+	if err := os.MkdirAll(fx.files.TrashPath(trashDir), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(fx.root, filepath.FromSlash(rel)), fx.files.TrashPath(trashDir, filepath.Base(rel))); err != nil {
+		t.Fatal(err)
+	}
+	entry, err := domain.NewTrashEntryOf(domain.TrashOriginLibrary, domain.TrashReasonRemoved, trashDir, domain.Provenance{RelativePath: rel}, []domain.TrashFile{{Name: filepath.Base(rel), Size: 12}}, fx.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var trashID int64
+	if err := commitLibrary(t.Context(), fx.conn, func(rec application.Records) error {
+		var err error
+		trashID, err = rec.InsertTrash(t.Context(), entry)
+		if err != nil {
+			return err
+		}
+		return rec.TrashLibraryFiles(t.Context(), []int64{rows[0].ID}, trashID)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	fx.scan(t)
+	again, err := fx.library.Titles(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again) != 1 || again[0].ID != title.ID {
+		t.Fatalf("trash-only title was reimported or lost: %+v", again)
+	}
+	rows, err = fx.library.Files(t.Context(), title.ID)
+	if err != nil || len(rows) != 1 || rows[0].TrashEntryID != trashID {
+		t.Fatalf("trash-only file metadata after scan = %+v, %v", rows, err)
 	}
 }
 

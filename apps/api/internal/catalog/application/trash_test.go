@@ -1,6 +1,7 @@
 package application_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -183,6 +184,93 @@ func TestPutKeepsFilteredFilesWithTheReasonAndTheirDropPath(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(f.root, ".videoexplorer", "trash", got.Dir, "sample.mkv")); err != nil {
 		t.Errorf("the discarded file is not in its trash entry: %v", err)
+	}
+}
+
+func TestDeleteAndEmptyUseTheJournalAndKeepFilesWhenTheCommitFails(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*application.Trash, []domain.TrashEntry) error
+		left int
+	}{
+		{name: "delete one", run: func(s *application.Trash, e []domain.TrashEntry) error {
+			return s.Delete(context.Background(), e[0].ID)
+		}, left: 1},
+		{name: "empty", run: func(s *application.Trash, _ []domain.TrashEntry) error { return s.Empty(context.Background()) }, left: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			f := newFixture(t)
+			clock := time.Now
+			svc := application.NewTrash(f.store, f.files, engine(f.files, f.journal), clock)
+			for i := 0; i < 2; i++ {
+				src := f.staged(t, fmt.Sprintf("job-%d", i), "archive")
+				if _, err := svc.Put(t.Context(), application.PutRequest{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, BatchID: "batch", RelativePath: fmt.Sprintf("f%d.zip", i), Name: fmt.Sprintf("f%d.zip", i), Source: src, Size: 7}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			entries, _ := svc.Entries(t.Context())
+			if err := tt.run(svc, entries); err != nil {
+				t.Fatalf("delete operation: %v", err)
+			}
+			if got := len(f.store.trash); got != tt.left {
+				t.Fatalf("entries left=%d want %d", got, tt.left)
+			}
+			ops, readErr := os.ReadDir(filepath.Join(f.root, ".videoexplorer", "ops"))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if len(ops) != 0 {
+				t.Fatal("operation scratch was not removed")
+			}
+			if pending, _ := f.journal.Pending(t.Context()); len(pending) != 0 {
+				t.Fatalf("journal left pending operation: %v", pending)
+			}
+			// A failed metadata commit puts every moved trash directory back.
+			if tt.left == 0 {
+				return
+			}
+			f.store.failRecords = true
+			before, _ := os.ReadDir(filepath.Join(f.root, ".videoexplorer", "trash"))
+			err := svc.Empty(t.Context())
+			if err == nil {
+				t.Fatal("Empty succeeded despite a failed commit")
+			}
+			after, _ := os.ReadDir(filepath.Join(f.root, ".videoexplorer", "trash"))
+			if len(before) != len(after) {
+				t.Fatalf("failed commit changed trash folders: %d to %d", len(before), len(after))
+			}
+		})
+	}
+}
+
+func TestPurgeUsesTheInjectedClockAndThirtyDayCutoff(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
+	f := newFixture(t)
+	svc := application.NewTrash(f.store, f.files, engine(f.files, f.journal), func() time.Time { return now })
+	for i := 0; i < 3; i++ {
+		src := f.staged(t, fmt.Sprintf("purge-%d", i), "zip")
+		if _, err := svc.Put(t.Context(), application.PutRequest{Origin: domain.TrashOriginUpload, Reason: domain.TrashReasonExtracted, BatchID: "b", RelativePath: fmt.Sprintf("%d.zip", i), Name: fmt.Sprintf("%d.zip", i), Source: src, Size: 3}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.store.mu.Lock()
+	f.store.trash[0].TrashedAt = now.Add(-31 * 24 * time.Hour)
+	f.store.trash[1].TrashedAt = now.Add(-30 * 24 * time.Hour)
+	f.store.trash[2].TrashedAt = now.Add(-29 * 24 * time.Hour)
+	f.store.mu.Unlock()
+	count, err := svc.Purge(t.Context(), 30*24*time.Hour)
+	if err != nil {
+		t.Fatalf("Purge: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("purged %d entries, want one older than cutoff", count)
+	}
+	if got := len(f.store.trash); got != 2 {
+		t.Fatalf("entries left=%d, want 2", got)
 	}
 }
 
