@@ -98,10 +98,12 @@ Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
 ## Fase 10 — Frontend con adaptadores HTTP
 Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 - [x] Puertos y adaptadores `http/` por módulo; router y TanStack Query: puertos y adaptadores de todo el contrato (descargas e imágenes como URL, SSE de trabajos), `AppError` por tipo sin mostrar el `detail`, composición en `src/app`, rutas de `design-handoff.md` §5 con marcadores, login mínimo y vuelta tras sesión vencida
-- [ ] Pantallas completas; subidas con `tus-js-client` y pregunta de relación (envía `partsTotal` por conjunto multiparte, RF-03); decidir cómo se cancela desde la UI un trabajo ya extraído (tus DELETE ya no encuentra el comprimido); en No asignados, explicar una entrada que se ve vacía porque solo guarda contenido dentro de carpetas ocultas o del sistema (RF-27)
+- [ ] Pantallas completas:
+  - [~] Biblioteca: cabecera y navegación (con barra inferior en móvil), Inicio (hero, pendientes, filas, colecciones), Películas y Series, búsqueda, fichas de película y serie (versiones, partes, subtítulos, info técnica, descargas, temporadas y capítulos), colección, Editar y reasignar con etiqueta de ID y Vincular, Actualizar datos, mover a No asignados y papelera desde la ficha
+  - [ ] No asignados (estados, «Más acciones», descargas, papelera, borrar con confirmación; explicar la entrada que solo guarda contenido en carpetas ocultas o del sistema, RF-27), Asignar (capítulos y película, duplicados, subtítulos, vista previa, bloqueo y atajos) y elegir título
+  - [ ] Subidas con `tus-js-client` (zona de soltar, pregunta de relación, `partsTotal` por conjunto multiparte, RF-03; panel y hoja móvil; cancelar hasta descomprimir, RF-10a), Papelera, Ajustes (idioma, escaneo, Jellyfin, TMDB, sesión), banner de salud y botón de cerrar de `Dialog` con «Cerrar»
 - [ ] Prueba real contra la API con archivos reales
 - [ ] README EN/ES: estado del proyecto al día (fases cerradas)
-- [ ] Botón de cerrar de `Dialog`: hoy su `aria-label` es el título del diálogo; debe ser «Cerrar» (i18n)
 
 ## Fase 11 — Demo
 Depende de: 10 · Cubre: RF-70 a RF-72
