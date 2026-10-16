@@ -1,5 +1,6 @@
 export { Button, FileButton, IconButton, LinkButton } from './Button'
 export { buttonClass, type ButtonSize, type ButtonVariant } from './buttonClass'
+export { Brand } from './Brand'
 export {
   Checkbox,
   NumberField,

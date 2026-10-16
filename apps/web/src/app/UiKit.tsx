@@ -5,6 +5,7 @@ import { useLetterShortcuts } from '@/shared/input'
 import { LanguageToggle } from '@/shared/i18n/LanguageToggle'
 import {
   Banner,
+  Brand,
   Button,
   Checkbox,
   Chip,
@@ -60,7 +61,7 @@ export function UiKit() {
   return (
     <div className="min-h-screen bg-bg text-ink-1">
       <PageHeader
-        title={t('app.name')}
+        title={<Brand />}
         subtitle={<p className="m-0 text-body text-ink-2">{t('app.tagline')}</p>}
         actions={
           <>

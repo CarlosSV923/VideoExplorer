@@ -5,7 +5,16 @@ import { I18nextProvider } from 'react-i18next'
 
 import { createI18n } from '../i18n'
 import { InputProvider } from '../input'
-import { Button, Dialog, HelpBar, Poster, ProgressBar, SearchField, TextField } from '.'
+import {
+  Button,
+  ConfirmDialog,
+  Dialog,
+  HelpBar,
+  Poster,
+  ProgressBar,
+  SearchField,
+  TextField,
+} from '.'
 
 function wrap(ui: ReactNode) {
   return render(
@@ -97,6 +106,22 @@ describe('UI primitives', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(opener).toHaveFocus()
+  })
+
+  it('focuses cancel before a destructive confirmation action', () => {
+    wrap(
+      <ConfirmDialog
+        title="Borrar archivo"
+        confirmLabel="Borrar"
+        tone="danger"
+        onConfirm={() => undefined}
+        onCancel={() => undefined}
+      >
+        Esta acción no se puede deshacer.
+      </ConfirmDialog>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus()
   })
 
   it('only renders gamepad glyphs when a control is connected', () => {

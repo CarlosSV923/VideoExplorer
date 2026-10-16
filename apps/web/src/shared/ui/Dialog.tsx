@@ -20,7 +20,7 @@ interface DialogProps {
   title: string
   onClose: () => void
   actions?: ReactNode
-  initialFocus?: 'action' | 'first' | 'field'
+  initialFocus?: 'action' | 'cancel' | 'first' | 'field'
   subtitle?: string
   size?: 'md' | 'lg'
   placement?: 'center' | 'bottom'
@@ -66,6 +66,7 @@ export function Dialog({
   useEffect(() => {
     const items = box.current ? tabbables(box.current) : []
     const buttons = items.filter((element) => element instanceof HTMLButtonElement)
+    const actionButtons = buttons.filter((button) => !button.hasAttribute('data-dialog-close'))
     const field = items.find(
       (element) =>
         element instanceof HTMLInputElement &&
@@ -74,9 +75,11 @@ export function Dialog({
     const target =
       initialFocus === 'field'
         ? (field ?? items[0])
-        : initialFocus === 'first'
-          ? items[0]
-          : (buttons.at(-1) ?? items[0])
+        : initialFocus === 'cancel'
+          ? (actionButtons[0] ?? items[0])
+          : initialFocus === 'first'
+            ? items[0]
+            : (buttons.at(-1) ?? items[0])
     target?.focus()
   }, [initialFocus])
 
@@ -124,6 +127,7 @@ export function Dialog({
           <button
             type="button"
             aria-label={title}
+            data-dialog-close
             className="inline-flex size-control-sm shrink-0 items-center justify-center rounded-full text-ink-2 hover:bg-hover"
             onClick={onClose}
           >
@@ -160,6 +164,7 @@ export function ConfirmDialog({
     <Dialog
       title={title}
       onClose={onCancel}
+      initialFocus={tone === 'danger' ? 'cancel' : 'action'}
       actions={
         <>
           <Button onClick={onCancel}>{t('common.cancel')}</Button>

@@ -189,7 +189,7 @@ export function PasswordField({
           type="button"
           aria-label={shown ? t('common.hidePassword') : t('common.showPassword')}
           aria-pressed={shown}
-          className="absolute right-3 bottom-2 inline-flex min-h-control-sm items-center rounded-pill px-3 text-caption text-ink-2"
+          className="absolute right-3 bottom-2 inline-flex size-control-sm items-center justify-center rounded-pill text-caption text-ink-2"
           onClick={() => {
             setShown((current) => !current)
           }}
