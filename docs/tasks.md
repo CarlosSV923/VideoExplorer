@@ -93,7 +93,7 @@ Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
 - [x] `design:design-critique` y `design:accessibility-review` → [`design-review.md`](./design-review.md) (7 hallazgos de crítica y 12 de WCAG con su corrección)
 - [x] Lienzo corregido: 22 pantallas; nuevas Series (filtro «Solo incompletas»), Editar y reasignar (coincidencia, tipo, etiqueta de ID, versiones, subtítulos y vista previa) y Asignar una película en partes; modo demo y barra de gamepad en Estados; contraste de la colección, nombres accesibles de los pósters, `h1` de Inicio, atajos de una letra solo con foco en un video, acciones secundarias de No asignados en «Más acciones»
 - [x] `design:design-handoff` → [`design-handoff.md`](./design-handoff.md): tokens, componentes, estados, movimiento, entrada (atajos de Asignar), tamaños y rutas, casos límite, i18n y accesibilidad
-- [~] Tokens, `shared/ui`, i18n ES/EN y capa de entrada (de GameExplorer, adaptadas)
+- [x] Tokens, `shared/ui`, i18n ES/EN y capa de entrada (de GameExplorer, adaptadas): tokens como `@theme` de Tailwind v4, fuentes con `@fontsource`, primitivas de `design-handoff.md` §2 (incluida `Brand`), i18n con `Intl`, capa de entrada con gamepad, navegación espacial y atajos de una letra solo con foco; página de componentes (`app/UiKit.tsx`) revisada en el navegador a 1440 y 375 px (sin desbordes; foco del diálogo destructivo en Cancelar)
 
 ## Fase 10 — Frontend con adaptadores HTTP
 Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
@@ -101,6 +101,7 @@ Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 - [ ] Pantallas completas; subidas con `tus-js-client` y pregunta de relación (envía `partsTotal` por conjunto multiparte, RF-03); decidir cómo se cancela desde la UI un trabajo ya extraído (tus DELETE ya no encuentra el comprimido); en No asignados, explicar una entrada que se ve vacía porque solo guarda contenido dentro de carpetas ocultas o del sistema (RF-27)
 - [ ] Prueba real contra la API con archivos reales
 - [ ] README EN/ES: estado del proyecto al día (fases cerradas)
+- [ ] Botón de cerrar de `Dialog`: hoy su `aria-label` es el título del diálogo; debe ser «Cerrar» (i18n)
 
 ## Fase 11 — Demo
 Depende de: 10 · Cubre: RF-70 a RF-72
