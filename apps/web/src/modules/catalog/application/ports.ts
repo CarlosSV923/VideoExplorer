@@ -43,7 +43,11 @@ export interface CatalogPorts {
 
   unassigned(): Promise<UnassignedSection>
   takeAssignLock(entryId: number, token?: string): Promise<AssignLock>
-  releaseAssignLock(entryId: number, token: string): Promise<void>
+  releaseAssignLock(
+    entryId: number,
+    token: string,
+    options?: { keepalive?: boolean },
+  ): Promise<void>
   assignSuggestions(entryId: number, token: string): Promise<AssignSuggestions>
   planAssign(entryId: number, token: string, request: AssignRequest): Promise<AssignPlan>
   commitAssign(entryId: number, token: string, request: AssignRequest): Promise<AssignResult>

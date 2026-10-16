@@ -194,6 +194,20 @@ describe('Asignar', () => {
     })
   })
 
+  it('releases the lock when leaving the screen and on pagehide with keepalive', async () => {
+    const { ports, unmount } = renderScreen('assign')
+    await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
+
+    fireEvent(window, new Event('pagehide'))
+    expect(mockCalls(ports, 'releaseAssignLock')).toContainEqual([
+      7,
+      'lock',
+      { keepalive: true },
+    ])
+    unmount()
+    expect(mockCalls(ports, 'releaseAssignLock')).toHaveLength(1)
+  })
+
   it('translates lock_lost and plan_changed conflicts', async () => {
     renderScreen('assign', {
       planAssign: vi.fn().mockRejectedValue(new AppError('conflict', { code: 'lock_lost' })),

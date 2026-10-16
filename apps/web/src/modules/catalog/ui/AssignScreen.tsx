@@ -56,6 +56,18 @@ export function AssignScreen({ id }: { id: number }) {
   useEffect(() => {
     let active = true
     let acquired: string | null = null
+    let released = false
+    const release = (options?: { keepalive?: boolean }) => {
+      if (!acquired || released) return
+      released = true
+      void (options
+        ? ports.releaseAssignLock(id, acquired, options)
+        : ports.releaseAssignLock(id, acquired))
+    }
+    const onPageHide = () => {
+      release({ keepalive: true })
+    }
+    window.addEventListener('pagehide', onPageHide)
     void ports
       .takeAssignLock(id)
       .then((lock) => {
@@ -93,7 +105,8 @@ export function AssignScreen({ id }: { id: number }) {
       })
     return () => {
       active = false
-      if (acquired) void ports.releaseAssignLock(id, acquired)
+      window.removeEventListener('pagehide', onPageHide)
+      release()
     }
   }, [id, ports])
 

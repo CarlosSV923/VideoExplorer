@@ -42,8 +42,18 @@ export function createCatalogHttp(client: ApiClient, baseUrl = '/api'): CatalogP
 
     unassigned: () => unwrap(client.GET('/unassigned')),
     takeAssignLock: (id, token) => unwrap(client.POST('/unassigned/{id}/lock', lock(id, token))),
-    releaseAssignLock: (id, token) =>
-      unwrapVoid(client.DELETE('/unassigned/{id}/lock', lock(id, token))),
+    releaseAssignLock: (id, token, options) => {
+      if (options?.keepalive) {
+        void fetch(`${baseUrl}/unassigned/${String(id)}/lock`, {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: { 'X-Assign-Lock': token },
+          keepalive: true,
+        })
+        return Promise.resolve()
+      }
+      return unwrapVoid(client.DELETE('/unassigned/{id}/lock', lock(id, token)))
+    },
     assignSuggestions: (id, token) =>
       unwrap(client.GET('/unassigned/{id}/suggestions', lock(id, token))),
     planAssign: (id, token, body) =>
