@@ -29,7 +29,7 @@ export function EditScreen({ id }: { id: number }) {
   const commit = useCommitTitleEdit(id)
   if (query.isPending)
     return (
-      <LibraryLayout>
+      <LibraryLayout hideMobileNav>
         <div className="py-12">
           <LoadingGrid />
         </div>
@@ -37,7 +37,7 @@ export function EditScreen({ id }: { id: number }) {
     )
   if (query.isError)
     return (
-      <LibraryLayout>
+      <LibraryLayout hideMobileNav>
         <div className="py-12">
           <EmptyState title={t('errors.loadTitle')} body={t('errors.loadBody')} />
         </div>
@@ -79,9 +79,13 @@ export function EditScreen({ id }: { id: number }) {
     if (planned) commit.mutate({ ...request(), revision: planned.revision })
   }
   return (
-    <LibraryLayout>
+    <LibraryLayout hideMobileNav>
       <PageHeader
-        back={<a href={`/peliculas/${String(id)}`}>{t('common.previous')}</a>}
+        back={
+          <a href={`/${title.kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}`}>
+            {title.title}
+          </a>
+        }
         title={title.tmdbId ? t('library.edit') : t('library.link')}
         subtitle={t('library.editSubtitle')}
       />

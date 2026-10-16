@@ -134,6 +134,8 @@ describe('Biblioteca', () => {
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'Coincidencia de TMDB' })).toBeInTheDocument(),
     )
+    expect(screen.getByRole('link', { name: 'Película Ámbar' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).not.toBeInTheDocument()
     fireEvent.change(screen.getByRole('textbox', { name: 'Coincidencia de TMDB' }), {
       target: { value: 'Iron' },
     })

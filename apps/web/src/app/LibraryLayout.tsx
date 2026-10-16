@@ -112,14 +112,20 @@ export function MobileNav() {
   )
 }
 
-export function LibraryLayout({ children }: { children: ReactNode }) {
+export function LibraryLayout({
+  children,
+  hideMobileNav = false,
+}: {
+  children: ReactNode
+  hideMobileNav?: boolean
+}) {
   return (
     <>
       <Header />
       <main className="mx-auto min-h-app max-w-screen-2xl page-padding pb-24 md:pb-10">
         {children}
       </main>
-      <MobileNav />
+      {!hideMobileNav && <MobileNav />}
     </>
   )
 }

@@ -230,6 +230,7 @@ describe('Asignar', () => {
     await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /Dark.*Cambiar/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Título de TMDB' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Qué es' })).toHaveValue('episode')
     expect(screen.getByRole('spinbutton', { name: 'Capítulo final' })).toHaveValue(null)
     expect(screen.queryByRole('spinbutton', { name: 'Número de parte' })).not.toBeInTheDocument()
