@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -43,6 +43,7 @@ export function AssignScreen({ id }: { id: number }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const releaseLock = useRef<((options?: { keepalive?: boolean }) => void) | null>(null)
   const gamepad = useGamepadConnected()
 
   const goToUnassigned = useCallback(() => {
@@ -57,6 +58,7 @@ export function AssignScreen({ id }: { id: number }) {
     let active = true
     let acquired: string | null = null
     let released = false
+    let pageHidden = false
     const release = (options?: { keepalive?: boolean }) => {
       if (!acquired || released) return
       released = true
@@ -65,14 +67,18 @@ export function AssignScreen({ id }: { id: number }) {
         : ports.releaseAssignLock(id, acquired))
     }
     const onPageHide = () => {
+      pageHidden = true
       release({ keepalive: true })
     }
     window.addEventListener('pagehide', onPageHide)
+    releaseLock.current = release
     void ports
       .takeAssignLock(id)
       .then((lock) => {
-        if (!active) {
-          void ports.releaseAssignLock(id, lock.token)
+        if (!active || pageHidden) {
+          void (pageHidden
+            ? ports.releaseAssignLock(id, lock.token, { keepalive: true })
+            : ports.releaseAssignLock(id, lock.token))
           return
         }
         acquired = lock.token
@@ -106,6 +112,7 @@ export function AssignScreen({ id }: { id: number }) {
     return () => {
       active = false
       window.removeEventListener('pagehide', onPageHide)
+      if (releaseLock.current === release) releaseLock.current = null
       release()
     }
   }, [id, ports])
@@ -162,7 +169,7 @@ export function AssignScreen({ id }: { id: number }) {
     cancelNow()
   }
   const cancelNow = () => {
-    if (token) void ports.releaseAssignLock(id, token)
+    if (token) releaseLock.current?.()
     goToUnassigned()
   }
   useAction(

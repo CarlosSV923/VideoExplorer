@@ -225,6 +225,26 @@ describe('Asignar', () => {
     expect(mockCalls(ports, 'releaseAssignLock')).toHaveLength(1)
   })
 
+  it('releases a lock that arrives after pagehide with keepalive', async () => {
+    let resolveLock!: (value: { token: string; expiresAt: string }) => void
+    const lock = new Promise<{ token: string; expiresAt: string }>((resolve) => {
+      resolveLock = resolve
+    })
+    const { ports, unmount } = renderScreen('assign', {
+      takeAssignLock: vi.fn().mockReturnValue(lock),
+    })
+    fireEvent(window, new Event('pagehide'))
+    resolveLock({ token: 'late-lock', expiresAt: '2099-01-01T00:00:00Z' })
+    await waitFor(() => {
+      expect(mockCalls(ports, 'releaseAssignLock')).toContainEqual([
+        7,
+        'late-lock',
+        { keepalive: true },
+      ])
+    })
+    unmount()
+  })
+
   it('shows the suggested title, the Qué es selector and an empty final chapter', async () => {
     renderScreen('assign')
     await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
