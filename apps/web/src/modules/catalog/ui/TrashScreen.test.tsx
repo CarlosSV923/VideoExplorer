@@ -98,7 +98,7 @@ describe('TrashScreen', () => {
   it('plans a per-video conflict and sends the chosen restore decision', async () => {
     const restoreTrashEntry = vi.fn().mockResolvedValue({ restored: [] })
     renderTrash({ restoreTrashEntry })
-    fireEvent.click(await screen.findByRole('button', { name: 'Restaurar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Restaurar film.mkv, film.es.srt' }))
     await waitFor(() =>
       expect(screen.getByRole('dialog', { name: 'Plan de restauración' })).toBeInTheDocument(),
     )
@@ -127,5 +127,15 @@ describe('TrashScreen', () => {
     await waitFor(() => {
       expect(emptyTrash).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('names each destructive trash action with its entry', async () => {
+    renderTrash()
+    expect(
+      await screen.findByRole('button', { name: 'Restaurar film.mkv, film.es.srt' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Borrar para siempre film.mkv, film.es.srt' }),
+    ).toBeInTheDocument()
   })
 })

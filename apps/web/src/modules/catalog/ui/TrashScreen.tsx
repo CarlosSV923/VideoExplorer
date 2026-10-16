@@ -176,60 +176,63 @@ export function TrashScreen() {
           />
         ) : (
           <div className="flex flex-col gap-3">
-            {sorted.map((entry) => (
-              <article
-                key={entry.id}
-                className="flex flex-col gap-4 rounded-lg border border-line bg-surface-2 p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h2 className="m-0 break-words text-heading">
-                      {entry.files.map((file) => file.name).join(', ')}
-                    </h2>
-                    <p className="m-0 mt-2 text-body-sm text-ink-2">
-                      {t(`trash.origin.${entry.origin}` as never)} ·{' '}
-                      {t(`trash.reason.${entry.reason}` as never)}
-                    </p>
-                    {entry.relativePath && (
-                      <p className="m-0 mt-1 break-all font-mono text-caption text-ink-3">
-                        {entry.relativePath}
+            {sorted.map((entry) => {
+              const entryName = entry.files.map((file) => file.name).join(', ')
+              return (
+                <article
+                  key={entry.id}
+                  className="flex flex-col gap-4 rounded-lg border border-line bg-surface-2 p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h2 className="m-0 break-words text-heading">{entryName}</h2>
+                      <p className="m-0 mt-2 text-body-sm text-ink-2">
+                        {t(`trash.origin.${entry.origin}` as never)} ·{' '}
+                        {t(`trash.reason.${entry.reason}` as never)}
                       </p>
-                    )}
+                      {entry.relativePath && (
+                        <p className="m-0 mt-1 break-all font-mono text-caption text-ink-3">
+                          {entry.relativePath}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right text-body-sm text-ink-2">
+                      <div>{format.date(entry.trashedAt)}</div>
+                      <div>{t('trash.purgeAt', { date: format.date(entry.purgeAt) })}</div>
+                    </div>
                   </div>
-                  <div className="text-right text-body-sm text-ink-2">
-                    <div>{format.date(entry.trashedAt)}</div>
-                    <div>{t('trash.purgeAt', { date: format.date(entry.purgeAt) })}</div>
+                  <ul className="m-0 list-none border-t border-line pt-3 text-body-sm text-ink-2">
+                    {entry.files.map((file) => (
+                      <li key={file.name} className="flex justify-between gap-3">
+                        <span className="break-all font-mono">{file.name}</span>
+                        <span className="shrink-0">{format.size(file.size)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      icon={<RestoreIcon />}
+                      aria-label={t('trash.restoreFor', { name: entryName })}
+                      onClick={() => {
+                        planRestore.mutate(entry.id, { onSuccess: setPlan })
+                      }}
+                      loading={planRestore.isPending && planRestore.variables === entry.id}
+                    >
+                      {t('trash.restore')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      aria-label={t('trash.deleteForeverFor', { name: entryName })}
+                      onClick={() => {
+                        setConfirm(entry.id)
+                      }}
+                    >
+                      {t('trash.deleteForever')}
+                    </Button>
                   </div>
-                </div>
-                <ul className="m-0 list-none border-t border-line pt-3 text-body-sm text-ink-2">
-                  {entry.files.map((file) => (
-                    <li key={file.name} className="flex justify-between gap-3">
-                      <span className="break-all font-mono">{file.name}</span>
-                      <span className="shrink-0">{format.size(file.size)}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    icon={<RestoreIcon />}
-                    onClick={() => {
-                      planRestore.mutate(entry.id, { onSuccess: setPlan })
-                    }}
-                    loading={planRestore.isPending && planRestore.variables === entry.id}
-                  >
-                    {t('trash.restore')}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    onClick={() => {
-                      setConfirm(entry.id)
-                    }}
-                  >
-                    {t('trash.deleteForever')}
-                  </Button>
-                </div>
-              </article>
-            ))}
+                </article>
+              )
+            })}
           </div>
         )}
       </div>

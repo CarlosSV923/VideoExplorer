@@ -11,7 +11,12 @@ import { useTranslation } from 'react-i18next'
 import { cx } from './cx'
 import { ChevronDownIcon, CloseIcon, ErrorIcon, EyeIcon, SearchIcon } from './icons'
 
-type CommonFieldProps = { label: string; hideLabel?: boolean; hint?: ReactNode; error?: string }
+type CommonFieldProps = {
+  label: string
+  hideLabel?: boolean
+  hint?: ReactNode
+  error?: string | undefined
+}
 
 function describedIds(id: string, hint: ReactNode, error?: string) {
   return [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined

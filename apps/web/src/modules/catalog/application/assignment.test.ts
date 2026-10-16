@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { initialSubtitleRequest, saveState, subtitlesByVideo } from './assignment'
+import {
+  initialSubtitleRequest,
+  saveState,
+  subtitlesByVideo,
+  titleChoiceFromHit,
+} from './assignment'
 import type { AssignPlan } from '../domain/types'
 
 const plan = (overrides: Partial<AssignPlan> = {}): AssignPlan => ({
@@ -46,5 +51,18 @@ describe('assignment application rules', () => {
     ).toEqual([
       { file: 'movie.srt', video: 'movie.mkv', language: 'es-419', forced: false, sdh: false },
     ])
+  })
+
+  it('assigns a TMDB hit already in the library by library title id', () => {
+    expect(
+      titleChoiceFromHit({
+        source: 'tmdb',
+        kind: 'series',
+        tmdbId: 113988,
+        libraryTitleId: 3,
+        title: 'The Bear',
+        year: 2022,
+      }),
+    ).toEqual({ source: 'library', kind: 'series', libraryTitleId: 3 })
   })
 })

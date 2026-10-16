@@ -3,7 +3,13 @@ import { useTranslation } from 'react-i18next'
 
 import { useLetterShortcuts } from '@/shared/input'
 import { NumberField, Select, TextField } from '@/shared/ui'
-import type { AssignVideo, DuplicateDecision, PlanVideo, VideoSuggestion } from '../domain/types'
+import type {
+  AssignVideo,
+  DuplicateDecision,
+  PlanIssue,
+  PlanVideo,
+  VideoSuggestion,
+} from '../domain/types'
 import { DuplicateChoice } from './DuplicateChoice'
 import { TitlePicker } from './TitlePicker'
 
@@ -18,6 +24,7 @@ export function AssignVideoCard({
   onFocus,
   onMove,
   onChange,
+  issues = [],
 }: {
   suggestion: VideoSuggestion
   value: AssignVideo
@@ -29,6 +36,7 @@ export function AssignVideoCard({
   onFocus: () => void
   onMove: (delta: number) => void
   onChange: (value: AssignVideo) => void
+  issues?: readonly PlanIssue[]
 }) {
   const { t } = useTranslation()
   const card = useRef<HTMLElement>(null)
@@ -48,6 +56,13 @@ export function AssignVideoCard({
     focused,
   )
   const reading = suggestion.reading
+  const issueText = (code: string) =>
+    t(`assign.issue.${code}`, { defaultValue: t('assign.issue.generic') })
+  const fieldError = (field: string) => {
+    const issue = issues.find((item) => item.field === field)
+    return issue ? issueText(issue.code) : undefined
+  }
+  const fileError = fieldError('file') ?? fieldError('video') ?? fieldError('subtitle')
   const [selectedKind, setSelectedKind] = useState<'movie' | 'series'>(
     value.title?.kind ?? (reading.type === 'series' ? 'series' : 'movie'),
   )
@@ -114,10 +129,14 @@ export function AssignVideoCard({
               ? t('assign.video.unknownType')
               : t(`assign.video.type.${reading.type}`)}
           </p>
+          {fileError && <p className="m-0 mt-1 text-body-sm text-danger">{fileError}</p>}
         </div>
         <Select
           label={t('assign.video.whatIs')}
           value={whatIs}
+          {...(fieldError('kind') || fieldError('action') || fieldError('place')
+            ? { error: fieldError('kind') ?? fieldError('action') ?? fieldError('place') }
+            : {})}
           onChange={(event) => {
             changeWhatIs(event.currentTarget.value)
           }}
@@ -135,6 +154,7 @@ export function AssignVideoCard({
               kind={series ? 'series' : 'movie'}
               {...(suggestion.match ? { suggested: suggestion.match } : {})}
               {...(reading.title !== undefined ? { initialTerm: reading.title } : {})}
+              {...(fieldError('title') ? { error: fieldError('title') } : {})}
               onChange={(title) => {
                 setSelectedKind(title.kind ?? 'movie')
                 change({ title })
@@ -145,6 +165,7 @@ export function AssignVideoCard({
             <div className="grid gap-3 sm:grid-cols-3">
               <NumberField
                 label={t('assign.video.season')}
+                {...(fieldError('season') ? { error: fieldError('season') } : {})}
                 min={0}
                 value={value.season ?? reading.season ?? ''}
                 onChange={(event) => {
@@ -153,6 +174,7 @@ export function AssignVideoCard({
               />
               <NumberField
                 label={t('assign.video.chapter')}
+                {...(fieldError('chapter') ? { error: fieldError('chapter') } : {})}
                 min={1}
                 value={value.chapter ?? reading.chapter ?? ''}
                 onChange={(event) => {
@@ -161,6 +183,7 @@ export function AssignVideoCard({
               />
               <NumberField
                 label={t('assign.video.lastChapter')}
+                {...(fieldError('lastChapter') ? { error: fieldError('lastChapter') } : {})}
                 min={1}
                 value={value.lastChapter ?? reading.lastChapter ?? ''}
                 onChange={(event) => {
@@ -171,6 +194,7 @@ export function AssignVideoCard({
           ) : showPart ? (
             <NumberField
               label={t('assign.video.part')}
+              {...(fieldError('part') ? { error: fieldError('part') } : {})}
               min={1}
               value={value.part ?? reading.part ?? ''}
               onChange={(event) => {
@@ -196,6 +220,7 @@ export function AssignVideoCard({
       )}
       <DuplicateChoice
         plan={plan}
+        error={fieldError('duplicate')}
         {...(value.duplicate ? { value: value.duplicate } : {})}
         onChange={(duplicate: DuplicateDecision) => {
           change({ duplicate })
@@ -205,7 +230,7 @@ export function AssignVideoCard({
         <TextField
           label={t('assign.duplicate.version')}
           value={value.version ?? plan.versionProposal ?? ''}
-          error={t('assign.duplicate.incomplete')}
+          error={fieldError('version') ?? t('assign.duplicate.incomplete')}
           onChange={(event) => {
             change({ version: event.currentTarget.value })
           }}

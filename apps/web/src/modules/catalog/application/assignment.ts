@@ -1,4 +1,11 @@
-import type { AssignPlan, AssignSubtitle, AssignVideo, SubtitleSuggestion } from '../domain/types'
+import type {
+  AssignPlan,
+  AssignSubtitle,
+  AssignVideo,
+  SubtitleSuggestion,
+  TitleChoice,
+  TitleHit,
+} from '../domain/types'
 
 export type SaveState =
   | { enabled: true }
@@ -29,6 +36,19 @@ export function subtitlesByVideo(
   return grouped
 }
 
+// A TMDB hit with a libraryTitleId is an existing library title, even when an older API response labeled it
+// as a TMDB hit. Normalize it before any form sends the choice (RF-21).
+export function titleChoiceFromHit(hit: TitleHit): TitleChoice {
+  if (hit.libraryTitleId !== undefined) {
+    return { source: 'library', kind: hit.kind, libraryTitleId: hit.libraryTitleId }
+  }
+  return {
+    source: hit.source,
+    kind: hit.kind,
+    ...(hit.tmdbId !== undefined ? { tmdbId: hit.tmdbId } : {}),
+  }
+}
+
 export function mergeTitleIntoVideos(
   videos: readonly AssignVideo[],
   title: AssignVideo['title'] | undefined,
@@ -48,13 +68,13 @@ export function initialVideoRequest(
       lastChapter?: number
       part?: number
     }
-    match?: AssignVideo['title']
+    match?: TitleHit
   }[],
 ): AssignVideo[] {
   return videos.map((video) => ({
     file: video.file,
     action: 'place',
-    ...(video.match ? { title: video.match } : {}),
+    ...(video.match ? { title: titleChoiceFromHit(video.match) } : {}),
     ...(video.reading.part !== undefined ? { part: video.reading.part } : {}),
     ...(video.reading.season !== undefined ? { season: video.reading.season } : {}),
     ...(video.reading.chapter !== undefined ? { chapter: video.reading.chapter } : {}),

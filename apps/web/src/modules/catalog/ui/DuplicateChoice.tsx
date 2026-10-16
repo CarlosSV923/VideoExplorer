@@ -7,10 +7,12 @@ export function DuplicateChoice({
   plan,
   value,
   onChange,
+  error,
 }: {
   plan: PlanVideo | undefined
   value?: DuplicateDecision
   onChange: (value: DuplicateDecision) => void
+  error?: string | undefined
 }) {
   const { t } = useTranslation()
   if (!plan?.duplicates.length) return null
@@ -38,6 +40,7 @@ export function DuplicateChoice({
         value={value ?? plan.proposal ?? allowed[0] ?? 'skip'}
         onChange={onChange}
       />
+      {error && <p className="m-0 text-body-sm text-danger">{error}</p>}
     </div>
   )
 }

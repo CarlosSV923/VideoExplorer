@@ -8,6 +8,7 @@ import {
   mergeTitleIntoVideos,
   saveState,
   subtitlesByVideo,
+  titleChoiceFromHit,
 } from '../application/assignment'
 import { useCatalogPorts } from '../application/ports'
 import type { AssignPlan, AssignRequest, AssignSuggestions, AssignVideo } from '../domain/types'
@@ -90,14 +91,7 @@ export function AssignScreen({ id }: { id: number }) {
           const subtitles = initialSubtitleRequest(result.subtitles)
           const withSeries =
             result.relation === 'episodes' && result.title
-              ? mergeTitleIntoVideos(videos, {
-                  source: result.title.source,
-                  kind: result.title.kind,
-                  ...(result.title.libraryTitleId !== undefined
-                    ? { libraryTitleId: result.title.libraryTitleId }
-                    : {}),
-                  ...(result.title.tmdbId !== undefined ? { tmdbId: result.title.tmdbId } : {}),
-                })
+              ? mergeTitleIntoVideos(videos, titleChoiceFromHit(result.title))
               : videos
           setRequest({ videos: withSeries, subtitles })
           setLoading(false)
@@ -119,7 +113,15 @@ export function AssignScreen({ id }: { id: number }) {
 
   const group = useMemo(() => subtitlesByVideo(suggestions?.subtitles ?? []), [suggestions])
   const currentState = saveState(plan)
-  const translate = (key: string) => t(key as never) as string
+  const translate = (key: string) => t(key as never)
+  const issueText = (code: string) =>
+    t(`assign.issue.${code}`, { defaultValue: t('assign.issue.generic') })
+  const issueTextFor = (field: string, file?: string) => {
+    const issue = plan?.errors.find(
+      (item) => item.field === field && (file === undefined ? !item.file : item.file === file),
+    )
+    return issue ? issueText(issue.code) : undefined
+  }
   const saveReason = currentState.enabled
     ? undefined
     : t(`assign.saveReason.${currentState.reason}`)
@@ -251,6 +253,7 @@ export function AssignScreen({ id }: { id: number }) {
               kind="series"
               {...(suggestions.title ? { suggested: suggestions.title } : {})}
               {...(suggestions.title?.title ? { initialTerm: suggestions.title.title } : {})}
+              {...(issueTextFor('title') ? { error: issueTextFor('title') } : {})}
               onChange={(title) => {
                 setDirty(true)
                 setRequest(
@@ -269,6 +272,7 @@ export function AssignScreen({ id }: { id: number }) {
               }
               value={video}
               {...(plan?.videos[index] ? { plan: plan.videos[index] } : {})}
+              issues={plan?.errors.filter((issue) => issue.file === video.file) ?? []}
               subtitles={group.get(video.file)?.length ?? 0}
               showPart={suggestions.relation === 'parts'}
               showTitle={suggestions.relation !== 'episodes'}
@@ -293,6 +297,7 @@ export function AssignScreen({ id }: { id: number }) {
           <SubtitleList
             suggestions={suggestions.subtitles}
             values={request.subtitles}
+            issues={plan?.errors ?? []}
             onChange={(subtitles) => {
               setDirty(true)
               setRequest((current) => current && { ...current, subtitles })

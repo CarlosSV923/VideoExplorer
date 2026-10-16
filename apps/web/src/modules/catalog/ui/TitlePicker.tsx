@@ -4,17 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { useTitleSearch } from '@/modules/metadata/application/queries'
 import { useMetadataPorts } from '@/modules/metadata/application/ports'
 import type { TitleChoice, TitleHit } from '../domain/types'
+import { titleChoiceFromHit } from '../application/assignment'
 import { Button, Dialog, TextField } from '@/shared/ui'
 import { kindLabel } from './CatalogLabels'
-
-function choiceFromHit(hit: TitleHit): TitleChoice {
-  return {
-    source: hit.source,
-    kind: hit.kind,
-    ...(hit.libraryTitleId !== undefined ? { libraryTitleId: hit.libraryTitleId } : {}),
-    ...(hit.tmdbId !== undefined ? { tmdbId: hit.tmdbId } : {}),
-  }
-}
 
 function sortHits(hits: readonly TitleHit[], preferred: 'movie' | 'series') {
   return [...hits].sort((left, right) => {
@@ -29,12 +21,14 @@ export function TitlePicker({
   suggested,
   initialTerm = '',
   kind = 'movie',
+  error,
   onChange,
 }: {
   value?: TitleChoice
   suggested?: TitleHit
   initialTerm?: string
   kind?: 'movie' | 'series'
+  error?: string | undefined
   onChange: (value: TitleChoice) => void
 }) {
   const { t } = useTranslation()
@@ -53,7 +47,7 @@ export function TitlePicker({
     selectedHit?.source === 'library' || selectedHit?.libraryTitleId !== undefined
   const pick = (hit: TitleHit) => {
     setSelectedHit(hit)
-    onChange(choiceFromHit(hit))
+    onChange(titleChoiceFromHit(hit))
     setOpen(false)
   }
   const useFree = () => {
@@ -115,6 +109,7 @@ export function TitlePicker({
         )}
         {displayTitle && <span className="ml-auto shrink-0">{t('assign.titlePicker.change')}</span>}
       </Button>
+      {error && <p className="m-0 text-body-sm text-danger">{error}</p>}
       {open && (
         <Dialog
           title={t('assign.titlePicker.dialogTitle')}
