@@ -7,7 +7,8 @@ import { MetadataContext } from '@/modules/metadata/application/ports'
 import { createI18n } from '@/shared/i18n'
 
 import { CatalogContext, type CatalogPorts } from '../application/ports'
-import { CatalogScreen, matchesSearch, sortTitles } from './CatalogScreens'
+import { matchesSearch, sortTitles } from '../application/search'
+import { CatalogScreen } from './CatalogScreens'
 import type { LibraryTitle, LibraryTitleSummary } from '../domain/types'
 
 const summary = (overrides: Partial<LibraryTitleSummary> = {}): LibraryTitleSummary => ({
