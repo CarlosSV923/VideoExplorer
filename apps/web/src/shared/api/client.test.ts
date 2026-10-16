@@ -5,7 +5,7 @@ const json = (body: unknown, status: number, contentType = 'application/json') =
 
 describe('createApiClient', () => {
   it.each<[string, ApiSchemas['Health']]>([
-    ['ok', { status: 'ok', checks: [] }],
+    ['ok', { status: 'ok', checks: [], jellyfin: { state: 'unconfigured' } }],
     [
       'degraded',
       {
@@ -22,6 +22,7 @@ describe('createApiClient', () => {
           },
           { name: 'ffprobe', ok: true },
         ],
+        jellyfin: { state: 'error' },
       },
     ],
     [
@@ -31,6 +32,7 @@ describe('createApiClient', () => {
         checks: [
           { name: '7zz', ok: false, code: 'sevenzip_missing', message: '7zz is not in PATH' },
         ],
+        jellyfin: { state: 'unconfigured' },
       },
     ],
   ])('types the /health answer when the status is %s', async (_label, body) => {

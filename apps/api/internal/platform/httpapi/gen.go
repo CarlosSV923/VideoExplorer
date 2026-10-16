@@ -63,19 +63,19 @@ func (e AssignVideoAction) Valid() bool {
 
 // Defines values for BatchRelation.
 const (
-	Episodes BatchRelation = "episodes"
-	None     BatchRelation = "none"
-	Parts    BatchRelation = "parts"
+	BatchRelationEpisodes BatchRelation = "episodes"
+	BatchRelationNone     BatchRelation = "none"
+	BatchRelationParts    BatchRelation = "parts"
 )
 
 // Valid indicates whether the value is a known member of the BatchRelation enum.
 func (e BatchRelation) Valid() bool {
 	switch e {
-	case Episodes:
+	case BatchRelationEpisodes:
 		return true
-	case None:
+	case BatchRelationNone:
 		return true
-	case Parts:
+	case BatchRelationParts:
 		return true
 	default:
 		return false
@@ -196,6 +196,87 @@ func (e ImageKind) Valid() bool {
 	case Poster:
 		return true
 	case Still:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JellyfinErrorCode.
+const (
+	DiscoveryFailed    JellyfinErrorCode = "discovery_failed"
+	NotificationFailed JellyfinErrorCode = "notification_failed"
+)
+
+// Valid indicates whether the value is a known member of the JellyfinErrorCode enum.
+func (e JellyfinErrorCode) Valid() bool {
+	switch e {
+	case DiscoveryFailed:
+		return true
+	case NotificationFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JellyfinHealthState.
+const (
+	JellyfinHealthStateConnected    JellyfinHealthState = "connected"
+	JellyfinHealthStateError        JellyfinHealthState = "error"
+	JellyfinHealthStateUnconfigured JellyfinHealthState = "unconfigured"
+)
+
+// Valid indicates whether the value is a known member of the JellyfinHealthState enum.
+func (e JellyfinHealthState) Valid() bool {
+	switch e {
+	case JellyfinHealthStateConnected:
+		return true
+	case JellyfinHealthStateError:
+		return true
+	case JellyfinHealthStateUnconfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JellyfinSettingsState.
+const (
+	JellyfinSettingsStateConnected    JellyfinSettingsState = "connected"
+	JellyfinSettingsStateError        JellyfinSettingsState = "error"
+	JellyfinSettingsStateUnconfigured JellyfinSettingsState = "unconfigured"
+)
+
+// Valid indicates whether the value is a known member of the JellyfinSettingsState enum.
+func (e JellyfinSettingsState) Valid() bool {
+	switch e {
+	case JellyfinSettingsStateConnected:
+		return true
+	case JellyfinSettingsStateError:
+		return true
+	case JellyfinSettingsStateUnconfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JellyfinSettingsTranslationSource.
+const (
+	JellyfinSettingsTranslationSourceConfigured JellyfinSettingsTranslationSource = "configured"
+	JellyfinSettingsTranslationSourceDetected   JellyfinSettingsTranslationSource = "detected"
+	JellyfinSettingsTranslationSourceNone       JellyfinSettingsTranslationSource = "none"
+)
+
+// Valid indicates whether the value is a known member of the JellyfinSettingsTranslationSource enum.
+func (e JellyfinSettingsTranslationSource) Valid() bool {
+	switch e {
+	case JellyfinSettingsTranslationSourceConfigured:
+		return true
+	case JellyfinSettingsTranslationSourceDetected:
+		return true
+	case JellyfinSettingsTranslationSourceNone:
 		return true
 	default:
 		return false
@@ -913,6 +994,9 @@ type Health struct {
 	// Checks Diagnostics in the order they run.
 	Checks []Check `json:"checks"`
 
+	// Jellyfin Jellyfin state only; it never changes the health status or checks (RF-50a, RF-63).
+	Jellyfin JellyfinHealth `json:"jellyfin"`
+
 	// Status `ok` while every check passes. `degraded` when a check fails: the
 	// process keeps running and the UI explains the problem (RF-63).
 	Status HealthStatus `json:"status"`
@@ -952,6 +1036,55 @@ type IDTagVideo struct {
 // ImageKind Kind of title image. Each kind has the TMDB size of spec §6: poster w500,
 // backdrop w1280, logo w500, still w300.
 type ImageKind string
+
+// JellyfinError Last Jellyfin operation failure, with a stable code and technical English message.
+type JellyfinError struct {
+	Code    JellyfinErrorCode `json:"code"`
+	Message string            `json:"message"`
+}
+
+// JellyfinErrorCode defines model for JellyfinError.Code.
+type JellyfinErrorCode string
+
+// JellyfinHealth Jellyfin state only; it never changes the health status or checks (RF-50a, RF-63).
+type JellyfinHealth struct {
+	State JellyfinHealthState `json:"state"`
+}
+
+// JellyfinHealthState defines model for JellyfinHealth.State.
+type JellyfinHealthState string
+
+// JellyfinSettings Jellyfin status and route translation without credentials (RF-50a, RNF-02).
+type JellyfinSettings struct {
+	LastError          *JellyfinError        `json:"lastError,omitempty"`
+	LastErrorAt        *time.Time            `json:"lastErrorAt,omitempty"`
+	LastNotificationAt *time.Time            `json:"lastNotificationAt,omitempty"`
+	State              JellyfinSettingsState `json:"state"`
+
+	// Translation VideoExplorer library folder to Jellyfin folder mapping.
+	Translation JellyfinTranslation `json:"translation"`
+
+	// TranslationSource How the route translation was obtained. `none` means a full-library refresh is used.
+	TranslationSource JellyfinSettingsTranslationSource `json:"translationSource"`
+}
+
+// JellyfinSettingsState defines model for JellyfinSettings.State.
+type JellyfinSettingsState string
+
+// JellyfinSettingsTranslationSource How the route translation was obtained. `none` means a full-library refresh is used.
+type JellyfinSettingsTranslationSource string
+
+// JellyfinTranslation VideoExplorer library folder to Jellyfin folder mapping.
+type JellyfinTranslation struct {
+	// LibraryPath Jellyfin path corresponding to LIBRARY_PATH; empty when no common root was detected.
+	LibraryPath string `json:"libraryPath"`
+
+	// Movies Jellyfin path corresponding to MOVIES_DIR; empty when it could not be detected.
+	Movies string `json:"movies"`
+
+	// Series Jellyfin path corresponding to SERIES_DIR; empty when it could not be detected.
+	Series string `json:"series"`
+}
 
 // JobFailure Stable reason of a job (RF-10b, RF-10c). The UI translates it with i18n
 // keys. A `failed` job gives its reason here:
@@ -1343,6 +1476,13 @@ type ScanStatuses struct {
 // Session defines model for Session.
 type Session struct {
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// Settings Settings screen data. New sections may be added without changing this contract (RF-62).
+type Settings struct {
+	// Jellyfin Jellyfin status and route translation without credentials (RF-50a, RNF-02).
+	Jellyfin             JellyfinSettings       `json:"jellyfin"`
+	AdditionalProperties map[string]interface{} `json:"-"`
 }
 
 // SubtitleSuggestion defines model for SubtitleSuggestion.
@@ -1813,6 +1953,72 @@ type TrashUnassignedFileJSONRequestBody = UnassignedFileRequest
 // PlanAssignJSONRequestBody defines body for PlanAssign for application/json ContentType.
 type PlanAssignJSONRequestBody = AssignRequest
 
+// Getter for additional properties for Settings. Returns the specified
+// element and whether it was found
+func (a Settings) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for Settings
+func (a *Settings) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for Settings to handle AdditionalProperties
+func (a *Settings) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["jellyfin"]; found {
+		err = json.Unmarshal(raw, &a.Jellyfin)
+		if err != nil {
+			return fmt.Errorf("error reading 'jellyfin': %w", err)
+		}
+		delete(object, "jellyfin")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for Settings to handle AdditionalProperties
+func (a Settings) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["jellyfin"], err = json.Marshal(a.Jellyfin)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'jellyfin': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login Start a session with the shared password
@@ -1893,6 +2099,9 @@ type ServerInterface interface {
 	// RunScans Scan now, both scans («Escanear ahora», RF-28)
 	// (POST /scans)
 	RunScans(w http.ResponseWriter, r *http.Request)
+	// GetSettings Current application settings
+	// (GET /settings)
+	GetSettings(w http.ResponseWriter, r *http.Request)
 	// SearchTitles Titles to assign to, the library's first (RF-21)
 	// (GET /titles/search)
 	SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams)
@@ -2541,6 +2750,20 @@ func (siw *ServerInterfaceWrapper) RunScans(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RunScans(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3259,6 +3482,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/health", wrapper.GetHealth)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings", wrapper.GetSettings)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/logout", wrapper.Logout)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/session", wrapper.GetSession)
@@ -4974,6 +5198,43 @@ func (response RunScans401ApplicationProblemPlusJSONResponse) VisitRunScansRespo
 	return err
 }
 
+type GetSettingsRequestObject struct {
+}
+
+type GetSettingsResponseObject interface {
+	VisitGetSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSettings200JSONResponse Settings
+
+func (response GetSettings200JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettings401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetSettings401ApplicationProblemPlusJSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchTitlesRequestObject struct {
 	Params SearchTitlesParams
 }
@@ -6246,6 +6507,9 @@ type StrictServerInterface interface {
 	// RunScans Scan now, both scans («Escanear ahora», RF-28)
 	// (POST /scans)
 	RunScans(ctx context.Context, request RunScansRequestObject) (RunScansResponseObject, error)
+	// GetSettings Current application settings
+	// (GET /settings)
+	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
 	// SearchTitles Titles to assign to, the library's first (RF-21)
 	// (GET /titles/search)
 	SearchTitles(ctx context.Context, request SearchTitlesRequestObject) (SearchTitlesResponseObject, error)
@@ -7057,6 +7321,30 @@ func (sh *strictHandler) RunScans(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RunScansResponseObject); ok {
 		if err := validResponse.VisitRunScansResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSettings operation middleware
+func (sh *strictHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSettings(ctx, request.(GetSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSettingsResponseObject); ok {
+		if err := validResponse.VisitGetSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -55,6 +55,8 @@ tags:
     description: No asignados as the disk holds it now, and the changes of its entries (RF-27).
   - name: scans
     description: The two scans of the library, on a schedule and on demand, and when each last finished (RF-28).
+  - name: settings
+    description: Current application settings and external integrations (RF-62).
 security:
   - sessionCookie: []
 paths:
@@ -83,6 +85,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+
+  /settings:
+    get:
+      tags: [settings]
+      operationId: getSettings
+      summary: Current application settings
+      description: |
+        Returns the settings data needed by the Settings screen. The response
+        is intentionally extensible; the Jellyfin section contains connection
+        state and route translation but never the Jellyfin URL or API key
+        (RF-50a, RF-62, RNF-02).
+      responses:
+        '200':
+          description: Current settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /auth/login:
     post:
@@ -1535,7 +1557,7 @@ components:
     Health:
       type: object
       description: Status of the process and of its startup diagnostics.
-      required: [status, checks]
+      required: [status, checks, jellyfin]
       additionalProperties: false
       properties:
         status:
@@ -1549,6 +1571,79 @@ components:
           description: Diagnostics in the order they run.
           items:
             $ref: '#/components/schemas/Check'
+        jellyfin:
+          $ref: '#/components/schemas/JellyfinHealth'
+    JellyfinHealth:
+      type: object
+      description: Jellyfin state only; it never changes the health status or checks (RF-50a, RF-63).
+      required: [state]
+      additionalProperties: false
+      properties:
+        state:
+          type: string
+          enum: [unconfigured, connected, error]
+    Settings:
+      type: object
+      description: Settings screen data. New sections may be added without changing this contract (RF-62).
+      required: [jellyfin]
+      additionalProperties: true
+      properties:
+        jellyfin:
+          $ref: '#/components/schemas/JellyfinSettings'
+    JellyfinSettings:
+      type: object
+      description: Jellyfin status and route translation without credentials (RF-50a, RNF-02).
+      required: [state, translationSource, translation]
+      additionalProperties: false
+      properties:
+        state:
+          type: string
+          enum: [unconfigured, connected, error]
+        translationSource:
+          type: string
+          description: How the route translation was obtained. `none` means a full-library refresh is used.
+          enum: [detected, configured, none]
+        translation:
+          $ref: '#/components/schemas/JellyfinTranslation'
+        lastError:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/JellyfinError'
+        lastErrorAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastNotificationAt:
+          type: string
+          format: date-time
+          nullable: true
+    JellyfinTranslation:
+      type: object
+      description: VideoExplorer library folder to Jellyfin folder mapping.
+      required: [libraryPath, movies, series]
+      additionalProperties: false
+      properties:
+        libraryPath:
+          type: string
+          description: Jellyfin path corresponding to LIBRARY_PATH; empty when no common root was detected.
+        movies:
+          type: string
+          description: Jellyfin path corresponding to MOVIES_DIR; empty when it could not be detected.
+        series:
+          type: string
+          description: Jellyfin path corresponding to SERIES_DIR; empty when it could not be detected.
+    JellyfinError:
+      type: object
+      description: Last Jellyfin operation failure, with a stable code and technical English message.
+      required: [code, message]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [discovery_failed, notification_failed]
+        message:
+          type: string
     Check:
       type: object
       description: |

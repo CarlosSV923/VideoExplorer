@@ -29,6 +29,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current application settings
+         * @description Returns the settings data needed by the Settings screen. The response
+         *     is intentionally extensible; the Jellyfin section contains connection
+         *     state and route translation but never the Jellyfin URL or API key
+         *     (RF-50a, RF-62, RNF-02).
+         */
+        get: operations["getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -1033,6 +1056,49 @@ export interface components {
             status: "ok" | "degraded";
             /** @description Diagnostics in the order they run. */
             checks: components["schemas"]["Check"][];
+            jellyfin: components["schemas"]["JellyfinHealth"];
+        };
+        /** @description Jellyfin state only; it never changes the health status or checks (RF-50a, RF-63). */
+        JellyfinHealth: {
+            /** @enum {string} */
+            state: "unconfigured" | "connected" | "error";
+        };
+        /** @description Settings screen data. New sections may be added without changing this contract (RF-62). */
+        Settings: {
+            jellyfin: components["schemas"]["JellyfinSettings"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Jellyfin status and route translation without credentials (RF-50a, RNF-02). */
+        JellyfinSettings: {
+            /** @enum {string} */
+            state: "unconfigured" | "connected" | "error";
+            /**
+             * @description How the route translation was obtained. `none` means a full-library refresh is used.
+             * @enum {string}
+             */
+            translationSource: "detected" | "configured" | "none";
+            translation: components["schemas"]["JellyfinTranslation"];
+            lastError?: components["schemas"]["JellyfinError"] | null;
+            /** Format: date-time */
+            lastErrorAt?: string | null;
+            /** Format: date-time */
+            lastNotificationAt?: string | null;
+        };
+        /** @description VideoExplorer library folder to Jellyfin folder mapping. */
+        JellyfinTranslation: {
+            /** @description Jellyfin path corresponding to LIBRARY_PATH; empty when no common root was detected. */
+            libraryPath: string;
+            /** @description Jellyfin path corresponding to MOVIES_DIR; empty when it could not be detected. */
+            movies: string;
+            /** @description Jellyfin path corresponding to SERIES_DIR; empty when it could not be detected. */
+            series: string;
+        };
+        /** @description Last Jellyfin operation failure, with a stable code and technical English message. */
+        JellyfinError: {
+            /** @enum {string} */
+            code: "discovery_failed" | "notification_failed";
+            message: string;
         };
         /**
          * @description One named diagnostic. When it passes, only `name` and `ok` appear. When
@@ -2076,6 +2142,27 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     login: {
