@@ -98,11 +98,11 @@ Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
 ## Fase 10 — Frontend con adaptadores HTTP
 Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 - [x] Puertos y adaptadores `http/` por módulo; router y TanStack Query: puertos y adaptadores de todo el contrato (descargas e imágenes como URL, SSE de trabajos), `AppError` por tipo sin mostrar el `detail`, composición en `src/app`, rutas de `design-handoff.md` §5 con marcadores, login mínimo y vuelta tras sesión vencida
-- [ ] Pantallas completas:
+- [x] Pantallas completas:
   - [x] Biblioteca: cabecera y navegación (con barra inferior en móvil), Inicio (hero, pendientes, filas, colecciones), Películas y Series, búsqueda, fichas de película y serie (versiones, partes, subtítulos, info técnica, descargas, temporadas y capítulos), colección, Editar y reasignar con etiqueta de ID y Vincular, Actualizar datos, mover a No asignados y papelera desde la ficha. Contrato ampliado según RF-42a (resumen con datos guardados, sin llamar a TMDB; `GET /library/collections/{id}`); una pantalla por archivo y cabecera común en `app/LibraryLayout.tsx`
   - [x] No asignados (estados, «Más acciones», descargas, papelera, borrar con confirmación; explicar la entrada que solo guarda contenido en carpetas ocultas o del sistema, RF-27), Asignar (capítulos y película, duplicados, subtítulos, vista previa, bloqueo y atajos) y elegir título
-  - [~] Subidas con `tus-js-client` (zona de soltar, pregunta de relación, `partsTotal` por conjunto multiparte, RF-03; panel y hoja móvil; cancelar hasta descomprimir, RF-10a), Papelera, Ajustes (idioma, escaneo, Jellyfin, TMDB, sesión), banner de salud y botón de cerrar de `Dialog` con «Cerrar»; en Asignar faltan en la barra de atajos Enter (aceptar sugerencia), Ctrl+Enter (Guardar) y Esc (Cancelar) con los grupos «Con el foco en un video» / «Siempre», y la barra no debe verse junto a la de gamepad
-- [ ] Prueba real contra la API con archivos reales
+  - [x] Subidas con `tus-js-client` (zona de soltar, pregunta de relación, `partsTotal` por conjunto multiparte, RF-03; panel y hoja móvil; cancelar hasta descomprimir, RF-10a), Papelera, Ajustes (idioma, escaneo, Jellyfin, TMDB, sesión), banner de salud y botón de cerrar de `Dialog` con «Cerrar»; en Asignar faltan en la barra de atajos Enter (aceptar sugerencia), Ctrl+Enter (Guardar) y Esc (Cancelar) con los grupos «Con el foco en un video» / «Siempre», y la barra no debe verse junto a la de gamepad
+- [~] Prueba real contra la API con archivos reales
 - [ ] README EN/ES: estado del proyecto al día (fases cerradas)
 
 ## Fase 11 — Demo
