@@ -97,11 +97,12 @@ Familias: **Outfit** 400/500/600/700/800 para la interfaz y **JetBrains Mono** 4
 | `Menu` | Botón con `aria-haspopup="menu"` + `role=menu` | «Más acciones» (ficha, No asignados, archivo); elementos destructivos en `danger` y con «…» si abren confirmación |
 | `Banner` | `tone: warning \| danger \| info`, `live: polite \| assertive`, `action?` | `role=status` o `role=alert` |
 | `HealthBanner` | `checks` | Banner fijo `danger` bajo la cabecera (RF-63) con «Detalles» desplegable y «Copiar detalle técnico» |
-| `Dialog` / `ConfirmDialog` | `title`, `onClose`, acciones; `tone: danger` | Modal sobre `overlay`; atrapa el foco y lo devuelve; Esc o B cierran; acción principal a la derecha |
+| `Dialog` / `ConfirmDialog` | `title`, `onClose`, acciones; `tone: danger` | Modal sobre `overlay`; atrapa el foco y lo devuelve; Esc o B cierran; acción principal a la derecha. Con `tone: danger` el foco inicial va a **Cancelar**, nunca a la acción destructiva (Enter no borra por accidente) |
 | `Sheet` | Hoja inferior modal (móvil) | Subidas y «Así quedará» en < 768 px; asa visual decorativa |
 | `SidePanel` | Panel lateral no modal (escritorio) | Subidas; no oscurece la página |
 | `ProgressBar` | `value`, `label`, `tone: upload \| extract` | `role=progressbar`, 8 px de alto |
 | `EmptyState` | `icon`, `title`, `body`, `action?` | Plantillas de `Estados` |
+| `Brand` | — | Marca «Video» en `ink-1` + «Explorer» en `accent`, 22 px (20 en móvil), peso 800, sin mayúsculas; enlace a Inicio de 44 px de alto |
 | `PageHeader` | `back?`, `title`, `subtitle?`, `actions?` | Asignar, Editar |
 | `Poster` | `title`, `meta`, `image?`, `chips`, `href`, `dimmed?` | Nombre accesible «título, año, chips»; `dimmed` atenúa solo la imagen (A1) |
 | `PosterRow` | `title`, `count?`, `seeAll?` | Lista horizontal con `overflow-x: auto`, `scroll-snap`, botones ‹ › siempre visibles (escritorio), swipe (táctil) |
