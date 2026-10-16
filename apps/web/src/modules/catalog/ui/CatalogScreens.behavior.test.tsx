@@ -278,6 +278,41 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     await waitFor(() => expect(screen.getByText('Todavía no hay títulos')).toBeInTheDocument())
   })
 
+  it('shows collection cards with library counts and collection links on home', async () => {
+    renderCatalog('home', {
+      libraryTitles: vi.fn().mockResolvedValue({
+        titles: [
+          summary({
+            id: 1,
+            title: 'Alien',
+            collection: { id: 9, name: 'Alien: colección' },
+          }),
+          summary({
+            id: 2,
+            title: 'Aliens',
+            collection: { id: 9, name: 'Alien: colección' },
+          }),
+        ],
+      }),
+      libraryCollection: vi.fn().mockResolvedValue({
+        id: 9,
+        name: 'Alien: colección',
+        overview: '',
+        movies: [
+          { id: 1, title: 'Alien', originalTitle: 'Alien', year: 1979, inLibrary: true },
+          { id: 2, title: 'Aliens', originalTitle: 'Aliens', year: 1986, inLibrary: false },
+          { id: 3, title: 'Alien 3', originalTitle: 'Alien 3', year: 1992, inLibrary: false },
+        ],
+      }),
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /Alien: colección/ })).toBeInTheDocument(),
+    )
+    const card = screen.getByRole('link', { name: /Alien: colección/ })
+    expect(card).toHaveAttribute('href', '/colecciones/9')
+    await waitFor(() => expect(card).toHaveTextContent('1 de 3 en tu biblioteca'))
+  })
+
   it('does not rotate the hero when reduced motion is preferred', async () => {
     const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia')
     Object.defineProperty(window, 'matchMedia', {

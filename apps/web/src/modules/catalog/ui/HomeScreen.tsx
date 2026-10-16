@@ -9,6 +9,7 @@ import { UploadIcon } from '@/shared/ui/icons'
 import { HeroCarousel } from './HeroCarousel'
 import { PendingStrip } from './PendingStrip'
 import { LoadingGrid, PosterFor } from './CatalogShared'
+import { CollectionCard } from './CollectionCard'
 
 export function HomeScreen() {
   const { t } = useTranslation()
@@ -59,7 +60,7 @@ export function HomeScreen() {
         .filter((title) => title.collection)
         .map((title) => [title.collection?.id, title.collection]),
     ).values(),
-  ].filter(Boolean)
+  ].filter((collection): collection is NonNullable<typeof collection> => Boolean(collection))
   const row = (items: LibraryTitleSummary[]) =>
     items.map((title) => <PosterFor key={title.id} title={title} />)
   return (
@@ -111,12 +112,17 @@ export function HomeScreen() {
         {collections.length > 0 && (
           <PosterRow title={t('library.collections')}>
             {collections.map((collection) => {
-              const member = titles.find((title) => title.collection?.id === collection?.id)
+              const members = titles.filter((title) => title.collection?.id === collection.id)
+              const member = members[0]
               return member ? (
-                <PosterFor
-                  key={collection?.id}
-                  title={member}
-                  href={`/colecciones/${String(collection?.id)}`}
+                <CollectionCard
+                  key={collection.id}
+                  id={collection.id}
+                  name={collection.name}
+                  present={members.length}
+                  {...((member.backdrop ?? member.poster)
+                    ? { image: member.backdrop ?? member.poster }
+                    : {})}
                 />
               ) : null
             })}
