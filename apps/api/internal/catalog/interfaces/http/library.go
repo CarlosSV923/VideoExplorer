@@ -71,6 +71,34 @@ func (h *LibraryHandler) GetLibraryTitle(ctx context.Context, req httpapi.GetLib
 	return httpapi.GetLibraryTitle200JSONResponse(detailToAPI(t)), nil
 }
 
+// RefreshLibraryTitleMetadata implements the explicit TMDB refresh from a
+// title page (RF-44). The application stages cache writes until all related
+// metadata has been fetched, and this handler never changes library files.
+func (h *LibraryHandler) RefreshLibraryTitleMetadata(ctx context.Context, req httpapi.RefreshLibraryTitleMetadataRequestObject) (httpapi.RefreshLibraryTitleMetadataResponseObject, error) {
+	t, err := h.views.Refresh(ctx, req.Id)
+	switch {
+	case errors.Is(err, application.ErrMetadataRefreshNotApplicable):
+		return httpapi.RefreshLibraryTitleMetadata400ApplicationProblemPlusJSONResponse{
+			MetadataRefreshInvalidApplicationProblemPlusJSONResponse: httpapi.MetadataRefreshInvalidApplicationProblemPlusJSONResponse(metadataRefreshProblem(http.StatusBadRequest, httpapi.MetadataRefreshProblemCodeMetadataRefreshNotApplicable, "The title is not linked to TMDB.")),
+		}, nil
+	case errors.Is(err, application.ErrTitleNotFound):
+		return httpapi.RefreshLibraryTitleMetadata404ApplicationProblemPlusJSONResponse{
+			NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem()),
+		}, nil
+	case err != nil:
+		h.log.WarnContext(ctx, "title metadata refresh failed", "title", req.Id, "error", err)
+		return httpapi.RefreshLibraryTitleMetadata502ApplicationProblemPlusJSONResponse{
+			MetadataRefreshFailedApplicationProblemPlusJSONResponse: httpapi.MetadataRefreshFailedApplicationProblemPlusJSONResponse(metadataRefreshProblem(http.StatusBadGateway, httpapi.MetadataRefreshProblemCodeMetadataRefreshFailed, "TMDB could not refresh the title metadata.")),
+		}, nil
+	default:
+		return httpapi.RefreshLibraryTitleMetadata200JSONResponse(detailToAPI(t)), nil
+	}
+}
+
+func metadataRefreshProblem(status int, code httpapi.MetadataRefreshProblemCode, detail string) httpapi.MetadataRefreshProblem {
+	return httpapi.MetadataRefreshProblem{Code: code, Status: status, Title: http.StatusText(status), Detail: &detail}
+}
+
 // GetLibraryFileTechnical implements the cache-backed technical read of one
 // live video in a title (RF-44).
 func (h *LibraryHandler) GetLibraryFileTechnical(ctx context.Context, req httpapi.GetLibraryFileTechnicalRequestObject) (httpapi.GetLibraryFileTechnicalResponseObject, error) {

@@ -177,6 +177,25 @@ func (t tmdbOf) Title(ctx context.Context, kind catalogdomain.TitleKind, id int6
 // supplies cached, localized metadata; this adapter only translates the metadata context's types into the
 // catalog port and chooses the configured-language logo.
 func (t tmdbOf) Details(ctx context.Context, kind catalogdomain.TitleKind, id int64) (catalogapplication.TitleMetadata, error) {
+	return t.details(ctx, kind, id, false)
+}
+
+// Refresh implements catalogapplication.LibraryMetadataRefresher (RF-44). All
+// cache writes remain staged until the complete metadata graph has been read;
+// a TMDB error therefore cannot replace only part of the previous answer.
+func (t tmdbOf) Refresh(ctx context.Context, kind catalogdomain.TitleKind, id int64) (catalogapplication.TitleMetadata, error) {
+	refreshCtx, tx := metadataapplication.BeginRefresh(metadataapplication.ForceRefresh(ctx))
+	out, err := t.details(refreshCtx, kind, id, true)
+	if err != nil {
+		return catalogapplication.TitleMetadata{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return catalogapplication.TitleMetadata{}, fmt.Errorf("%w: metadata cache commit: %w", catalogapplication.ErrTMDBUnavailable, err)
+	}
+	return out, nil
+}
+
+func (t tmdbOf) details(ctx context.Context, kind catalogdomain.TitleKind, id int64, strictCollection bool) (catalogapplication.TitleMetadata, error) {
 	if kind == catalogdomain.KindSeries {
 		series, err := t.svc.Series(ctx, id)
 		if err != nil {
@@ -208,7 +227,11 @@ func (t tmdbOf) Details(ctx context.Context, kind catalogdomain.TitleKind, id in
 	}
 	if movie.Collection != nil {
 		collection, err := t.svc.Collection(ctx, movie.Collection.ID)
-		if err == nil {
+		if err != nil {
+			if strictCollection {
+				return catalogapplication.TitleMetadata{}, tmdbErr(err)
+			}
+		} else {
 			out.Collection = collectionMetadata(collection)
 		}
 	}

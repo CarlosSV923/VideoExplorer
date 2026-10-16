@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/domain"
@@ -45,6 +46,68 @@ type CachedResponse struct {
 
 // refreshKey is the context key of ForceRefresh.
 type refreshKey struct{}
+
+// refreshTransactionKey holds the cache writes of one explicit refresh until
+// every TMDB request in that refresh succeeds. It is deliberately separate
+// from ForceRefresh: ordinary forced reads keep their existing semantics.
+type refreshTransactionKey struct{}
+
+// RefreshTransaction collects cache writes made by a refresh. The caller
+// commits it only after the complete title (and all its related metadata) has
+// been fetched successfully, so a failed TMDB request leaves old entries
+// untouched.
+type RefreshTransaction struct {
+	mu     sync.Mutex
+	writes map[string]refreshWrite
+	order  []string
+	closed bool
+}
+
+type refreshWrite struct {
+	store ResponseStore
+	key   string
+	entry CachedResponse
+}
+
+// BeginRefresh starts an atomic metadata-cache refresh scope.
+func BeginRefresh(ctx context.Context) (context.Context, *RefreshTransaction) {
+	tx := &RefreshTransaction{writes: make(map[string]refreshWrite)}
+	return context.WithValue(ctx, refreshTransactionKey{}, tx), tx
+}
+
+// Commit writes the answers collected by the refresh to the response store.
+// It is called only after the upstream operation succeeds. A store failure is
+// returned to the caller; TMDB failures never reach this method.
+func (r *RefreshTransaction) Commit(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return errors.New("metadata refresh transaction already closed")
+	}
+	r.closed = true
+	for _, key := range r.order {
+		write := r.writes[key]
+		if err := write.store.Put(ctx, write.key, write.entry); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func refreshTransaction(ctx context.Context) *RefreshTransaction {
+	tx, _ := ctx.Value(refreshTransactionKey{}).(*RefreshTransaction)
+	return tx
+}
+
+func (r *RefreshTransaction) entry(key string) (CachedResponse, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	write, ok := r.writes[key]
+	if !ok {
+		return CachedResponse{}, false
+	}
+	return write.entry, true
+}
 
 // ForceRefresh returns a context that makes the cached Provider ask TMDB even
 // when the answer is fresh, and store the new one (the «Actualizar datos»
@@ -149,6 +212,14 @@ func (c *CachedProvider) Genres(ctx context.Context, language string, kind domai
 // cache never blocks TMDB.
 func cached[T any](ctx context.Context, c *CachedProvider, cacheKey string, ttl time.Duration, fetch func(context.Context) (T, error)) (T, error) {
 	var zero T
+	if tx := refreshTransaction(ctx); tx != nil {
+		if entry, ok := tx.entry(cacheKey); ok {
+			var value T
+			if err := json.Unmarshal(entry.Payload, &value); err == nil {
+				return value, nil
+			}
+		}
+	}
 	forced := refreshRequested(ctx)
 
 	old, expiresAt, hasOld := lookup[T](ctx, c, cacheKey)
@@ -198,7 +269,19 @@ func (c *CachedProvider) save(ctx context.Context, key string, v any, expiresAt 
 		c.log.WarnContext(ctx, "metadata cache: encode failed", "key", key, "error", err)
 		return
 	}
-	if err := c.store.Put(ctx, key, CachedResponse{Payload: payload, ExpiresAt: expiresAt}); err != nil {
+	entry := CachedResponse{Payload: payload, ExpiresAt: expiresAt}
+	if tx := refreshTransaction(ctx); tx != nil {
+		tx.mu.Lock()
+		if !tx.closed {
+			if _, exists := tx.writes[key]; !exists {
+				tx.order = append(tx.order, key)
+			}
+			tx.writes[key] = refreshWrite{store: c.store, key: key, entry: entry}
+		}
+		tx.mu.Unlock()
+		return
+	}
+	if err := c.store.Put(ctx, key, entry); err != nil {
 		c.log.WarnContext(ctx, "metadata cache: write failed", "key", key, "error", err)
 	}
 }

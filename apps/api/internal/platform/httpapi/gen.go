@@ -340,6 +340,24 @@ func (e LibraryScopeKind) Valid() bool {
 	}
 }
 
+// Defines values for MetadataRefreshProblemCode.
+const (
+	MetadataRefreshProblemCodeMetadataRefreshFailed        MetadataRefreshProblemCode = "metadata_refresh_failed"
+	MetadataRefreshProblemCodeMetadataRefreshNotApplicable MetadataRefreshProblemCode = "metadata_refresh_not_applicable"
+)
+
+// Valid indicates whether the value is a known member of the MetadataRefreshProblemCode enum.
+func (e MetadataRefreshProblemCode) Valid() bool {
+	switch e {
+	case MetadataRefreshProblemCodeMetadataRefreshFailed:
+		return true
+	case MetadataRefreshProblemCodeMetadataRefreshNotApplicable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NameReadingType.
 const (
 	NameReadingTypeMovie   NameReadingType = "movie"
@@ -1164,6 +1182,19 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// MetadataRefreshProblem RFC 9457 problem details with a stable metadata refresh code.
+type MetadataRefreshProblem struct {
+	// Code `metadata_refresh_not_applicable` is a free title; `metadata_refresh_failed` means TMDB could not complete the refresh.
+	Code   MetadataRefreshProblemCode `json:"code"`
+	Detail *string                    `json:"detail,omitempty"`
+	Status int                        `json:"status"`
+	Title  string                     `json:"title"`
+	Type   *string                    `json:"type,omitempty"`
+}
+
+// MetadataRefreshProblemCode `metadata_refresh_not_applicable` is a free title; `metadata_refresh_failed` means TMDB could not complete the refresh.
+type MetadataRefreshProblemCode string
+
 // NameReading What a file name, and its folders, say about the file (RF-20, RF-23). Absent fields are not known.
 type NameReading struct {
 	Chapter     *int    `json:"chapter,omitempty"`
@@ -1671,6 +1702,12 @@ type EditInvalid = EditPlan
 // EntryConflict RFC 9457 problem details of a change of an entry, with the stable reason in `code`.
 type EntryConflict = EntryProblem
 
+// MetadataRefreshFailed RFC 9457 problem details with a stable metadata refresh code.
+type MetadataRefreshFailed = MetadataRefreshProblem
+
+// MetadataRefreshInvalid RFC 9457 problem details with a stable metadata refresh code.
+type MetadataRefreshInvalid = MetadataRefreshProblem
+
 // NotFound RFC 9457 problem details.
 type NotFound = Problem
 
@@ -1838,6 +1875,9 @@ type ServerInterface interface {
 	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
 	// (POST /library/titles/{id}/id-tag/plan)
 	PlanTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId)
+	// RefreshLibraryTitleMetadata Refresh a linked title's TMDB data
+	// (POST /library/titles/{id}/metadata/refresh)
+	RefreshLibraryTitleMetadata(w http.ResponseWriter, r *http.Request, id TitleId)
 	// DownloadLibrarySeason Download one season of a library series as a streamed store zip (RF-44)
 	// (GET /library/titles/{id}/seasons/{season}/download)
 	DownloadLibrarySeason(w http.ResponseWriter, r *http.Request, id TitleId, season int)
@@ -2360,6 +2400,32 @@ func (siw *ServerInterfaceWrapper) PlanTitleIDTag(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PlanTitleIDTag(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshLibraryTitleMetadata operation middleware
+func (siw *ServerInterfaceWrapper) RefreshLibraryTitleMetadata(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshLibraryTitleMetadata(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3220,6 +3286,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles", wrapper.ListLibraryTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/metadata/refresh", wrapper.RefreshLibraryTitleMetadata)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/files/{fileId}/technical", wrapper.GetLibraryFileTechnical)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/download", wrapper.DownloadLibraryTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/seasons/{season}/download", wrapper.DownloadLibrarySeason)
@@ -3254,6 +3321,10 @@ type EditConflictApplicationProblemPlusJSONResponse EditProblem
 type EditInvalidJSONResponse EditPlan
 
 type EntryConflictApplicationProblemPlusJSONResponse EntryProblem
+
+type MetadataRefreshFailedApplicationProblemPlusJSONResponse MetadataRefreshProblem
+
+type MetadataRefreshInvalidApplicationProblemPlusJSONResponse MetadataRefreshProblem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
@@ -4548,6 +4619,92 @@ func (response PlanTitleIDTag404ApplicationProblemPlusJSONResponse) VisitPlanTit
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshLibraryTitleMetadataRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type RefreshLibraryTitleMetadataResponseObject interface {
+	VisitRefreshLibraryTitleMetadataResponse(w http.ResponseWriter) error
+}
+
+type RefreshLibraryTitleMetadata200JSONResponse LibraryTitle
+
+func (response RefreshLibraryTitleMetadata200JSONResponse) VisitRefreshLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshLibraryTitleMetadata400ApplicationProblemPlusJSONResponse struct {
+	MetadataRefreshInvalidApplicationProblemPlusJSONResponse
+}
+
+func (response RefreshLibraryTitleMetadata400ApplicationProblemPlusJSONResponse) VisitRefreshLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshLibraryTitleMetadata401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RefreshLibraryTitleMetadata401ApplicationProblemPlusJSONResponse) VisitRefreshLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshLibraryTitleMetadata404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RefreshLibraryTitleMetadata404ApplicationProblemPlusJSONResponse) VisitRefreshLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshLibraryTitleMetadata502ApplicationProblemPlusJSONResponse struct {
+	MetadataRefreshFailedApplicationProblemPlusJSONResponse
+}
+
+func (response RefreshLibraryTitleMetadata502ApplicationProblemPlusJSONResponse) VisitRefreshLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6071,6 +6228,9 @@ type StrictServerInterface interface {
 	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
 	// (POST /library/titles/{id}/id-tag/plan)
 	PlanTitleIDTag(ctx context.Context, request PlanTitleIDTagRequestObject) (PlanTitleIDTagResponseObject, error)
+	// RefreshLibraryTitleMetadata Refresh a linked title's TMDB data
+	// (POST /library/titles/{id}/metadata/refresh)
+	RefreshLibraryTitleMetadata(ctx context.Context, request RefreshLibraryTitleMetadataRequestObject) (RefreshLibraryTitleMetadataResponseObject, error)
 	// DownloadLibrarySeason Download one season of a library series as a streamed store zip (RF-44)
 	// (GET /library/titles/{id}/seasons/{season}/download)
 	DownloadLibrarySeason(ctx context.Context, request DownloadLibrarySeasonRequestObject) (DownloadLibrarySeasonResponseObject, error)
@@ -6730,6 +6890,32 @@ func (sh *strictHandler) PlanTitleIDTag(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PlanTitleIDTagResponseObject); ok {
 		if err := validResponse.VisitPlanTitleIDTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshLibraryTitleMetadata operation middleware
+func (sh *strictHandler) RefreshLibraryTitleMetadata(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request RefreshLibraryTitleMetadataRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshLibraryTitleMetadata(ctx, request.(RefreshLibraryTitleMetadataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshLibraryTitleMetadata")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshLibraryTitleMetadataResponseObject); ok {
+		if err := validResponse.VisitRefreshLibraryTitleMetadataResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

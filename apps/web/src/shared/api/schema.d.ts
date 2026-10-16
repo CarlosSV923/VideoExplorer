@@ -627,6 +627,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/titles/{id}/metadata/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a linked title's TMDB data
+         * @description Forces a reload from TMDB of the title, every season and its episodes,
+         *     and its collection when it has one (RF-44, spec §6). The response is the
+         *     updated title page. No library path or file is renamed. Cache writes are
+         *     committed only after every TMDB request succeeds; when TMDB fails, the
+         *     previous cache and library registry remain unchanged. A free title is
+         *     not eligible.
+         */
+        post: operations["refreshLibraryTitleMetadata"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/titles/{id}/files/{fileId}/technical": {
         parameters: {
             query?: never;
@@ -1056,6 +1081,14 @@ export interface components {
             title: string;
             status: number;
             detail?: string;
+        };
+        /** @description RFC 9457 problem details with a stable metadata refresh code. */
+        MetadataRefreshProblem: components["schemas"]["Problem"] & {
+            /**
+             * @description `metadata_refresh_not_applicable` is a free title; `metadata_refresh_failed` means TMDB could not complete the refresh.
+             * @enum {string}
+             */
+            code: "metadata_refresh_not_applicable" | "metadata_refresh_failed";
         };
         /**
          * @description How the files of a batch relate (RF-03): `parts` for parts of one film or
@@ -1981,6 +2014,24 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The title has no TMDB identity and cannot be refreshed. */
+        MetadataRefreshInvalid: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["MetadataRefreshProblem"];
+            };
+        };
+        /** @description TMDB failed while refreshing the title metadata. */
+        MetadataRefreshFailed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["MetadataRefreshProblem"];
+            };
+        };
     };
     parameters: {
         /** @description Trash entry id (RF-31a). */
@@ -2757,6 +2808,33 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    refreshLibraryTitleMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The refreshed title page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTitle"];
+                };
+            };
+            400: components["responses"]["MetadataRefreshInvalid"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["MetadataRefreshFailed"];
         };
     };
     getLibraryFileTechnical: {

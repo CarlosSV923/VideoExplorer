@@ -461,6 +461,74 @@ func TestCachedProviderForceRefreshFailureIsAnError(t *testing.T) {
 	}
 }
 
+func TestCachedProviderRefreshDoesNotCommitWhenOneRequestFails(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		fail bool
+	}{
+		{name: "all TMDB requests succeed", fail: false},
+		{name: "a request fails halfway", fail: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p, provider, store, _ := newCached(t)
+			ctx := t.Context()
+			oldMovie, err := p.Movie(ctx, "es-MX", 1726)
+			if err != nil {
+				t.Fatal(err)
+			}
+			oldSeries, err := p.Series(ctx, "es-MX", 1396)
+			if err != nil {
+				t.Fatal(err)
+			}
+			putsBefore := store.puts
+
+			refreshCtx, tx := application.BeginRefresh(application.ForceRefresh(ctx))
+			if _, err := p.Movie(refreshCtx, "es-MX", 1726); err != nil {
+				t.Fatal(err)
+			}
+			if tt.fail {
+				provider.setErr(domain.ErrUpstream)
+			}
+			if _, err := p.Series(refreshCtx, "es-MX", 1396); tt.fail {
+				if !errors.Is(err, domain.ErrUpstream) {
+					t.Fatalf("Series refresh err = %v, want ErrUpstream", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			provider.setErr(nil)
+
+			if !tt.fail {
+				if err := tx.Commit(ctx); err != nil {
+					t.Fatalf("Commit: %v", err)
+				}
+			}
+			gotMovie, err := p.Movie(ctx, "es-MX", 1726)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotSeries, err := p.Series(ctx, "es-MX", 1396)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.fail {
+				if gotMovie.Title != oldMovie.Title || gotSeries.Title != oldSeries.Title {
+					t.Errorf("cache after failed refresh = movie %q, series %q; want %q, %q", gotMovie.Title, gotSeries.Title, oldMovie.Title, oldSeries.Title)
+				}
+				if store.puts != putsBefore {
+					t.Errorf("failed refresh writes = %d, want %d", store.puts, putsBefore)
+				}
+			} else if gotMovie.Title == oldMovie.Title || gotSeries.Title == oldSeries.Title {
+				t.Errorf("cache after successful refresh = movie %q, series %q; want new answers", gotMovie.Title, gotSeries.Title)
+			}
+		})
+	}
+}
+
 func TestCachedProviderStoreProblemsAreNotFatal(t *testing.T) {
 	t.Parallel()
 

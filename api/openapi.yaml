@@ -832,6 +832,36 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /library/titles/{id}/metadata/refresh:
+    post:
+      tags: [library]
+      operationId: refreshLibraryTitleMetadata
+      summary: Refresh a linked title's TMDB data
+      description: |
+        Forces a reload from TMDB of the title, every season and its episodes,
+        and its collection when it has one (RF-44, spec §6). The response is the
+        updated title page. No library path or file is renamed. Cache writes are
+        committed only after every TMDB request succeeds; when TMDB fails, the
+        previous cache and library registry remain unchanged. A free title is
+        not eligible.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      responses:
+        '200':
+          description: The refreshed title page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryTitle'
+        '400':
+          $ref: '#/components/responses/MetadataRefreshInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/MetadataRefreshFailed'
+
   /library/titles/{id}/files/{fileId}/technical:
     get:
       tags: [library]
@@ -1360,6 +1390,18 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    MetadataRefreshInvalid:
+      description: The title has no TMDB identity and cannot be refreshed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/MetadataRefreshProblem'
+    MetadataRefreshFailed:
+      description: TMDB failed while refreshing the title metadata.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/MetadataRefreshProblem'
 
   schemas:
     TrashList:
@@ -1564,6 +1606,17 @@ components:
           type: integer
         detail:
           type: string
+    MetadataRefreshProblem:
+      description: RFC 9457 problem details with a stable metadata refresh code.
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              description: '`metadata_refresh_not_applicable` is a free title; `metadata_refresh_failed` means TMDB could not complete the refresh.'
+              enum: [metadata_refresh_not_applicable, metadata_refresh_failed]
     BatchRelation:
       type: string
       description: |

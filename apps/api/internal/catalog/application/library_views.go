@@ -13,6 +13,12 @@ import (
 // ErrTitleNotFound means there is no title of the library with that id (or it is only in the trash).
 var ErrTitleNotFound = errors.New("the title is not in the library")
 
+// ErrMetadataRefreshNotApplicable means the title has no TMDB identity.
+var ErrMetadataRefreshNotApplicable = errors.New("metadata refresh is not applicable to a free title")
+
+// ErrMetadataRefreshUnavailable means the linked title cannot reach a configured metadata provider.
+var ErrMetadataRefreshUnavailable = errors.New("metadata refresh is unavailable")
+
 // TitleSummary is a title of the library as the list shows it (RF-40, RF-43).
 type TitleSummary struct {
 	ID    int64
@@ -99,6 +105,13 @@ const (
 // from TMDB, whose smaller port is also used by Asignar and importación.
 type LibraryMetadata interface {
 	Details(ctx context.Context, kind domain.TitleKind, id int64) (TitleMetadata, error)
+}
+
+// LibraryMetadataRefresher is the explicit, cache-bypassing refresh operation
+// used by the title page. It is separate from LibraryMetadata so existing
+// read-only adapters cannot accidentally change cache contents.
+type LibraryMetadataRefresher interface {
+	Refresh(ctx context.Context, kind domain.TitleKind, id int64) (TitleMetadata, error)
 }
 
 // TitleMetadata is the catalog-shaped answer of the metadata context for RF-43a.
@@ -258,6 +271,41 @@ func (v *LibraryViews) Title(ctx context.Context, id int64) (TitleDetail, error)
 		}
 	}
 	return out, nil
+}
+
+// Refresh forces TMDB to reload all metadata needed by the title page, then
+// reads the page again so a series' missing-episode count is recalculated and
+// persisted. It does not touch the library files or their names.
+func (v *LibraryViews) Refresh(ctx context.Context, id int64) (TitleDetail, error) {
+	live, _, err := classifyTitles(ctx, v.repo)
+	if err != nil {
+		return TitleDetail{}, err
+	}
+	var title domain.LibraryTitle
+	found := false
+	for _, candidate := range live {
+		if candidate.ID == id {
+			title, found = candidate, true
+			break
+		}
+	}
+	if !found {
+		return TitleDetail{}, ErrTitleNotFound
+	}
+	if title.TMDBID == 0 {
+		return TitleDetail{}, ErrMetadataRefreshNotApplicable
+	}
+	if v.tmdb == nil || !v.tmdb.Configured() {
+		return TitleDetail{}, ErrMetadataRefreshUnavailable
+	}
+	refresher, ok := v.tmdb.(LibraryMetadataRefresher)
+	if !ok {
+		return TitleDetail{}, ErrMetadataRefreshUnavailable
+	}
+	if _, err := refresher.Refresh(ctx, title.Kind, title.TMDBID); err != nil {
+		return TitleDetail{}, err
+	}
+	return v.Title(ctx, id)
 }
 
 // summaryOf returns the list's view of a title.

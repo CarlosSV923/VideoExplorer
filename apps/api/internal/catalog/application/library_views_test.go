@@ -57,13 +57,21 @@ type viewTMDB struct {
 
 type richViewTMDB struct {
 	viewTMDB
-	metadata TitleMetadata
-	err      error
+	metadata   TitleMetadata
+	err        error
+	refreshErr error
 }
 
 func (t *richViewTMDB) Details(context.Context, domain.TitleKind, int64) (TitleMetadata, error) {
 	t.calls++
 	return t.metadata, t.err
+}
+
+func (t *richViewTMDB) Refresh(context.Context, domain.TitleKind, int64) (TitleMetadata, error) {
+	if t.refreshErr != nil {
+		return TitleMetadata{}, t.refreshErr
+	}
+	return t.metadata, nil
 }
 
 func (t *viewTMDB) Configured() bool { return t.configured }
@@ -331,6 +339,42 @@ func TestTMDBWithoutCachedDetailsDoesNotBreakTheTitlePage(t *testing.T) {
 	}
 	if got.Title != linked.Title || got.DiscTitle != linked.DiscTitle || got.Poster != "" || got.MissingEpisodes != nil {
 		t.Errorf("record-only title = %+v", got)
+	}
+}
+
+func TestRefreshTitleUsesTheNewMetadataAndRejectsIneligibleTitles(t *testing.T) {
+	t.Parallel()
+
+	linked := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
+	free := movie(2, 0, "Movies/Free (2008)")
+	tests := []struct {
+		name    string
+		id      int64
+		title   domain.LibraryTitle
+		refresh error
+		wantErr error
+		want    string
+	}{
+		{name: "refreshes a linked title", id: linked.ID, title: linked, want: "Updated"},
+		{name: "free title", id: free.ID, title: free, wantErr: ErrMetadataRefreshNotApplicable},
+		{name: "title absent from the library", id: 99, title: linked, wantErr: ErrTitleNotFound},
+		{name: "TMDB fails", id: linked.ID, title: linked, refresh: ErrTMDBUnavailable, wantErr: ErrTMDBUnavailable},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &viewRepo{titles: []domain.LibraryTitle{tt.title}, files: map[int64][]domain.LibraryFile{
+				tt.title.ID: {liveFile(10, tt.title.ID, "Movies/title/title.mkv")},
+			}}
+			tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: TitleMetadata{Title: "Updated"}, refreshErr: tt.refresh}
+			got, err := NewLibraryViews(repo, tmdb, nil).Refresh(t.Context(), tt.id)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Refresh err = %v, want %v", err, tt.wantErr)
+			}
+			if tt.wantErr == nil && got.Title != tt.want {
+				t.Errorf("title = %q, want %q", got.Title, tt.want)
+			}
+		})
 	}
 }
 

@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +46,10 @@ func (richLibraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, 
 	return []domain.LibraryFile{{ID: 71, TitleID: 7, Kind: domain.FileVideo, Rel: "TV Shows/Show (2020)/Season 01/Show - S01E01.mkv", Size: 10, Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}, nil
 }
 
-type richLibraryTMDB struct{ calls *int }
+type richLibraryTMDB struct {
+	calls      *int
+	refreshErr error
+}
 
 func (richLibraryTMDB) Configured() bool { return true }
 func (richLibraryTMDB) SearchTitles(context.Context, domain.TitleKind, string, int) ([]application.TMDBTitle, error) {
@@ -68,6 +72,13 @@ func (t richLibraryTMDB) Details(context.Context, domain.TitleKind, int64) (appl
 		Title: "Show", OriginalTitle: "The Show", Overview: "A synopsis", Backdrop: "backdrop.jpg", Poster: "poster.jpg", Logo: "logo.png", Genres: []string{"Drama"},
 		Seasons: []application.SeasonMetadata{{Number: 0}, {Number: 1, Episodes: []application.EpisodeMetadata{{ID: 11, Number: 1, Title: "Pilot", Overview: "First", Still: "still.jpg", AirDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, {ID: 12, Number: 2, Title: "Second", AirDate: time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)}}}},
 	}, nil
+}
+
+func (t richLibraryTMDB) Refresh(context.Context, domain.TitleKind, int64) (application.TitleMetadata, error) {
+	if t.refreshErr != nil {
+		return application.TitleMetadata{}, t.refreshErr
+	}
+	return application.TitleMetadata{Title: "Show"}, nil
 }
 
 func TestTheTitleListDoesNotAskTMDBForEachSeries(t *testing.T) {
@@ -135,6 +146,35 @@ func TestTheTitleHandlerAnswersTMDBDetailsAndEpisodeFiles(t *testing.T) {
 	}
 	if len(title.Genres) != 1 || title.Genres[0] != "Drama" || len(title.Seasons) != 2 || title.Seasons[1].Episodes[0].Status != httpapi.Present || len(title.Seasons[1].Episodes[0].Files) != 1 || title.Seasons[1].Episodes[1].Status != httpapi.Missing {
 		t.Errorf("seasons = %+v", title.Seasons)
+	}
+}
+
+func TestTheTitleHandlerRefreshesTMDBMetadata(t *testing.T) {
+	t.Parallel()
+	h := NewLibraryHandler(application.NewLibraryViews(richLibraryRegistry{}, richLibraryTMDB{}, nil), nil, nil, nil)
+	got, err := h.RefreshLibraryTitleMetadata(t.Context(), httpapi.RefreshLibraryTitleMetadataRequestObject{Id: 7})
+	if err != nil {
+		t.Fatalf("RefreshLibraryTitleMetadata: %v", err)
+	}
+	response, ok := got.(httpapi.RefreshLibraryTitleMetadata200JSONResponse)
+	if !ok {
+		t.Fatalf("response = %T, want 200", got)
+	}
+	if response.Id != 7 || response.Title != "Show" {
+		t.Errorf("refreshed title = %+v", response)
+	}
+}
+
+func TestTheTitleHandlerAnswersARefreshFailureAs502WithStableCode(t *testing.T) {
+	t.Parallel()
+	h := NewLibraryHandler(application.NewLibraryViews(richLibraryRegistry{}, richLibraryTMDB{refreshErr: errors.New("TMDB down")}, nil), nil, nil, nil)
+	got, err := h.RefreshLibraryTitleMetadata(t.Context(), httpapi.RefreshLibraryTitleMetadataRequestObject{Id: 7})
+	if err != nil {
+		t.Fatalf("RefreshLibraryTitleMetadata: %v", err)
+	}
+	response, ok := got.(httpapi.RefreshLibraryTitleMetadata502ApplicationProblemPlusJSONResponse)
+	if !ok || response.Code != httpapi.MetadataRefreshProblemCodeMetadataRefreshFailed {
+		t.Fatalf("response = %#v, want 502 metadata_refresh_failed", got)
 	}
 }
 
