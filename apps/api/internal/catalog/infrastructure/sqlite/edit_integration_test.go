@@ -415,7 +415,13 @@ func TestAChapterThatClashesIsAskedAndTheReplaceDecisionTrashesTheOther(t *testi
 		t.Error("the chapter 1 is the trial now; the pilot is in the trash")
 	}
 	after := e.rows(titleID)
-	if after[pilot].TrashEntryID == 0 {
+	var pilotTrashed bool
+	for _, row := range after {
+		if row.TrashRel == pilot && row.TrashEntryID != 0 && strings.HasPrefix(row.Rel, "trash:") {
+			pilotTrashed = true
+		}
+	}
+	if !pilotTrashed {
 		t.Error("the replaced file is in the trash, in the registry too")
 	}
 }

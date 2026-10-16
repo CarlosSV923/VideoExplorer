@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -36,6 +37,21 @@ func (r records) InsertTrash(ctx context.Context, entry domain.TrashEntry) (int6
 		}
 	}
 	return id, nil
+}
+
+// DeleteTrashEntry implements application.Records. Library rows stay until their trash entry is
+// permanently deleted; removing them here also avoids retaining stale subtitle relationships.
+func (r records) DeleteTrashEntry(ctx context.Context, id int64) error {
+	if err := r.q.DeleteLibraryFilesInTrashEntry(ctx, sql.NullInt64{Int64: id, Valid: true}); err != nil {
+		return fmt.Errorf("catalog: delete library files in trash: %w", err)
+	}
+	if err := r.q.DeleteTrashEntry(ctx, id); err != nil {
+		return fmt.Errorf("catalog: delete trash entry: %w", err)
+	}
+	if err := r.q.DeleteEmptyLibraryTitles(ctx); err != nil {
+		return fmt.Errorf("catalog: delete empty library titles: %w", err)
+	}
+	return nil
 }
 
 // InsertUnassigned implements application.Records.
@@ -137,6 +153,8 @@ func (r records) InsertLibraryFiles(ctx context.Context, titleID int64, files []
 			Forced:       boolInt(f.Forced),
 			Sdh:          boolInt(f.SDH),
 			VideoID:      videoID,
+			VideoRel:     f.VideoRel,
+			TrashRel:     "",
 			Size:         f.Size,
 			PartialHash:  f.PartialHash,
 			CreatedAt:    formatTime(f.CreatedAt),
@@ -151,6 +169,9 @@ func (r records) InsertLibraryFiles(ctx context.Context, titleID int64, files []
 func (r records) MoveLibraryFile(ctx context.Context, id int64, rel, version string) error {
 	if err := r.q.MoveLibraryFile(ctx, sqlcgen.MoveLibraryFileParams{Rel: rel, Version: version, ID: id}); err != nil {
 		return fmt.Errorf("catalog: move library file: %w", err)
+	}
+	if err := r.q.UpdateSubtitleVideoRel(ctx, sqlcgen.UpdateSubtitleVideoRelParams{VideoRel: rel, VideoID: sql.NullInt64{Int64: id, Valid: true}}); err != nil {
+		return fmt.Errorf("catalog: move subtitle links: %w", err)
 	}
 	return nil
 }
@@ -186,6 +207,32 @@ func (r records) TrashLibraryFiles(ctx context.Context, ids []int64, entryID int
 	for _, id := range ids {
 		if err := r.q.TrashLibraryFile(ctx, sqlcgen.TrashLibraryFileParams{TrashEntryID: sql.NullInt64{Int64: entryID, Valid: true}, ID: id}); err != nil {
 			return fmt.Errorf("catalog: trash library file: %w", err)
+		}
+	}
+	return nil
+}
+
+// RestoreLibraryFile implements application.Records.
+func (r records) RestoreLibraryFile(ctx context.Context, f domain.LibraryFile) error {
+	var videoID sql.NullInt64
+	if f.Kind == domain.FileSubtitle {
+		id, err := r.q.LibraryFileIDByRel(ctx, f.VideoRel)
+		if errors.Is(err, sql.ErrNoRows) && f.VideoID > 0 {
+			id, err = f.VideoID, nil
+		}
+		if err != nil {
+			return fmt.Errorf("catalog: find restored subtitle video: %w", err)
+		}
+		videoID = sql.NullInt64{Int64: id, Valid: true}
+	}
+	if err := r.q.RestoreLibraryFile(ctx, sqlcgen.RestoreLibraryFileParams{
+		TitleID: f.TitleID, Rel: f.Rel, Version: f.Version, VideoRel: f.VideoRel, VideoID: videoID, ID: f.ID,
+	}); err != nil {
+		return fmt.Errorf("catalog: restore library file: %w", err)
+	}
+	if f.Kind == domain.FileVideo {
+		if err := r.q.UpdateSubtitleVideoRel(ctx, sqlcgen.UpdateSubtitleVideoRelParams{VideoRel: f.Rel, VideoID: sql.NullInt64{Int64: f.ID, Valid: true}}); err != nil {
+			return fmt.Errorf("catalog: update restored subtitle links: %w", err)
 		}
 	}
 	return nil
@@ -274,6 +321,11 @@ func (r records) SaveLibraryFile(ctx context.Context, f domain.LibraryFile) erro
 		ID:           f.ID,
 	}); err != nil {
 		return fmt.Errorf("catalog: update library file: %w", err)
+	}
+	if f.Kind == domain.FileVideo {
+		if err := r.q.UpdateSubtitleVideoRel(ctx, sqlcgen.UpdateSubtitleVideoRelParams{VideoRel: f.Rel, VideoID: sql.NullInt64{Int64: f.ID, Valid: true}}); err != nil {
+			return fmt.Errorf("catalog: update subtitle links: %w", err)
+		}
 	}
 	return nil
 }

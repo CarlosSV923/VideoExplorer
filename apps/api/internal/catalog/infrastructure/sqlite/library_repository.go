@@ -111,8 +111,8 @@ func (r *LibraryRepository) Files(ctx context.Context, titleID int64) ([]domain.
 				Part:    int(row.Part),
 			},
 			Version: row.Version, Language: row.Language, Forced: row.Forced != 0, SDH: row.Sdh != 0,
-			VideoRel: row.VideoRel.String, Size: row.Size, PartialHash: row.PartialHash,
-			TrashEntryID: row.TrashEntryID.Int64, CreatedAt: created,
+			VideoRel: row.VideoRel, VideoID: row.VideoID.Int64, Size: row.Size, PartialHash: row.PartialHash,
+			TrashEntryID: row.TrashEntryID.Int64, TrashRel: row.TrashRel, CreatedAt: created,
 		})
 	}
 	return files, nil

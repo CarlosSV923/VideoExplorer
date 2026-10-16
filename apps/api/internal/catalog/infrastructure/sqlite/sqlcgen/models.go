@@ -37,6 +37,8 @@ type LibraryFile struct {
 	Forced       int64
 	Sdh          int64
 	VideoID      sql.NullInt64
+	VideoRel     string
+	TrashRel     string
 	Size         int64
 	PartialHash  string
 	TrashEntryID sql.NullInt64

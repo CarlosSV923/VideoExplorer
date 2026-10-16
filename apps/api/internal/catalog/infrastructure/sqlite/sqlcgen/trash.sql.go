@@ -7,7 +7,35 @@ package sqlcgen
 
 import (
 	"context"
+	"database/sql"
 )
+
+const deleteEmptyLibraryTitles = `-- name: DeleteEmptyLibraryTitles :exec
+DELETE FROM library_titles WHERE NOT EXISTS (SELECT 1 FROM library_files WHERE title_id = library_titles.id)
+`
+
+func (q *Queries) DeleteEmptyLibraryTitles(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteEmptyLibraryTitles)
+	return err
+}
+
+const deleteLibraryFilesInTrashEntry = `-- name: DeleteLibraryFilesInTrashEntry :exec
+DELETE FROM library_files WHERE trash_entry_id = ?
+`
+
+func (q *Queries) DeleteLibraryFilesInTrashEntry(ctx context.Context, trashEntryID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryFilesInTrashEntry, trashEntryID)
+	return err
+}
+
+const deleteTrashEntry = `-- name: DeleteTrashEntry :exec
+DELETE FROM trash_entries WHERE id = ?
+`
+
+func (q *Queries) DeleteTrashEntry(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteTrashEntry, id)
+	return err
+}
 
 const insertTrashEntry = `-- name: InsertTrashEntry :one
 INSERT INTO trash_entries (origin, reason, dir, trashed_at, batch_id, relative_path) VALUES (?, ?, ?, ?, ?, ?) RETURNING id
@@ -52,7 +80,7 @@ func (q *Queries) InsertTrashFile(ctx context.Context, arg InsertTrashFileParams
 }
 
 const listTrashEntries = `-- name: ListTrashEntries :many
-SELECT id, origin, reason, dir, trashed_at, batch_id, relative_path FROM trash_entries ORDER BY trashed_at, id
+SELECT id, origin, reason, dir, trashed_at, batch_id, relative_path FROM trash_entries ORDER BY trashed_at DESC, id DESC
 `
 
 func (q *Queries) ListTrashEntries(ctx context.Context) ([]TrashEntry, error) {

@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -184,7 +185,16 @@ func TestTrashingAFileKeepsItsRowAndItsSubtitlesInTheTrash(t *testing.T) {
 		t.Errorf("trash entries = %d %s %s", count, origin, reason)
 	}
 	after := e.rows(titleID)
-	if after[video].TrashEntryID == 0 || after[sub].TrashEntryID == 0 {
+	var videoTrashed, subTrashed bool
+	for _, row := range after {
+		if row.TrashRel == video && row.TrashEntryID != 0 && strings.HasPrefix(row.Rel, "trash:") {
+			videoTrashed = true
+		}
+		if row.TrashRel == sub && row.TrashEntryID != 0 && strings.HasPrefix(row.Rel, "trash:") {
+			subTrashed = true
+		}
+	}
+	if !videoTrashed || !subTrashed {
 		t.Error("the chapter and its subtitle are marked as trashed in the registry")
 	}
 	if !e.inLibrary(titleID) {
@@ -261,7 +271,17 @@ func TestTrashingASeasonSendsItsChaptersAndKeepsTheOthers(t *testing.T) {
 	if count, origin, reason := e.trashedEntries(); count != 1 || origin != string(domain.TrashOriginLibrary) || reason != string(domain.TrashReasonRemoved) {
 		t.Errorf("trash entries = %d %s %s", count, origin, reason)
 	}
-	if got := e.rows(titleID); got[s1].TrashEntryID == 0 || got[s2].TrashEntryID != 0 {
+	got := e.rows(titleID)
+	var firstTrashed, secondLive bool
+	for _, row := range got {
+		if row.TrashRel == s1 && row.TrashEntryID != 0 && strings.HasPrefix(row.Rel, "trash:") {
+			firstTrashed = true
+		}
+		if row.Rel == s2 && row.TrashEntryID == 0 {
+			secondLive = true
+		}
+	}
+	if !firstTrashed || !secondLive {
 		t.Errorf("the registry marks only the season's chapter: %+v", got)
 	}
 	if !e.inLibrary(titleID) {

@@ -47,18 +47,18 @@ func TestTrashEntriesSurviveTheDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Entries: %v", err)
 	}
-	if len(got) != 2 || got[0].Dir != "aa" || got[1].Dir != "bb" {
-		t.Fatalf("entries = %+v, want aa then bb", got)
+	if len(got) != 2 || got[0].Dir != "bb" || got[1].Dir != "aa" {
+		t.Fatalf("entries = %+v, want newest bb then older aa", got)
 	}
-	if !got[0].TrashedAt.Equal(first) || got[0].Origin != domain.TrashOriginUpload || got[0].Reason != domain.TrashReasonExtracted {
-		t.Errorf("first entry = %+v", got[0])
+	if !got[1].TrashedAt.Equal(first) || got[1].Origin != domain.TrashOriginUpload || got[1].Reason != domain.TrashReasonExtracted {
+		t.Errorf("oldest entry = %+v", got[1])
 	}
-	if got[0].BatchID != "b1" || got[0].RelativePath != "Movie.zip" || got[1].Reason != domain.TrashReasonFiltered ||
-		got[1].BatchID != "b2" || got[1].RelativePath != "Show/sample.7z" {
+	if got[1].BatchID != "b1" || got[1].RelativePath != "Movie.zip" || got[0].Reason != domain.TrashReasonFiltered ||
+		got[0].BatchID != "b2" || got[0].RelativePath != "Show/sample.7z" {
 		t.Errorf("provenance and reasons = %+v", got)
 	}
-	if len(got[1].Files) != 1 || got[1].Files[0] != (domain.TrashFile{Name: "Show.7z", Size: 20}) {
-		t.Errorf("files of the second entry = %+v", got[1].Files)
+	if len(got[0].Files) != 1 || got[0].Files[0] != (domain.TrashFile{Name: "Show.7z", Size: 20}) {
+		t.Errorf("files of the newest entry = %+v", got[0].Files)
 	}
 }
 

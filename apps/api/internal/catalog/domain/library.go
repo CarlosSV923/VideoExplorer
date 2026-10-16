@@ -160,12 +160,16 @@ type LibraryFile struct {
 	Forced   bool
 	SDH      bool
 	// VideoRel is the path of the video a subtitle goes with; "" for a video.
-	VideoRel    string
+	VideoRel string
+	// VideoID is the logical registry id a subtitle follows. It may outlive the video row while trashed.
+	VideoID     int64
 	Size        int64
 	PartialHash string
 	// TrashEntryID is the trash entry the file is in; 0 while it is in the library (RF-30).
 	TrashEntryID int64
-	CreatedAt    time.Time
+	// TrashRel keeps the original registry path while Rel is a unique trash sentinel.
+	TrashRel  string
+	CreatedAt time.Time
 }
 
 // Live reports whether the file is in the library and not in the trash.

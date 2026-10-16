@@ -29,7 +29,8 @@ func (q *Queries) DeleteLibrarySeen(ctx context.Context) error {
 }
 
 const deleteLibraryTitle = `-- name: DeleteLibraryTitle :exec
-DELETE FROM library_titles WHERE id = ?
+DELETE FROM library_titles AS t WHERE t.id = ?
+    AND NOT EXISTS (SELECT 1 FROM library_files AS f WHERE f.title_id = t.id)
 `
 
 func (q *Queries) DeleteLibraryTitle(ctx context.Context, id int64) error {
@@ -62,8 +63,8 @@ func (q *Queries) GetLibraryTitleByFolder(ctx context.Context, folder string) (L
 
 const insertLibraryFile = `-- name: InsertLibraryFile :one
 INSERT INTO library_files (title_id, rel, kind, season, first_chapter, last_chapter, part, version,
-                           language, forced, sdh, video_id, size, partial_hash, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                           language, forced, sdh, video_id, video_rel, trash_rel, size, partial_hash, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
 `
 
 type InsertLibraryFileParams struct {
@@ -79,6 +80,8 @@ type InsertLibraryFileParams struct {
 	Forced       int64
 	Sdh          int64
 	VideoID      sql.NullInt64
+	VideoRel     string
+	TrashRel     string
 	Size         int64
 	PartialHash  string
 	CreatedAt    string
@@ -98,6 +101,8 @@ func (q *Queries) InsertLibraryFile(ctx context.Context, arg InsertLibraryFilePa
 		arg.Forced,
 		arg.Sdh,
 		arg.VideoID,
+		arg.VideoRel,
+		arg.TrashRel,
 		arg.Size,
 		arg.PartialHash,
 		arg.CreatedAt,
@@ -169,42 +174,20 @@ func (q *Queries) LibraryFileIDByRel(ctx context.Context, rel string) (int64, er
 
 const listLibraryFiles = `-- name: ListLibraryFiles :many
 SELECT f.id, f.title_id, f.rel, f.kind, f.season, f.first_chapter, f.last_chapter, f.part, f.version,
-       f.language, f.forced, f.sdh, v.rel AS video_rel, f.size, f.partial_hash, f.trash_entry_id, f.created_at
-FROM library_files f
-LEFT JOIN library_files v ON v.id = f.video_id
-WHERE f.title_id = ?
+       f.language, f.forced, f.sdh, f.video_id, f.video_rel, f.trash_rel, f.size, f.partial_hash, f.trash_entry_id, f.created_at
+FROM library_files f WHERE f.title_id = ?
 ORDER BY f.id
 `
 
-type ListLibraryFilesRow struct {
-	ID           int64
-	TitleID      int64
-	Rel          string
-	Kind         string
-	Season       sql.NullInt64
-	FirstChapter sql.NullInt64
-	LastChapter  sql.NullInt64
-	Part         int64
-	Version      string
-	Language     string
-	Forced       int64
-	Sdh          int64
-	VideoRel     sql.NullString
-	Size         int64
-	PartialHash  string
-	TrashEntryID sql.NullInt64
-	CreatedAt    string
-}
-
-func (q *Queries) ListLibraryFiles(ctx context.Context, titleID int64) ([]ListLibraryFilesRow, error) {
+func (q *Queries) ListLibraryFiles(ctx context.Context, titleID int64) ([]LibraryFile, error) {
 	rows, err := q.db.QueryContext(ctx, listLibraryFiles, titleID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListLibraryFilesRow
+	var items []LibraryFile
 	for rows.Next() {
-		var i ListLibraryFilesRow
+		var i LibraryFile
 		if err := rows.Scan(
 			&i.ID,
 			&i.TitleID,
@@ -218,7 +201,9 @@ func (q *Queries) ListLibraryFiles(ctx context.Context, titleID int64) ([]ListLi
 			&i.Language,
 			&i.Forced,
 			&i.Sdh,
+			&i.VideoID,
 			&i.VideoRel,
+			&i.TrashRel,
 			&i.Size,
 			&i.PartialHash,
 			&i.TrashEntryID,
@@ -327,8 +312,33 @@ func (q *Queries) ReleaseLibraryFileRel(ctx context.Context, id int64) error {
 	return err
 }
 
+const restoreLibraryFile = `-- name: RestoreLibraryFile :exec
+UPDATE library_files SET title_id = ?, rel = ?, version = ?, video_rel = ?, trash_rel = '', trash_entry_id = NULL, video_id = ? WHERE id = ?
+`
+
+type RestoreLibraryFileParams struct {
+	TitleID  int64
+	Rel      string
+	Version  string
+	VideoRel string
+	VideoID  sql.NullInt64
+	ID       int64
+}
+
+func (q *Queries) RestoreLibraryFile(ctx context.Context, arg RestoreLibraryFileParams) error {
+	_, err := q.db.ExecContext(ctx, restoreLibraryFile,
+		arg.TitleID,
+		arg.Rel,
+		arg.Version,
+		arg.VideoRel,
+		arg.VideoID,
+		arg.ID,
+	)
+	return err
+}
+
 const trashLibraryFile = `-- name: TrashLibraryFile :exec
-UPDATE library_files SET trash_entry_id = ? WHERE id = ?
+UPDATE library_files SET trash_rel = rel, rel = 'trash:' || id, trash_entry_id = ? WHERE id = ?
 `
 
 type TrashLibraryFileParams struct {
@@ -407,5 +417,19 @@ func (q *Queries) UpdateLibraryTitle(ctx context.Context, arg UpdateLibraryTitle
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const updateSubtitleVideoRel = `-- name: UpdateSubtitleVideoRel :exec
+UPDATE library_files SET video_rel = ? WHERE video_id = ?
+`
+
+type UpdateSubtitleVideoRelParams struct {
+	VideoRel string
+	VideoID  sql.NullInt64
+}
+
+func (q *Queries) UpdateSubtitleVideoRel(ctx context.Context, arg UpdateSubtitleVideoRelParams) error {
+	_, err := q.db.ExecContext(ctx, updateSubtitleVideoRel, arg.VideoRel, arg.VideoID)
 	return err
 }
