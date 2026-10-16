@@ -950,6 +950,25 @@ type JobFailure string
 // with `POST /jobs/{id}/retry`. `cancelled` ends the job.
 type JobStatus string
 
+// LibraryFileTechnical Technical information of a video file in the library (RF-44).
+type LibraryFileTechnical struct {
+	Audio []TechnicalAudio `json:"audio"`
+
+	// Duration Duration in seconds; zero when ffprobe could not read it or did not report one.
+	Duration float64 `json:"duration"`
+
+	// Path The path relative to the library dataset, with "/" separators.
+	Path string `json:"path"`
+
+	// Readable Whether ffprobe could read the file and provide its technical information.
+	Readable bool `json:"readable"`
+
+	// Size The registered file size in bytes.
+	Size      int64               `json:"size"`
+	Subtitles []TechnicalSubtitle `json:"subtitles"`
+	Video     TechnicalVideo      `json:"video"`
+}
+
 // LibraryScope What a move or a trash takes from a title (RF-44): the whole title (`title`), one season (`season`,
 // with its number; 0 holds the specials), or one video with its subtitles (`file`, with its `fileId`).
 // A movie's part or version is a file.
@@ -1209,6 +1228,33 @@ type SubtitleSuggestion struct {
 
 	// Video The video the name shares with it; omitted when none is named.
 	Video *string `json:"video,omitempty"`
+}
+
+// TechnicalAudio defines model for TechnicalAudio.
+type TechnicalAudio struct {
+	Channels int    `json:"channels"`
+	Codec    string `json:"codec"`
+	Default  bool   `json:"default"`
+	Language string `json:"language"`
+	Title    string `json:"title"`
+}
+
+// TechnicalSubtitle defines model for TechnicalSubtitle.
+type TechnicalSubtitle struct {
+	Codec    string `json:"codec"`
+	Default  bool   `json:"default"`
+	Forced   bool   `json:"forced"`
+	Language string `json:"language"`
+	Sdh      bool   `json:"sdh"`
+	Title    string `json:"title"`
+}
+
+// TechnicalVideo defines model for TechnicalVideo.
+type TechnicalVideo struct {
+	Codec  string `json:"codec"`
+	Hdr    bool   `json:"hdr"`
+	Height int    `json:"height"`
+	Width  int    `json:"width"`
 }
 
 // TitleChoice The title a video goes to (RF-21). Which fields apply depends on `source`.
@@ -1493,6 +1539,9 @@ type EntryId = int64
 // JobId defines model for JobId.
 type JobId = string
 
+// LibraryFileId defines model for LibraryFileId.
+type LibraryFileId = int64
+
 // TitleId defines model for TitleId.
 type TitleId = int64
 
@@ -1671,6 +1720,9 @@ type ServerInterface interface {
 	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
 	// (POST /library/titles/{id}/edit/plan)
 	PlanTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId)
+	// GetLibraryFileTechnical Technical information of a library video (RF-44)
+	// (GET /library/titles/{id}/files/{fileId}/technical)
+	GetLibraryFileTechnical(w http.ResponseWriter, r *http.Request, id TitleId, fileId LibraryFileId)
 	// CommitTitleIDTag Store the ID tag action of a title as one change of the library (RF-45)
 	// (POST /library/titles/{id}/id-tag/commit)
 	CommitTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId)
@@ -2042,6 +2094,41 @@ func (siw *ServerInterfaceWrapper) PlanTitleEdit(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PlanTitleEdit(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLibraryFileTechnical operation middleware
+func (siw *ServerInterfaceWrapper) GetLibraryFileTechnical(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "fileId" -------------
+	var fileId LibraryFileId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "fileId", r.PathValue("fileId"), &fileId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fileId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLibraryFileTechnical(w, r, id, fileId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2849,6 +2936,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles", wrapper.ListLibraryTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/files/{fileId}/technical", wrapper.GetLibraryFileTechnical)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/plan", wrapper.PlanTitleEdit)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/commit", wrapper.CommitTitleEdit)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/id-tag/plan", wrapper.PlanTitleIDTag)
@@ -3810,6 +3898,61 @@ type PlanTitleEdit404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PlanTitleEdit404ApplicationProblemPlusJSONResponse) VisitPlanTitleEditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryFileTechnicalRequestObject struct {
+	Id     TitleId       `json:"id"`
+	FileId LibraryFileId `json:"fileId"`
+}
+
+type GetLibraryFileTechnicalResponseObject interface {
+	VisitGetLibraryFileTechnicalResponse(w http.ResponseWriter) error
+}
+
+type GetLibraryFileTechnical200JSONResponse LibraryFileTechnical
+
+func (response GetLibraryFileTechnical200JSONResponse) VisitGetLibraryFileTechnicalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryFileTechnical401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetLibraryFileTechnical401ApplicationProblemPlusJSONResponse) VisitGetLibraryFileTechnicalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryFileTechnical404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetLibraryFileTechnical404ApplicationProblemPlusJSONResponse) VisitGetLibraryFileTechnicalResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -5247,6 +5390,9 @@ type StrictServerInterface interface {
 	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
 	// (POST /library/titles/{id}/edit/plan)
 	PlanTitleEdit(ctx context.Context, request PlanTitleEditRequestObject) (PlanTitleEditResponseObject, error)
+	// GetLibraryFileTechnical Technical information of a library video (RF-44)
+	// (GET /library/titles/{id}/files/{fileId}/technical)
+	GetLibraryFileTechnical(ctx context.Context, request GetLibraryFileTechnicalRequestObject) (GetLibraryFileTechnicalResponseObject, error)
 	// CommitTitleIDTag Store the ID tag action of a title as one change of the library (RF-45)
 	// (POST /library/titles/{id}/id-tag/commit)
 	CommitTitleIDTag(ctx context.Context, request CommitTitleIDTagRequestObject) (CommitTitleIDTagResponseObject, error)
@@ -5757,6 +5903,33 @@ func (sh *strictHandler) PlanTitleEdit(w http.ResponseWriter, r *http.Request, i
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PlanTitleEditResponseObject); ok {
 		if err := validResponse.VisitPlanTitleEditResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLibraryFileTechnical operation middleware
+func (sh *strictHandler) GetLibraryFileTechnical(w http.ResponseWriter, r *http.Request, id TitleId, fileId LibraryFileId) {
+	var request GetLibraryFileTechnicalRequestObject
+
+	request.Id = id
+	request.FileId = fileId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLibraryFileTechnical(ctx, request.(GetLibraryFileTechnicalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLibraryFileTechnical")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLibraryFileTechnicalResponseObject); ok {
+		if err := validResponse.VisitGetLibraryFileTechnicalResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

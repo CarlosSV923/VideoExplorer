@@ -2,7 +2,9 @@ package http
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
@@ -31,7 +33,7 @@ func (libraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, erro
 
 func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 	t.Parallel()
-	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil)
+	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil, nil)
 	got, err := h.GetLibraryTitle(t.Context(), httpapi.GetLibraryTitleRequestObject{Id: 7})
 	if err != nil {
 		t.Fatalf("GetLibraryTitle: %v", err)
@@ -60,12 +62,65 @@ func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 
 func TestATitleOutOfTheLibraryAnswersNotFound(t *testing.T) {
 	t.Parallel()
-	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil)
+	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil, nil)
 	got, err := h.GetLibraryTitle(t.Context(), httpapi.GetLibraryTitleRequestObject{Id: 99})
 	if err != nil {
 		t.Fatalf("GetLibraryTitle: %v", err)
 	}
 	if _, ok := got.(httpapi.GetLibraryTitle404ApplicationProblemPlusJSONResponse); !ok {
+		t.Errorf("response = %T, want 404", got)
+	}
+}
+
+type technicalHTTPPaths struct{}
+
+func (technicalHTTPPaths) LibraryPath(elem ...string) string {
+	return "/library/" + strings.Join(elem, "/")
+}
+
+type technicalHTTPProber struct{}
+
+func (technicalHTTPProber) Probe(context.Context, string) (application.TechnicalMedia, error) {
+	return application.TechnicalMedia{
+		Duration: time.Minute,
+		Video:    application.TechnicalVideo{Width: 1280, Height: 720, HDR: true, Codec: "h264"},
+		Audio:    []application.TechnicalAudio{{Codec: "aac", Channels: 2, Language: "es", Title: "Latino", Default: true}},
+	}, nil
+}
+
+func TestTheTechnicalFileHandlerAnswersTheProbeAndPath(t *testing.T) {
+	t.Parallel()
+	repo := libraryRegistry{}
+	technical := application.NewLibraryTechnical(repo, technicalHTTPPaths{}, technicalHTTPProber{}, nil)
+	h := NewLibraryHandler(application.NewLibraryViews(repo, nil, nil), nil, technical, nil)
+
+	got, err := h.GetLibraryFileTechnical(t.Context(), httpapi.GetLibraryFileTechnicalRequestObject{Id: 7, FileId: 71})
+	if err != nil {
+		t.Fatalf("GetLibraryFileTechnical: %v", err)
+	}
+	response, ok := got.(httpapi.GetLibraryFileTechnical200JSONResponse)
+	if !ok {
+		t.Fatalf("response = %T, want 200", got)
+	}
+	if response.Path != "TV Shows/Lizzie (1975)/Season 01/Lizzie (1975) - S01E01 - Pilot.mkv" || response.Size != 10 || !response.Readable {
+		t.Errorf("file identity = %+v", response)
+	}
+	if response.Duration != 60 || response.Video.Width != 1280 || response.Video.Codec != "h264" || len(response.Audio) != 1 || response.Audio[0].Language != "es" {
+		t.Errorf("technical response = %+v", response)
+	}
+}
+
+func TestTheTechnicalFileHandlerAnswersNotFoundForAFileOfAnotherTitle(t *testing.T) {
+	t.Parallel()
+	repo := libraryRegistry{}
+	technical := application.NewLibraryTechnical(repo, technicalHTTPPaths{}, technicalHTTPProber{}, nil)
+	h := NewLibraryHandler(application.NewLibraryViews(repo, nil, nil), nil, technical, nil)
+
+	got, err := h.GetLibraryFileTechnical(t.Context(), httpapi.GetLibraryFileTechnicalRequestObject{Id: 7, FileId: 999})
+	if err != nil {
+		t.Fatalf("GetLibraryFileTechnical: %v", err)
+	}
+	if _, ok := got.(httpapi.GetLibraryFileTechnical404ApplicationProblemPlusJSONResponse); !ok {
 		t.Errorf("response = %T, want 404", got)
 	}
 }

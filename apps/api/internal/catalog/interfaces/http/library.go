@@ -12,17 +12,18 @@ import (
 
 // LibraryHandler implements the reads of the title pages (RF-40, RF-43) of httpapi.StrictServerInterface.
 type LibraryHandler struct {
-	views *application.LibraryViews
-	edits *application.Edits
-	log   *slog.Logger
+	views     *application.LibraryViews
+	edits     *application.Edits
+	technical *application.LibraryTechnical
+	log       *slog.Logger
 }
 
 // NewLibraryHandler builds the handler over the library reads and the edits of a title (RF-44). log may be nil.
-func NewLibraryHandler(views *application.LibraryViews, edits *application.Edits, log *slog.Logger) *LibraryHandler {
+func NewLibraryHandler(views *application.LibraryViews, edits *application.Edits, technical *application.LibraryTechnical, log *slog.Logger) *LibraryHandler {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &LibraryHandler{views: views, edits: edits, log: log}
+	return &LibraryHandler{views: views, edits: edits, technical: technical, log: log}
 }
 
 // ListLibraryTitles implements httpapi.StrictServerInterface (RF-40): the titles of the library.
@@ -50,6 +51,21 @@ func (h *LibraryHandler) GetLibraryTitle(ctx context.Context, req httpapi.GetLib
 		return nil, err
 	}
 	return httpapi.GetLibraryTitle200JSONResponse(detailToAPI(t)), nil
+}
+
+// GetLibraryFileTechnical implements the cache-backed technical read of one
+// live video in a title (RF-44).
+func (h *LibraryHandler) GetLibraryFileTechnical(ctx context.Context, req httpapi.GetLibraryFileTechnicalRequestObject) (httpapi.GetLibraryFileTechnicalResponseObject, error) {
+	t, err := h.technical.File(ctx, req.Id, req.FileId)
+	switch {
+	case errors.Is(err, application.ErrTitleNotFound), errors.Is(err, application.ErrLibraryFileNotFound):
+		return httpapi.GetLibraryFileTechnical404ApplicationProblemPlusJSONResponse{
+			NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem()),
+		}, nil
+	case err != nil:
+		return nil, err
+	}
+	return httpapi.GetLibraryFileTechnical200JSONResponse(technicalToAPI(t)), nil
 }
 
 // summaryToAPI returns the contract's view of a title in the list.
@@ -93,6 +109,21 @@ func videoToAPI(v application.VideoView, kind domain.TitleKind) httpapi.LibraryV
 		out.Subtitles = append(out.Subtitles, httpapi.LibrarySubtitle{
 			Id: s.ID, Path: s.Rel, Language: s.Language, Forced: s.Forced, Sdh: s.SDH,
 		})
+	}
+	return out
+}
+
+func technicalToAPI(t application.TechnicalFile) httpapi.LibraryFileTechnical {
+	out := httpapi.LibraryFileTechnical{
+		Path: t.Path, Size: t.Size, Readable: t.Readable, Duration: t.Duration.Seconds(),
+		Video: httpapi.TechnicalVideo{Width: t.Video.Width, Height: t.Video.Height, Hdr: t.Video.HDR, Codec: t.Video.Codec},
+		Audio: make([]httpapi.TechnicalAudio, 0, len(t.Audio)), Subtitles: make([]httpapi.TechnicalSubtitle, 0, len(t.Subtitles)),
+	}
+	for _, a := range t.Audio {
+		out.Audio = append(out.Audio, httpapi.TechnicalAudio{Codec: a.Codec, Channels: a.Channels, Language: a.Language, Title: a.Title, Default: a.Default})
+	}
+	for _, s := range t.Subtitles {
+		out.Subtitles = append(out.Subtitles, httpapi.TechnicalSubtitle{Codec: s.Codec, Language: s.Language, Title: s.Title, Forced: s.Forced, Sdh: s.SDH, Default: s.Default})
 	}
 	return out
 }

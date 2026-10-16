@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"time"
@@ -41,5 +42,32 @@ func newLibrary(cfg config.Config, conn *sql.DB, catalog catalogWiring, meta met
 		Log:          log,
 	})
 	views := catalogapplication.NewLibraryViews(library, tmdbOf{svc: meta.Service}, log)
-	return catalogshttp.NewLibraryHandler(views, edits, log)
+	technical := catalogapplication.NewLibraryTechnical(library, files, technicalOf{prober: prober}, log)
+	return catalogshttp.NewLibraryHandler(views, edits, technical, log)
+}
+
+// technicalOf adapts ingestion's cached ffprobe port to the catalog's technical
+// read port without making catalog depend on ingestion.
+type technicalOf struct {
+	prober ingestionapplication.Prober
+}
+
+func (p technicalOf) Probe(ctx context.Context, path string) (catalogapplication.TechnicalMedia, error) {
+	info, err := p.prober.Probe(ctx, path)
+	if err != nil {
+		return catalogapplication.TechnicalMedia{}, err
+	}
+	out := catalogapplication.TechnicalMedia{
+		Duration:  info.Duration,
+		Video:     catalogapplication.TechnicalVideo{Width: info.Video.Width, Height: info.Video.Height, HDR: info.Video.HDR, Codec: info.Video.Codec},
+		Audio:     make([]catalogapplication.TechnicalAudio, 0, len(info.Audio)),
+		Subtitles: make([]catalogapplication.TechnicalSubtitle, 0, len(info.Subtitles)),
+	}
+	for _, a := range info.Audio {
+		out.Audio = append(out.Audio, catalogapplication.TechnicalAudio{Codec: a.Codec, Channels: a.Channels, Language: a.Language, Title: a.Title, Default: a.Default})
+	}
+	for _, s := range info.Subtitles {
+		out.Subtitles = append(out.Subtitles, catalogapplication.TechnicalSubtitle{Codec: s.Codec, Language: s.Language, Title: s.Title, Forced: s.Forced, SDH: s.SDH, Default: s.Default})
+	}
+	return out, nil
 }

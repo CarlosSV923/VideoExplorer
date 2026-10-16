@@ -767,6 +767,32 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /library/titles/{id}/files/{fileId}/technical:
+    get:
+      tags: [library]
+      operationId: getLibraryFileTechnical
+      summary: Technical information of a library video (RF-44)
+      description: |
+        The technical information of one live video of the title. Both ids are checked against the
+        library registry; a video in the trash, a video of another title, or an unknown title or video
+        answers 404. `path` is relative to the library dataset; the server never accepts a client path.
+        When ffprobe cannot read the file, the response remains 200 with `readable` false and the known
+        path and size; the technical fields are empty or zero.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+        - $ref: '#/components/parameters/LibraryFileId'
+      responses:
+        '200':
+          description: The technical information. It may be incomplete when ffprobe cannot read the file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryFileTechnical'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /library/titles/{id}/edit/plan:
     post:
       tags: [library]
@@ -1071,6 +1097,15 @@ components:
       in: path
       required: true
       description: A title of the library, its id in the registry (RF-21, RF-43).
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    LibraryFileId:
+      name: fileId
+      in: path
+      required: true
+      description: A video file id in the title's library registry (RF-44).
       schema:
         type: integer
         format: int64
@@ -2307,6 +2342,86 @@ components:
         forced:
           type: boolean
         sdh:
+          type: boolean
+    LibraryFileTechnical:
+      type: object
+      description: Technical information of a video file in the library (RF-44).
+      required: [path, size, readable, duration, video, audio, subtitles]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          description: The path relative to the library dataset, with "/" separators.
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The registered file size in bytes.
+        readable:
+          type: boolean
+          description: Whether ffprobe could read the file and provide its technical information.
+        duration:
+          type: number
+          format: double
+          minimum: 0
+          description: Duration in seconds; zero when ffprobe could not read it or did not report one.
+        video:
+          $ref: '#/components/schemas/TechnicalVideo'
+        audio:
+          type: array
+          items:
+            $ref: '#/components/schemas/TechnicalAudio'
+        subtitles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TechnicalSubtitle'
+    TechnicalVideo:
+      type: object
+      required: [width, height, hdr, codec]
+      additionalProperties: false
+      properties:
+        width:
+          type: integer
+          minimum: 0
+        height:
+          type: integer
+          minimum: 0
+        hdr:
+          type: boolean
+        codec:
+          type: string
+    TechnicalAudio:
+      type: object
+      required: [codec, channels, language, title, default]
+      additionalProperties: false
+      properties:
+        codec:
+          type: string
+        channels:
+          type: integer
+          minimum: 0
+        language:
+          type: string
+        title:
+          type: string
+        default:
+          type: boolean
+    TechnicalSubtitle:
+      type: object
+      required: [codec, language, title, forced, sdh, default]
+      additionalProperties: false
+      properties:
+        codec:
+          type: string
+        language:
+          type: string
+        title:
+          type: string
+        forced:
+          type: boolean
+        sdh:
+          type: boolean
+        default:
           type: boolean
     TitleSearch:
       type: object

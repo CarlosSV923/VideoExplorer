@@ -587,6 +587,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/titles/{id}/files/{fileId}/technical": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Technical information of a library video (RF-44)
+         * @description The technical information of one live video of the title. Both ids are checked against the
+         *     library registry; a video in the trash, a video of another title, or an unknown title or video
+         *     answers 404. `path` is relative to the library dataset; the server never accepts a client path.
+         *     When ffprobe cannot read the file, the response remains 200 with `readable` false and the known
+         *     path and size; the technical fields are empty or zero.
+         */
+        get: operations["getLibraryFileTechnical"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/titles/{id}/edit/plan": {
         parameters: {
             query?: never;
@@ -1479,6 +1503,47 @@ export interface components {
             forced: boolean;
             sdh: boolean;
         };
+        /** @description Technical information of a video file in the library (RF-44). */
+        LibraryFileTechnical: {
+            /** @description The path relative to the library dataset, with "/" separators. */
+            path: string;
+            /**
+             * Format: int64
+             * @description The registered file size in bytes.
+             */
+            size: number;
+            /** @description Whether ffprobe could read the file and provide its technical information. */
+            readable: boolean;
+            /**
+             * Format: double
+             * @description Duration in seconds; zero when ffprobe could not read it or did not report one.
+             */
+            duration: number;
+            video: components["schemas"]["TechnicalVideo"];
+            audio: components["schemas"]["TechnicalAudio"][];
+            subtitles: components["schemas"]["TechnicalSubtitle"][];
+        };
+        TechnicalVideo: {
+            width: number;
+            height: number;
+            hdr: boolean;
+            codec: string;
+        };
+        TechnicalAudio: {
+            codec: string;
+            channels: number;
+            language: string;
+            title: string;
+            default: boolean;
+        };
+        TechnicalSubtitle: {
+            codec: string;
+            language: string;
+            title: string;
+            forced: boolean;
+            sdh: boolean;
+            default: boolean;
+        };
         TitleSearch: {
             /** @description False when TMDB is not configured or did not answer. */
             tmdbAvailable: boolean;
@@ -1740,6 +1805,8 @@ export interface components {
         TrashId: number;
         /** @description A title of the library, its id in the registry (RF-21, RF-43). */
         TitleId: number;
+        /** @description A video file id in the title's library registry (RF-44). */
+        LibraryFileId: number;
         /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
         EntryId: number;
         /**
@@ -2434,6 +2501,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryTitle"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getLibraryFileTechnical: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+                /** @description A video file id in the title's library registry (RF-44). */
+                fileId: components["parameters"]["LibraryFileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The technical information. It may be incomplete when ffprobe cannot read the file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryFileTechnical"];
                 };
             };
             401: components["responses"]["Unauthorized"];
