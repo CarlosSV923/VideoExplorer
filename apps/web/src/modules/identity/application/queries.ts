@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useIdentityPorts } from './ports'
 
@@ -11,4 +11,15 @@ export function useSession() {
 
 export function sessionQuery(ports: ReturnType<typeof useIdentityPorts>) {
   return { queryKey: sessionKey, queryFn: () => ports.session(), retry: false as const }
+}
+
+export function useLogout() {
+  const ports = useIdentityPorts()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => ports.logout(),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: sessionKey })
+    },
+  })
 }

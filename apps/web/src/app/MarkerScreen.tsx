@@ -4,6 +4,8 @@ import { useCatalogPorts } from '@/modules/catalog/application/ports'
 import { LanguageToggle } from '@/shared/i18n/LanguageToggle'
 import { Brand } from '@/shared/ui'
 import { CatalogScreen } from '@/modules/catalog/ui/CatalogScreens'
+import { TrashScreen } from '@/modules/catalog/ui/TrashScreen'
+import { SettingsScreen } from '@/modules/system/ui/SettingsScreen'
 
 export type ScreenKey =
   | 'home'
@@ -47,6 +49,8 @@ export function MarkerScreen({
   ) {
     return <CatalogScreen screen={screen} id={id} search={search} />
   }
+  if (screen === 'generalSettings') return <SettingsScreen />
+  if (screen === 'trashSettings') return <TrashScreen />
   return (
     <main className="mx-auto flex min-h-app max-w-screen-xl flex-col gap-8 p-6">
       <header className="flex items-center justify-between gap-4">

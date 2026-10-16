@@ -73,3 +73,51 @@ export function useRunScans() {
     onSuccess: (scans) => queryClient.setQueryData(scansKey, scans),
   })
 }
+
+export function useScans() {
+  const ports = useCatalogPorts()
+  return useQuery({ queryKey: scansKey, queryFn: () => ports.scans() })
+}
+
+export function useTrash() {
+  const ports = useCatalogPorts()
+  return useQuery({ queryKey: trashKey, queryFn: () => ports.trash() })
+}
+
+export function useEmptyTrash() {
+  const ports = useCatalogPorts()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => ports.emptyTrash(),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: trashKey }),
+  })
+}
+
+export function useDeleteTrashEntry() {
+  const ports = useCatalogPorts()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => ports.deleteTrashEntry(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: trashKey }),
+  })
+}
+
+export function usePlanTrashRestore() {
+  const ports = useCatalogPorts()
+  return useMutation({ mutationFn: (id: number) => ports.planTrashRestore(id) })
+}
+
+export function useRestoreTrashEntry() {
+  const ports = useCatalogPorts()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      request,
+    }: {
+      id: number
+      request: Parameters<typeof ports.restoreTrashEntry>[1]
+    }) => ports.restoreTrashEntry(id, request),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: trashKey }),
+  })
+}

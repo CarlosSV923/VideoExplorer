@@ -17,6 +17,7 @@ export function useHealth() {
   return useQuery({
     queryKey: healthKey,
     queryFn: () => ports.health(),
+    enabled: typeof ports.health === 'function',
     refetchInterval: 60_000,
   })
 }

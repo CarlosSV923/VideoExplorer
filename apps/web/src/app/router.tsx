@@ -19,6 +19,7 @@ import { watchJobsInCache } from '@/modules/ingestion/application/queries'
 import { isAppError } from '@/shared/kernel/errors'
 import { Button, EmptyState } from '@/shared/ui'
 import { useEffect } from 'react'
+import { SystemHealthBanner } from '@/modules/system/ui/SystemHealthBanner'
 
 import { MarkerScreen, type ScreenKey } from './MarkerScreen'
 import type { Services } from './services'
@@ -99,7 +100,12 @@ function AppShell() {
       return undefined
     return watchJobsInCache(queryClient, ports)
   }, [ports, queryClient])
-  return <Outlet />
+  return (
+    <>
+      <SystemHealthBanner />
+      <Outlet />
+    </>
+  )
 }
 
 const appRoute = createRoute({
