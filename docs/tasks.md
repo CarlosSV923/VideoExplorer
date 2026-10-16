@@ -84,7 +84,7 @@ Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 
 ## Fase 8 — Integración con Jellyfin
 Depende de: 7 · Cubre: RF-50
-- [~] Puerto `MediaServerNotifier` + adaptador Jellyfin (con la detección de rutas de RF-50a) (refresco por carpeta, agrupado en 30 s); el puerto deja abierta la puerta a otros servidores en el futuro
+- [x] Puerto `MediaServerNotifier` + adaptador Jellyfin (con la detección de rutas de RF-50a) (refresco por carpeta, agrupado en 30 s); el puerto deja abierta la puerta a otros servidores en el futuro
 - [ ] Estado en Ajustes y en `/api/health`
 
 ## Fase 9 — Diseño → código
