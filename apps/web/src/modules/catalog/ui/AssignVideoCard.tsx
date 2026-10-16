@@ -1,8 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useLetterShortcuts } from '@/shared/input'
-import { Button, NumberField, TextField } from '@/shared/ui'
+import { NumberField, Select, TextField } from '@/shared/ui'
 import type { AssignVideo, DuplicateDecision, PlanVideo, VideoSuggestion } from '../domain/types'
 import { DuplicateChoice } from './DuplicateChoice'
 import { TitlePicker } from './TitlePicker'
@@ -12,6 +12,7 @@ export function AssignVideoCard({
   value,
   plan,
   subtitles,
+  showPart = false,
   showTitle = true,
   focused,
   onFocus,
@@ -22,6 +23,7 @@ export function AssignVideoCard({
   value: AssignVideo
   plan?: PlanVideo
   subtitles: number
+  showPart?: boolean
   showTitle?: boolean
   focused: boolean
   onFocus: () => void
@@ -46,7 +48,10 @@ export function AssignVideoCard({
     focused,
   )
   const reading = suggestion.reading
-  const series = value.title?.kind === 'series' || reading.type === 'series'
+  const [selectedKind, setSelectedKind] = useState<'movie' | 'series'>(
+    value.title?.kind ?? (reading.type === 'series' ? 'series' : 'movie'),
+  )
+  const series = selectedKind === 'series'
   const freeSeries = value.title?.source === 'free' && series
   const change = (patch: Partial<AssignVideo>) => {
     onChange({ ...value, ...patch })
@@ -62,6 +67,19 @@ export function AssignVideoCard({
     if (field === 'lastChapter') delete next.lastChapter
     if (field === 'part') delete next.part
     onChange(next)
+  }
+  const whatIs = value.action === 'keep' ? 'keep' : series ? 'episode' : 'movie'
+  const changeWhatIs = (next: string) => {
+    if (next === 'keep') {
+      change({ action: 'keep' })
+      return
+    }
+    const nextKind = next === 'episode' ? 'series' : 'movie'
+    setSelectedKind(nextKind)
+    change({
+      action: 'place',
+      ...(value.title ? { title: { ...value.title, kind: nextKind } } : {}),
+    })
   }
   return (
     <article
@@ -97,14 +115,17 @@ export function AssignVideoCard({
               : t(`assign.video.type.${reading.type}`)}
           </p>
         </div>
-        <Button
-          variant={value.action === 'keep' ? 'primary' : 'secondary'}
-          onClick={() => {
-            change({ action: value.action === 'keep' ? 'place' : 'keep' })
+        <Select
+          label={t('assign.video.whatIs')}
+          value={whatIs}
+          onChange={(event) => {
+            changeWhatIs(event.currentTarget.value)
           }}
         >
-          {value.action === 'keep' ? t('assign.video.place') : t('assign.video.keep')}
-        </Button>
+          <option value="movie">{t('assign.video.whatIsMovie')}</option>
+          <option value="episode">{t('assign.video.whatIsEpisode')}</option>
+          <option value="keep">{t('assign.video.whatIsKeep')}</option>
+        </Select>
       </div>
       {value.action === 'place' && (
         <>
@@ -112,8 +133,10 @@ export function AssignVideoCard({
             <TitlePicker
               {...(value.title ? { value: value.title } : {})}
               kind={series ? 'series' : 'movie'}
+              {...(suggestion.match ? { suggested: suggestion.match } : {})}
               {...(reading.title !== undefined ? { initialTerm: reading.title } : {})}
               onChange={(title) => {
+                setSelectedKind(title.kind ?? 'movie')
                 change({ title })
               }}
             />
@@ -139,15 +162,13 @@ export function AssignVideoCard({
               <NumberField
                 label={t('assign.video.lastChapter')}
                 min={1}
-                value={
-                  value.lastChapter ?? reading.lastChapter ?? value.chapter ?? reading.chapter ?? ''
-                }
+                value={value.lastChapter ?? reading.lastChapter ?? ''}
                 onChange={(event) => {
                   changeNumber('lastChapter', event.currentTarget.value)
                 }}
               />
             </div>
-          ) : (
+          ) : showPart ? (
             <NumberField
               label={t('assign.video.part')}
               min={1}
@@ -156,7 +177,7 @@ export function AssignVideoCard({
                 changeNumber('part', event.currentTarget.value)
               }}
             />
-          )}
+          ) : null}
           {freeSeries && (
             <TextField
               label={t('assign.video.chapterTitle')}

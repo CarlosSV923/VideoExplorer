@@ -37,6 +37,21 @@ const suggestions: AssignSuggestions = {
   ],
 }
 
+const movieSuggestions: AssignSuggestions = {
+  entryId: 7,
+  name: 'Godzilla.2014',
+  relation: 'none',
+  tmdbConfigured: true,
+  videos: [
+    {
+      file: 'Godzilla.2014.mkv',
+      reading: { type: 'movie', title: 'Godzilla', year: 2014 },
+      match: { source: 'tmdb', tmdbId: 124905, kind: 'movie', title: 'Godzilla', year: 2014 },
+    },
+  ],
+  subtitles: [],
+}
+
 const section: UnassignedSection = {
   entries: [
     {
@@ -79,7 +94,11 @@ function mockCalls(ports: CatalogPorts, name: keyof CatalogPorts) {
   return (candidate as unknown as { mock: { calls: unknown[][] } }).mock.calls
 }
 
-function renderScreen(screenName: 'unassigned' | 'assign', catalog: Partial<CatalogPorts> = {}) {
+function renderScreen(
+  screenName: 'unassigned' | 'assign',
+  catalog: Partial<CatalogPorts> = {},
+  metadataOverrides: Partial<MetadataPorts> = {},
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const ports = {
     unassigned: vi.fn().mockResolvedValue(section),
@@ -121,6 +140,7 @@ function renderScreen(screenName: 'unassigned' | 'assign', catalog: Partial<Cata
   const metadata = {
     searchTitles: vi.fn().mockResolvedValue({ tmdbAvailable: true, library: [], tmdb: [] }),
     imageUrl: vi.fn(),
+    ...metadataOverrides,
   } as unknown as MetadataPorts
   const ingestion = { jobs: vi.fn().mockResolvedValue([]) } as unknown as IngestionPorts
   const view = render(
@@ -174,6 +194,7 @@ describe('Asignar', () => {
     await waitFor(() => {
       expect(mockCalls(ports, 'planAssign').length).toBeGreaterThan(0)
     })
+    expect(screen.getByText('TV Shows/Dark/S01E01.es.srt')).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Enter', ctrlKey: true })
     await waitFor(() => {
       expect(mockCalls(ports, 'commitAssign').length).toBe(1)
@@ -188,7 +209,7 @@ describe('Asignar', () => {
     await waitFor(() => {
       expect(mockCalls(ports, 'planAssign').length).toBeGreaterThan(0)
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Anterior' }))
+    fireEvent.click(screen.getByRole('button', { name: 'No asignados' }))
     await waitFor(() => {
       expect(mockCalls(ports, 'releaseAssignLock')).toContainEqual([7, 'lock'])
     })
@@ -199,13 +220,56 @@ describe('Asignar', () => {
     await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
 
     fireEvent(window, new Event('pagehide'))
-    expect(mockCalls(ports, 'releaseAssignLock')).toContainEqual([
-      7,
-      'lock',
-      { keepalive: true },
-    ])
+    expect(mockCalls(ports, 'releaseAssignLock')).toContainEqual([7, 'lock', { keepalive: true }])
     unmount()
     expect(mockCalls(ports, 'releaseAssignLock')).toHaveLength(1)
+  })
+
+  it('shows the suggested title, the Qué es selector and an empty final chapter', async () => {
+    renderScreen('assign')
+    await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Dark.*Cambiar/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Título de TMDB' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Qué es' })).toHaveValue('episode')
+    expect(screen.getByRole('spinbutton', { name: 'Capítulo final' })).toHaveValue(null)
+    expect(screen.queryByRole('spinbutton', { name: 'Número de parte' })).not.toBeInTheDocument()
+  })
+
+  it('only shows a movie part when the entry relation is parts', async () => {
+    renderScreen('assign', {
+      assignSuggestions: vi.fn().mockResolvedValue(movieSuggestions),
+    })
+    await waitFor(() => expect(screen.getByText('Godzilla.2014.mkv')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Godzilla.*Cambiar/ })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Qué es' })).toHaveValue('movie')
+    expect(screen.queryByRole('spinbutton', { name: 'Número de parte' })).not.toBeInTheDocument()
+  })
+
+  it('sorts title matches by the video type and shows the replacement after choosing one', async () => {
+    renderScreen(
+      'assign',
+      { assignSuggestions: vi.fn().mockResolvedValue(movieSuggestions) },
+      {
+        searchTitles: vi.fn().mockResolvedValue({
+          tmdbAvailable: true,
+          library: [],
+          tmdb: [
+            { tmdbId: 2, kind: 'series', title: 'Godzilla Series', year: 2020 },
+            { tmdbId: 124905, kind: 'movie', title: 'Godzilla 2014', year: 2014 },
+          ],
+        }),
+      },
+    )
+    await waitFor(() => expect(screen.getByText('Godzilla.2014.mkv')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /Godzilla.*Cambiar/ }))
+    const dialog = screen.getByRole('dialog')
+    const results = within(dialog).getAllByRole('button', { name: /Godzilla/ })
+    const firstResult = results[0]
+    expect(firstResult).toBeDefined()
+    if (!firstResult) return
+    expect(firstResult).toHaveTextContent('Godzilla 2014')
+    fireEvent.click(firstResult)
+    expect(screen.getByRole('button', { name: /Godzilla 2014.*Cambiar/ })).toBeInTheDocument()
   })
 
   it('translates lock_lost and plan_changed conflicts', async () => {
@@ -293,7 +357,7 @@ describe('Asignar', () => {
   it('accepts a free title and letters only work on the video card, not a field', async () => {
     const { ports } = renderScreen('assign')
     await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: 'Título de TMDB' }))
+    fireEvent.click(screen.getByRole('button', { name: /Dark.*Cambiar/ }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Título' }), {
       target: { value: 'Mi serie' },
     })

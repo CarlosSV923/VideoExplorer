@@ -188,15 +188,15 @@ export function AssignScreen({ id }: { id: number }) {
 
   if (loading)
     return (
-      <LibraryLayout>
+      <LibraryLayout hideMobileNav>
         <div className="py-12 text-body text-ink-2">{t('common.loading')}</div>
       </LibraryLayout>
     )
   if (error && !suggestions)
     return (
-      <LibraryLayout>
+      <LibraryLayout hideMobileNav>
         <PageHeader
-          back={<Button onClick={cancel}>{t('common.previous')}</Button>}
+          back={<Button onClick={cancel}>{t('library.unassigned')}</Button>}
           title={t('screens.assign.title')}
         />
         <div className="py-8">
@@ -207,9 +207,9 @@ export function AssignScreen({ id }: { id: number }) {
   if (!suggestions || !request) return null
 
   return (
-    <LibraryLayout>
+    <LibraryLayout hideMobileNav>
       <PageHeader
-        back={<Button onClick={cancel}>{t('common.previous')}</Button>}
+        back={<Button onClick={cancel}>{t('library.unassigned')}</Button>}
         title={
           <>
             {t('screens.assign.title')}{' '}
@@ -242,6 +242,7 @@ export function AssignScreen({ id }: { id: number }) {
             <TitlePicker
               {...(request.videos[0]?.title ? { value: request.videos[0].title } : {})}
               kind="series"
+              {...(suggestions.title ? { suggested: suggestions.title } : {})}
               {...(suggestions.title?.title ? { initialTerm: suggestions.title.title } : {})}
               onChange={(title) => {
                 setDirty(true)
@@ -262,6 +263,7 @@ export function AssignScreen({ id }: { id: number }) {
               value={video}
               {...(plan?.videos[index] ? { plan: plan.videos[index] } : {})}
               subtitles={group.get(video.file)?.length ?? 0}
+              showPart={suggestions.relation === 'parts'}
               showTitle={suggestions.relation !== 'episodes'}
               focused={focused === index}
               onFocus={() => {

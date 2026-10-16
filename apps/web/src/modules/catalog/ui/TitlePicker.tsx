@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useTitleSearch } from '@/modules/metadata/application/queries'
+import { useMetadataPorts } from '@/modules/metadata/application/ports'
 import type { TitleChoice, TitleHit } from '../domain/types'
 import { Button, Dialog, TextField } from '@/shared/ui'
+import { kindLabel } from './CatalogLabels'
 
 function choiceFromHit(hit: TitleHit): TitleChoice {
   return {
@@ -14,30 +16,49 @@ function choiceFromHit(hit: TitleHit): TitleChoice {
   }
 }
 
+function sortHits(hits: readonly TitleHit[], preferred: 'movie' | 'series') {
+  return [...hits].sort((left, right) => {
+    const leftRank = left.kind === preferred ? 0 : 1
+    const rightRank = right.kind === preferred ? 0 : 1
+    return leftRank - rightRank
+  })
+}
+
 export function TitlePicker({
   value,
+  suggested,
   initialTerm = '',
   kind = 'movie',
   onChange,
 }: {
   value?: TitleChoice
+  suggested?: TitleHit
   initialTerm?: string
   kind?: 'movie' | 'series'
   onChange: (value: TitleChoice) => void
 }) {
   const { t } = useTranslation()
+  const metadata = useMetadataPorts()
   const [open, setOpen] = useState(false)
+  const [selectedHit, setSelectedHit] = useState<TitleHit | undefined>(suggested)
   const [term, setTerm] = useState(initialTerm)
   const [freeTitle, setFreeTitle] = useState('')
   const [freeYear, setFreeYear] = useState('')
   const search = useTitleSearch(term)
   const selectedLabel = value?.source === 'free' ? value.title : undefined
+  const displayTitle = selectedHit?.title ?? selectedLabel
+  const displayYear = selectedHit?.year ?? value?.year
+  const displayKind = value?.kind ?? selectedHit?.kind ?? kind
+  const displayInLibrary =
+    selectedHit?.source === 'library' || selectedHit?.libraryTitleId !== undefined
   const pick = (hit: TitleHit) => {
+    setSelectedHit(hit)
     onChange(choiceFromHit(hit))
     setOpen(false)
   }
   const useFree = () => {
     if (!freeTitle.trim()) return
+    setSelectedHit(undefined)
     onChange({
       source: 'free',
       kind,
@@ -56,15 +77,43 @@ export function TitlePicker({
         className="justify-start text-left"
         onClick={() => {
           setOpen(true)
-          setTerm(selectedLabel ?? initialTerm)
+          setTerm(displayTitle ?? initialTerm)
         }}
       >
-        {selectedLabel ??
-          (value?.source === 'library'
-            ? t('assign.titlePicker.existing')
-            : value?.source === 'tmdb'
-              ? t('assign.titlePicker.tmdb')
-              : t('assign.titlePicker.choose'))}
+        {displayTitle ? (
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            {selectedHit?.posterFile ? (
+              <img
+                src={metadata.imageUrl('poster', selectedHit.posterFile)}
+                alt=""
+                className="size-12 shrink-0 rounded object-cover"
+              />
+            ) : (
+              <span className="size-12 shrink-0 rounded bg-surface-2" aria-hidden="true" />
+            )}
+            <span className="min-w-0">
+              <strong className="block truncate">{displayTitle}</strong>
+              <span className="block text-caption text-ink-2">
+                {[
+                  displayYear,
+                  kindLabel(displayKind, t),
+                  displayInLibrary ? t('library.inLibrary') : '',
+                ]
+                  .filter(Boolean)
+                  .join(` ${t('common.separator')} `)}
+              </span>
+            </span>
+          </span>
+        ) : (
+          <span className="flex-1">
+            {value?.source === 'library'
+              ? t('assign.titlePicker.existing')
+              : value?.source === 'tmdb'
+                ? t('assign.titlePicker.tmdb')
+                : t('assign.titlePicker.choose')}
+          </span>
+        )}
+        {displayTitle && <span className="ml-auto shrink-0">{t('assign.titlePicker.change')}</span>}
       </Button>
       {open && (
         <Dialog
@@ -102,7 +151,7 @@ export function TitlePicker({
               <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
                 {t('assign.titlePicker.library')}
               </h3>
-              {search.data.library.map((hit) => (
+              {sortHits(search.data.library, kind).map((hit) => (
                 <TitleHitButton
                   key={`library-${String(hit.libraryTitleId)}`}
                   hit={hit}
@@ -116,7 +165,7 @@ export function TitlePicker({
               <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
                 {t('assign.titlePicker.tmdbResults')}
               </h3>
-              {search.data.tmdb.map((hit) => (
+              {sortHits(search.data.tmdb, kind).map((hit) => (
                 <TitleHitButton key={`tmdb-${String(hit.tmdbId)}`} hit={hit} onPick={pick} />
               ))}
             </section>
@@ -152,6 +201,8 @@ export function TitlePicker({
 }
 
 function TitleHitButton({ hit, onPick }: { hit: TitleHit; onPick: (hit: TitleHit) => void }) {
+  const { t } = useTranslation()
+  const metadata = useMetadataPorts()
   return (
     <button
       type="button"
@@ -160,11 +211,25 @@ function TitleHitButton({ hit, onPick }: { hit: TitleHit; onPick: (hit: TitleHit
         onPick(hit)
       }}
     >
-      <span className="size-12 shrink-0 rounded bg-surface-2" aria-hidden="true" />
+      {hit.posterFile ? (
+        <img
+          src={metadata.imageUrl('poster', hit.posterFile)}
+          alt=""
+          className="size-12 shrink-0 rounded object-cover"
+        />
+      ) : (
+        <span className="size-12 shrink-0 rounded bg-surface-2" aria-hidden="true" />
+      )}
       <span className="min-w-0">
         <strong className="block truncate">{hit.title}</strong>
         <small className="text-ink-2">
-          {hit.year ?? ''} · {hit.kind}
+          {[
+            hit.year,
+            kindLabel(hit.kind, t),
+            hit.libraryTitleId !== undefined ? t('library.inLibrary') : '',
+          ]
+            .filter(Boolean)
+            .join(` ${t('common.separator')} `)}
         </small>
       </span>
     </button>

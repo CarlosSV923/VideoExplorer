@@ -43,6 +43,17 @@ export function PlanPreview({
               )}
             </div>
           ))}
+          {plan.subtitles.map((subtitle) => (
+            <div
+              key={`subtitle-${subtitle.file}`}
+              className="flex flex-col gap-1 border-b border-line pb-3 last:border-0"
+            >
+              <span className="break-all font-mono-file text-mono">{subtitle.file}</span>
+              <span className="break-all font-mono-file text-caption text-ink-2">
+                {subtitle.finalPath ?? t('library.pendingPath')}
+              </span>
+            </div>
+          ))}
           {plan.errors.map((issue) => (
             <Banner key={`${issue.file ?? 'entry'}-${issue.field}-${issue.code}`} tone="danger">
               {t(`assign.issue.${issue.code}`, { defaultValue: t('assign.issue.generic') })}
