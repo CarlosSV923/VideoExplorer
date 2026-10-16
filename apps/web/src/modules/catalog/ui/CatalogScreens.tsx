@@ -1,4 +1,5 @@
 import { EmptyState } from '@/shared/ui'
+import { useTranslation } from 'react-i18next'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { BrowseScreen } from './BrowseScreen'
 import { CollectionScreen } from './CollectionScreen'
@@ -23,6 +24,7 @@ export type CatalogScreenProps = {
 }
 
 export function CatalogScreen({ screen, id, search }: CatalogScreenProps) {
+  const { t } = useTranslation()
   if (screen === 'home') return <HomeScreen />
   if (screen === 'movies')
     return <BrowseScreen kind="movie" sort={search?.orden} genre={search?.genero} />
@@ -44,7 +46,7 @@ export function CatalogScreen({ screen, id, search }: CatalogScreenProps) {
   if (screen === 'assign' && id) return <AssignScreen id={id} />
   return (
     <LibraryLayout>
-      <EmptyState title="" body="" />
+      <EmptyState title={t('errors.routeInvalidTitle')} body={t('errors.routeInvalidBody')} />
     </LibraryLayout>
   )
 }

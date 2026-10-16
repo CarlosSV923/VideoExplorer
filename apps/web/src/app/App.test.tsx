@@ -20,6 +20,77 @@ const services = {
   system: {},
 } as unknown as Services
 
+const routeServices = {
+  identity: {
+    session: vi.fn(() => Promise.resolve({ expiresAt: '2099-01-01T00:00:00Z' })),
+    login: vi.fn(() => Promise.resolve()),
+    logout: vi.fn(() => Promise.resolve()),
+  },
+  catalog: {
+    libraryTitles: vi.fn(() => Promise.resolve({ titles: [] })),
+    libraryTitle: vi.fn(() =>
+      Promise.resolve({
+        id: 1,
+        kind: 'movie',
+        title: 'Alien Romulus',
+        discTitle: 'Alien Romulus',
+        year: 2024,
+        idTag: true,
+        tmdbId: 945961,
+        originalTitle: 'Alien: Romulus',
+        overview: '',
+        runtime: 119,
+        genres: [],
+        seasons: [],
+        videos: [],
+      }),
+    ),
+    libraryCollection: vi.fn(() =>
+      Promise.resolve({
+        id: 9,
+        name: 'Alien',
+        overview: '',
+        movies: [],
+      }),
+    ),
+    planTitleEdit: vi.fn(),
+    commitTitleEdit: vi.fn(),
+    takeAssignLock: vi.fn(() =>
+      Promise.resolve({ token: 'route-lock', expiresAt: '2099-01-01T00:00:00Z' }),
+    ),
+    releaseAssignLock: vi.fn(() => Promise.resolve()),
+    assignSuggestions: vi.fn(() =>
+      Promise.resolve({
+        entryId: 7,
+        name: 'Dark.S01',
+        relation: 'episodes',
+        tmdbConfigured: true,
+        title: { source: 'tmdb', tmdbId: 1, kind: 'series', title: 'Dark', year: 2017 },
+        videos: [
+          {
+            file: 'Dark.S01E01.mkv',
+            reading: { type: 'series', title: 'Dark', season: 1, chapter: 1 },
+          },
+        ],
+        subtitles: [],
+      }),
+    ),
+    unassigned: vi.fn(() => Promise.resolve({ entries: [], jobs: [] })),
+    downloadUnassignedEntryUrl: vi.fn(() => '/download'),
+    downloadUnassignedFileUrl: vi.fn(() => '/download'),
+  },
+  ingestion: {
+    jobs: vi.fn(() => Promise.resolve([])),
+    watchJobs: vi.fn(() => () => undefined),
+  },
+  metadata: {
+    searchTitles: vi.fn(() => Promise.resolve({ tmdbAvailable: true, library: [], tmdb: [] })),
+    refreshTitleMetadata: vi.fn(),
+  },
+  mediaServers: {},
+  system: {},
+} as unknown as Services
+
 describe('App', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -76,5 +147,38 @@ describe('App', () => {
       expect(history.location.pathname).toBe('/entrar')
     })
     expect(history.location.search).toContain('redirect=%2Fpeliculas')
+  })
+
+  it.each([
+    ['/no-asignados/7/asignar', 'assign'],
+    ['/peliculas/1', 'movie'],
+    ['/series/2', 'series'],
+    ['/peliculas/1/editar', 'edit'],
+    ['/series/2/editar', 'seriesEdit'],
+    ['/colecciones/9', 'collection'],
+  ])('resuelve la ruta real %s sin caer en el estado vacío', async (path, route) => {
+    const history = createMemoryHistory({ initialEntries: [path] })
+    render(<App i18n={createI18n('es')} services={routeServices} history={history} />)
+
+    if (route === 'assign') {
+      await waitFor(() => {
+        const calls = (
+          routeServices.catalog as unknown as {
+            takeAssignLock: { mock: { calls: unknown[][] } }
+          }
+        ).takeAssignLock.mock.calls
+        expect(calls).toContainEqual([7])
+      })
+      expect(await screen.findByText('Dark.S01E01.mkv')).toBeInTheDocument()
+    } else if (route === 'movie' || route === 'series') {
+      expect(await screen.findByRole('heading', { name: 'Alien Romulus' })).toBeInTheDocument()
+    } else if (route === 'edit' || route === 'seriesEdit') {
+      expect(await screen.findByRole('heading', { name: 'Editar y reasignar' })).toBeInTheDocument()
+    } else {
+      expect(await screen.findByRole('heading', { name: 'Alien' })).toBeInTheDocument()
+    }
+    expect(
+      screen.queryByText('La ruta no incluye los datos necesarios para mostrarla.'),
+    ).not.toBeInTheDocument()
   })
 })

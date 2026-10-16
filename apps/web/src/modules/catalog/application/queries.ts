@@ -8,6 +8,34 @@ export const libraryCollectionKey = (id: number) => ['library', 'collections', i
 export const unassignedKey = ['unassigned'] as const
 export const trashKey = ['trash'] as const
 export const scansKey = ['scans'] as const
+export const liveQueryOptions = {
+  refetchInterval: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const
+
+const invalidationBatches = new WeakMap<QueryClient, Set<string>>()
+const invalidationQueued = new WeakSet<QueryClient>()
+
+export function scheduleCatalogInvalidation(
+  queryClient: QueryClient,
+  queryKeys: readonly (readonly unknown[])[],
+) {
+  const keys = invalidationBatches.get(queryClient) ?? new Set<string>()
+  for (const queryKey of queryKeys) keys.add(JSON.stringify(queryKey))
+  invalidationBatches.set(queryClient, keys)
+  if (invalidationQueued.has(queryClient)) return
+  invalidationQueued.add(queryClient)
+  queueMicrotask(() => {
+    invalidationQueued.delete(queryClient)
+    const pending = invalidationBatches.get(queryClient)
+    invalidationBatches.delete(queryClient)
+    for (const key of pending ?? []) {
+      const queryKey = JSON.parse(key) as readonly unknown[]
+      void queryClient.invalidateQueries({ queryKey })
+    }
+  })
+}
 
 export function invalidateCatalogQueries(queryClient: QueryClient) {
   void queryClient.invalidateQueries({ queryKey: ['library'] })
@@ -30,6 +58,15 @@ export function useLibraryCollection(id: number) {
   return useQuery({
     queryKey: libraryCollectionKey(id),
     queryFn: () => ports.libraryCollection(id),
+  })
+}
+
+export function useUnassigned() {
+  const ports = useCatalogPorts()
+  return useQuery({
+    queryKey: unassignedKey,
+    queryFn: () => ports.unassigned(),
+    ...liveQueryOptions,
   })
 }
 

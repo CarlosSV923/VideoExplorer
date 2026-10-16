@@ -16,6 +16,7 @@ import { sessionKey, sessionQuery } from '@/modules/identity/application/queries
 import { LoginScreen } from '@/modules/identity/ui/LoginScreen'
 import { useIngestionPorts } from '@/modules/ingestion/application/ports'
 import { watchJobsInCache } from '@/modules/ingestion/application/queries'
+import { scheduleCatalogInvalidation, unassignedKey } from '@/modules/catalog/application/queries'
 import { isAppError } from '@/shared/kernel/errors'
 import { Button, EmptyState } from '@/shared/ui'
 import { useEffect } from 'react'
@@ -98,7 +99,13 @@ function AppShell() {
   useEffect(() => {
     if (typeof EventSource === 'undefined' || typeof ports.watchJobs !== 'function')
       return undefined
-    return watchJobsInCache(queryClient, ports)
+    return watchJobsInCache(queryClient, ports, {
+      onStatusChange: (job) => {
+        if (['done', 'discarded', 'failed', 'cancelled'].includes(job.status)) {
+          scheduleCatalogInvalidation(queryClient, [unassignedKey])
+        }
+      },
+    })
   }, [ports, queryClient])
   return (
     <>
@@ -166,12 +173,12 @@ const seriesDetailRoute = createRoute({
 const movieEditRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/peliculas/$id/editar',
-  component: EditRoute,
+  component: MovieEditRoute,
 })
 const seriesEditRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/series/$id/editar',
-  component: EditRoute,
+  component: SeriesEditRoute,
 })
 const collectionRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -187,7 +194,11 @@ const searchRoute = createRoute({
   component: SearchRoute,
 })
 const unassignedRoute = screenRoute('/no-asignados', 'unassigned')
-const assignRoute = screenRoute('/no-asignados/$id/asignar', 'assign')
+const assignRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/no-asignados/$id/asignar',
+  component: AssignRoute,
+})
 const generalSettingsRoute = screenRoute('/ajustes/general', 'generalSettings')
 const trashSettingsRoute = screenRoute('/ajustes/papelera', 'trashSettings')
 
@@ -228,9 +239,19 @@ function SeriesDetailRoute() {
   return <MarkerScreen screen="seriesDetail" id={Number(id)} />
 }
 
-function EditRoute() {
+function MovieEditRoute() {
   const { id } = movieEditRoute.useParams()
   return <MarkerScreen screen="edit" id={Number(id)} />
+}
+
+function SeriesEditRoute() {
+  const { id } = seriesEditRoute.useParams()
+  return <MarkerScreen screen="edit" id={Number(id)} />
+}
+
+function AssignRoute() {
+  const { id } = assignRoute.useParams()
+  return <MarkerScreen screen="assign" id={Number(id)} />
 }
 
 function CollectionRoute() {
