@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { createPortContext } from '@/shared/kernel/ports'
 
 import { useIngestionPorts, type IngestionPorts } from './ports'
 import type { UploadJob } from '../domain/types'
+import type { UploadQueue } from './uploadQueue'
 
 export const jobsKey = ['jobs'] as const
 export const jobKey = (id: string) => ['jobs', id] as const
+export const [UploadQueueContext, useUploadQueue] = createPortContext<UploadQueue>('UploadQueue')
 
 function isNewer(next: UploadJob, current: UploadJob): boolean {
   return Date.parse(next.updatedAt) >= Date.parse(current.updatedAt)
@@ -54,6 +57,17 @@ export function useJobMutation(
     },
     onSuccess: (job) => {
       applyJobEvent(queryClient, job)
+    },
+  })
+}
+
+export function useCancelUpload() {
+  const ports = useIngestionPorts()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (jobId: string) => ports.cancelUpload(jobId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: jobsKey })
     },
   })
 }

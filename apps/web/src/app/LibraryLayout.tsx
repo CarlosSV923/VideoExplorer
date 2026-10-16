@@ -1,8 +1,10 @@
 import { useJobs } from '@/modules/ingestion/application/queries'
+import { isJobActiveOrWaiting } from '@/modules/ingestion/application/uploadLogic'
 import { Brand } from '@/shared/ui/Brand'
 import { SearchField } from '@/shared/ui'
 import { SearchIcon, UploadIcon } from '@/shared/ui/icons'
 import { useLanguage } from '@/shared/i18n/hooks'
+import { useUploadUi } from '@/modules/ingestion/ui/UploadUiContext'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 
@@ -10,9 +12,8 @@ export function Header() {
   const { t } = useTranslation()
   const language = useLanguage()
   const jobs = useJobs()
-  const active = (jobs.data ?? []).filter((job) =>
-    ['queued', 'uploading', 'extracting', 'filtering', 'needs_password'].includes(job.status),
-  ).length
+  const { openPicker, openPanel, busy } = useUploadUi()
+  const active = (jobs.data ?? []).filter(isJobActiveOrWaiting).length + (busy ? 1 : 0)
   const links = [
     ['/peliculas', t('library.movies')],
     ['/series', t('library.seriesPlural')],
@@ -52,7 +53,12 @@ export function Header() {
         </a>
         <button
           type="button"
+          aria-label={t('library.upload')}
           className="relative inline-flex min-h-control-sm items-center gap-2 rounded-pill border border-control px-3 text-body-sm font-bold"
+          onClick={() => {
+            openPicker()
+            openPanel()
+          }}
         >
           <UploadIcon />
           <span className="hidden lg:inline">{t('library.upload')}</span>

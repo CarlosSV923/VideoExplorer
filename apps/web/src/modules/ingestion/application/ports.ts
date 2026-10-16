@@ -10,6 +10,7 @@ export interface UploadSpec {
   fileName: string
   relativePath?: string
   partsTotal?: number
+  resumeJobId?: string
 }
 
 export interface UploadCallbacks {
@@ -32,6 +33,7 @@ export interface IngestionPorts {
   submitPassword(jobId: string, password: string): Promise<UploadJob>
   retryJob(jobId: string): Promise<UploadJob>
   dismissJob(jobId: string): Promise<UploadJob>
+  cancelUpload(jobId: string): Promise<void>
 }
 
 export const [IngestionContext, useIngestionPorts] = createPortContext<IngestionPorts>('Ingestion')

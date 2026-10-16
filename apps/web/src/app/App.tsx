@@ -11,6 +11,7 @@ import { IngestionContext } from '@/modules/ingestion/application/ports'
 import { MediaServersContext } from '@/modules/mediaservers/application/ports'
 import { MetadataContext } from '@/modules/metadata/application/ports'
 import { SystemContext } from '@/modules/system/application/ports'
+import { UploadUiProvider } from '@/modules/ingestion/ui/UploadCenter'
 import { createI18n } from '@/shared/i18n'
 import { InputProvider } from '@/shared/input'
 import { isAppError } from '@/shared/kernel/errors'
@@ -73,7 +74,9 @@ export function App({
       <InputProvider>
         <QueryClientProvider client={environment.queryClient}>
           <Ports services={selectedServices}>
-            <RouterProvider router={environment.router} />
+            <UploadUiProvider>
+              <RouterProvider router={environment.router} />
+            </UploadUiProvider>
           </Ports>
         </QueryClientProvider>
       </InputProvider>
