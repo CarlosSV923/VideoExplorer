@@ -289,8 +289,149 @@
       "replace": "Reemplazar",
       "keepBoth": "Conservar ambos",
       "skip": "Omitir",
-      "accept": "Aceptar sugerencia"
+      "accept": "Aceptar sugerencia",
+      "videoFocus": "Con el foco en un video",
+      "always": "Siempre",
+      "save": "Guardar",
+      "cancel": "Cancelar"
     }
+  },
+  "uploads": {
+    "title": "Subidas",
+    "dropHere": "Suelta los archivos o carpetas aquí",
+    "emptyTitle": "No hay subidas",
+    "emptyBody": "Los archivos que subas aparecerán aquí con su progreso.",
+    "relation": {
+      "title": "¿Cómo se relacionan estos archivos?",
+      "body": "Elige una opción para empezar la subida.",
+      "parts": "Partes de una misma película o serie",
+      "episodes": "Capítulos de una misma serie",
+      "none": "Sin relación"
+    },
+    "resume": "Elegir el mismo archivo",
+    "resumeMismatch": "El archivo debe tener el mismo nombre y tamaño.",
+    "password": "Contraseña",
+    "continue": "Continuar",
+    "cancel": "Cancelar subida",
+    "dismiss": "Quitar",
+    "assign": "Asignar",
+    "progress": "Progreso: {{percent}} %",
+    "status": {
+      "queued": "En cola",
+      "uploading": "Subiendo",
+      "interrupted": "Interrumpida",
+      "uploadError": "Error de subida",
+      "uploaded": "Subido",
+      "waiting_parts": "Esperando partes",
+      "extracting": "Descomprimiendo",
+      "needs_password": "Necesita contraseña",
+      "filtering": "Filtrando",
+      "done": "En No asignados",
+      "discarded": "Descartado",
+      "failed": "Error",
+      "cancelled": "Cancelado"
+    },
+    "failure": {
+      "upload_abandoned": "La subida se abandonó por inactividad.",
+      "upload_missing": "Falta el archivo parcial.",
+      "no_space": "No hay espacio suficiente.",
+      "archive_corrupt": "El comprimido está dañado.",
+      "crc_mismatch": "La comprobación del comprimido no coincide.",
+      "archive_unsafe": "El comprimido contiene una ruta no segura.",
+      "parts_mismatch": "Las partes no forman un conjunto válido.",
+      "parts_missing": "Faltan partes del comprimido.",
+      "legacy_volume": "El formato .r00 no está admitido.",
+      "no_video": "No quedó ningún video ni subtítulo.",
+      "filter_failed": "Falló el filtrado.",
+      "move_failed": "Falló el traslado a No asignados.",
+      "trash_failed": "Falló el traslado del original a la papelera.",
+      "wrong_password": "La contraseña no abre el comprimido."
+    }
+  },
+  "health": {
+    "libraryTitle": "La biblioteca no permite escribir.",
+    "libraryBody": "Puedes explorar y descargar, pero no subir ni cambiar contenido.",
+    "genericTitle": "La salud de VideoExplorer necesita atención.",
+    "genericBody": "Hay comprobaciones del sistema que están fallando.",
+    "details": "Detalles",
+    "detailsTitle": "Detalles de salud",
+    "copy": "Copiar detalle técnico",
+    "noMessage": "Sin detalle técnico.",
+    "code": {
+      "library_not_writable": "Biblioteca no escribible",
+      "data_not_writable": "Datos no escribibles",
+      "sevenzip_missing": "Falta 7zz",
+      "ffprobe_missing": "Falta ffprobe"
+    }
+  },
+  "trash": {
+    "emptyTitle": "La papelera está vacía",
+    "emptyBody": "Los elementos eliminados aparecerán aquí durante el periodo de retención.",
+    "empty": "Vaciar papelera",
+    "restore": "Restaurar",
+    "restoreTitle": "Plan de restauración",
+    "restoreBody": "Elige una decisión por cada video cuyo destino esté ocupado.",
+    "conflict": "Lugar ocupado",
+    "decisionFor": "Decisión para {{file}}",
+    "versionFor": "Etiqueta de versión para {{file}}",
+    "version": "Etiqueta de versión",
+    "replace": "Reemplazar",
+    "keepBoth": "Conservar ambos con etiqueta",
+    "cancel": "Cancelar este video",
+    "deleteForever": "Borrar para siempre",
+    "deleteConfirmTitle": "¿Borrar esta entrada para siempre?",
+    "deleteConfirmBody": "Esta acción no se puede deshacer.",
+    "emptyConfirmTitle": "¿Vaciar la papelera?",
+    "emptyConfirmBody": "Se borrarán {{count}} entradas y no se podrán restaurar.",
+    "purgeAt": "Purga: {{date}}",
+    "origin": { "upload": "Subida", "samba": "Samba", "library": "Biblioteca" },
+    "reason": {
+      "extracted": "Original extraído",
+      "filtered": "Descartado por filtrado",
+      "replaced": "Reemplazado",
+      "removed": "Eliminado"
+    }
+  },
+  "settings": {
+    "general": "General",
+    "trash": "Papelera",
+    "sections": "Secciones de ajustes",
+    "language": "Idioma",
+    "scanning": "Escaneo",
+    "scanningBody": "El escaneo actualiza la vista de la biblioteca y No asignados.",
+    "scanNow": "Escanear ahora",
+    "scan": {
+      "unassigned": "No asignados",
+      "library": "Biblioteca",
+      "running": "En curso",
+      "last": "Última revisión: {{date}}",
+      "never": "Sin revisión"
+    },
+    "jellyfin": "Jellyfin",
+    "jellyfinState": {
+      "unconfigured": "Sin configurar",
+      "connected": "Conectado",
+      "error": "Con error"
+    },
+    "jellyfinUnconfigured": "Configura Jellyfin en el servidor para refrescar las carpetas afectadas.",
+    "translation": {
+      "detected": "Ruta detectada",
+      "configured": "Ruta configurada",
+      "none": "Sin ruta común; se refrescan las bibliotecas completas"
+    },
+    "jellyfinError": {
+      "discovery_failed": "No se pudieron detectar las rutas.",
+      "notification_failed": "Falló la última notificación."
+    },
+    "jellyfinUnknown": "Jellyfin informó un error.",
+    "lastNotification": "Última notificación correcta: {{date}}",
+    "lastError": "Último error: {{date}}",
+    "tmdb": "TMDB",
+    "session": "Sesión",
+    "sessionBody": "Cierra la sesión en este dispositivo.",
+    "logout": "Cerrar sesión",
+    "about": "Acerca de",
+    "aboutBody": "VideoExplorer organiza tu biblioteca para Jellyfin. No reproduce video."
   },
   "screens": {
     "home": { "title": "Inicio", "body": "La pantalla de inicio estará disponible aquí." },

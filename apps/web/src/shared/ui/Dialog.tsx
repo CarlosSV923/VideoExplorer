@@ -37,6 +37,7 @@ export function Dialog({
   placement = 'center',
   children,
 }: DialogProps) {
+  const { t } = useTranslation()
   const titleId = useId()
   const box = useRef<HTMLDivElement>(null)
   const [host] = useState(() => document.createElement('div'))
@@ -126,7 +127,7 @@ export function Dialog({
           </div>
           <button
             type="button"
-            aria-label={title}
+            aria-label={t('common.close')}
             data-dialog-close
             className="inline-flex size-control-sm shrink-0 items-center justify-center rounded-full text-ink-2 hover:bg-hover"
             onClick={onClose}
@@ -218,6 +219,7 @@ export function SidePanel({
   onClose: () => void
   children: ReactNode
 }) {
+  const { t } = useTranslation()
   useAction(
     'back',
     () => {
@@ -237,7 +239,7 @@ export function SidePanel({
         <h2 className="m-0 text-title font-display">{title}</h2>
         <button
           type="button"
-          aria-label={title}
+          aria-label={t('common.close')}
           className="inline-flex size-control-sm items-center justify-center rounded-full hover:bg-hover"
           onClick={onClose}
         >

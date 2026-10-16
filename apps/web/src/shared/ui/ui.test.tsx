@@ -101,6 +101,7 @@ describe('UI primitives', () => {
     const opener = screen.getByRole('button', { name: 'Abrir' })
     await user.click(opener)
     expect(screen.getByRole('dialog', { name: 'Confirmar' })).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aceptar' })).toHaveFocus()
     expect(container).toHaveAttribute('inert')
     await user.keyboard('{Escape}')

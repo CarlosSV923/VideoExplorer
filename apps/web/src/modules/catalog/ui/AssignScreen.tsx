@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -13,7 +13,7 @@ import { useCatalogPorts } from '../application/ports'
 import type { AssignPlan, AssignRequest, AssignSuggestions, AssignVideo } from '../domain/types'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { isAppError } from '@/shared/kernel/errors'
-import { useAction } from '@/shared/input'
+import { useAction, useGamepadConnected } from '@/shared/input'
 import { Banner, Button, ConfirmDialog, HelpBar, PageHeader, ShortcutBar, Sheet } from '@/shared/ui'
 import { AssignVideoCard } from './AssignVideoCard'
 import { PlanPreview } from './PlanPreview'
@@ -43,14 +43,15 @@ export function AssignScreen({ id }: { id: number }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const gamepad = useGamepadConnected()
 
-  const goToUnassigned = () => {
+  const goToUnassigned = useCallback(() => {
     try {
       void navigate({ to: '/no-asignados' as never })
     } catch {
       window.history.pushState({}, '', '/no-asignados')
     }
-  }
+  }, [navigate])
 
   useEffect(() => {
     let active = true
@@ -130,7 +131,7 @@ export function AssignScreen({ id }: { id: number }) {
     setError(null)
     void ports.planAssign(id, token, request).then(setPlan).catch(setError)
   }
-  const save = () => {
+  const save = useCallback(() => {
     if (!token || !request || !plan || !currentState.enabled) return
     setError(null)
     void ports
@@ -139,7 +140,7 @@ export function AssignScreen({ id }: { id: number }) {
         goToUnassigned()
       })
       .catch(setError)
-  }
+  }, [currentState.enabled, goToUnassigned, id, plan, ports, request, token])
   const cancel = () => {
     if (dirty) {
       setConfirmCancel(true)
@@ -159,6 +160,18 @@ export function AssignScreen({ id }: { id: number }) {
     },
     Boolean(token),
   )
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && event.ctrlKey) {
+        event.preventDefault()
+        save()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [save])
 
   if (loading)
     return (
@@ -325,19 +338,29 @@ export function AssignScreen({ id }: { id: number }) {
           {t('assign.cancel.body')}
         </ConfirmDialog>
       )}
-      <ShortcutBar
-        groups={[
-          {
-            title: t('assign.shortcuts.title'),
-            keys: [
-              { key: '↑↓', label: t('assign.shortcuts.navigate') },
-              { key: 'R', label: t('assign.shortcuts.replace') },
-              { key: 'A', label: t('assign.shortcuts.keepBoth') },
-              { key: 'O', label: t('assign.shortcuts.skip') },
-            ],
-          },
-        ]}
-      />
+      {!gamepad && (
+        <ShortcutBar
+          groups={[
+            {
+              title: t('assign.shortcuts.videoFocus'),
+              keys: [
+                { key: '↑↓', label: t('assign.shortcuts.navigate') },
+                { key: 'Enter', label: t('assign.shortcuts.accept') },
+                { key: 'R', label: t('assign.shortcuts.replace') },
+                { key: 'A', label: t('assign.shortcuts.keepBoth') },
+                { key: 'O', label: t('assign.shortcuts.skip') },
+              ],
+            },
+            {
+              title: t('assign.shortcuts.always'),
+              keys: [
+                { key: 'Ctrl+Enter', label: t('assign.shortcuts.save') },
+                { key: 'Esc', label: t('assign.shortcuts.cancel') },
+              ],
+            },
+          ]}
+        />
+      )}
       <HelpBar
         actions={[
           { glyph: 'A', label: t('assign.shortcuts.accept') },

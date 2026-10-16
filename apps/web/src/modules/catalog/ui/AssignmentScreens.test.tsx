@@ -164,6 +164,22 @@ describe('No asignados', () => {
 })
 
 describe('Asignar', () => {
+  it('shows the keyboard groups and saves with Ctrl+Enter after preview', async () => {
+    const { ports } = renderScreen('assign')
+    await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())
+    expect(screen.getByText(/Con el foco en un video/)).toBeInTheDocument()
+    expect(screen.getByText('Siempre')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previsualizar' }))
+    await waitFor(() => {
+      expect(mockCalls(ports, 'planAssign').length).toBeGreaterThan(0)
+    })
+    fireEvent.keyDown(document, { key: 'Enter', ctrlKey: true })
+    await waitFor(() => {
+      expect(mockCalls(ports, 'commitAssign').length).toBe(1)
+    })
+  })
+
   it('takes the lock, renews it on preview and releases it on cancel', async () => {
     const { ports } = renderScreen('assign')
     await waitFor(() => expect(screen.getByText('Dark.S01E01.mkv')).toBeInTheDocument())

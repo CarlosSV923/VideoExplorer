@@ -80,6 +80,10 @@ export function AssignVideoCard({
           event.preventDefault()
           onMove(1)
         }
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          onChange({ ...value, action: 'place' })
+        }
       }}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">

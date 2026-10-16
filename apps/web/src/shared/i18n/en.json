@@ -289,8 +289,149 @@
       "replace": "Replace",
       "keepBoth": "Keep both",
       "skip": "Skip",
-      "accept": "Accept suggestion"
+      "accept": "Accept suggestion",
+      "videoFocus": "With a video focused",
+      "always": "Always",
+      "save": "Save",
+      "cancel": "Cancel"
     }
+  },
+  "uploads": {
+    "title": "Uploads",
+    "dropHere": "Drop files or folders here",
+    "emptyTitle": "No uploads",
+    "emptyBody": "Files you upload will appear here with their progress.",
+    "relation": {
+      "title": "How are these files related?",
+      "body": "Choose an option to start the upload.",
+      "parts": "Parts of one movie or series",
+      "episodes": "Chapters from one series",
+      "none": "No relation"
+    },
+    "resume": "Choose the same file",
+    "resumeMismatch": "The file must have the same name and size.",
+    "password": "Password",
+    "continue": "Continue",
+    "cancel": "Cancel upload",
+    "dismiss": "Remove",
+    "assign": "Assign",
+    "progress": "Progress: {{percent}}%",
+    "status": {
+      "queued": "Queued",
+      "uploading": "Uploading",
+      "interrupted": "Interrupted",
+      "uploadError": "Upload error",
+      "uploaded": "Uploaded",
+      "waiting_parts": "Waiting for parts",
+      "extracting": "Extracting",
+      "needs_password": "Needs password",
+      "filtering": "Filtering",
+      "done": "In Unassigned",
+      "discarded": "Discarded",
+      "failed": "Error",
+      "cancelled": "Cancelled"
+    },
+    "failure": {
+      "upload_abandoned": "The upload was abandoned after inactivity.",
+      "upload_missing": "The partial file is missing.",
+      "no_space": "There is not enough space.",
+      "archive_corrupt": "The archive is corrupt.",
+      "crc_mismatch": "The archive verification does not match.",
+      "archive_unsafe": "The archive contains an unsafe path.",
+      "parts_mismatch": "The volumes do not form a valid set.",
+      "parts_missing": "Archive parts are missing.",
+      "legacy_volume": "The .r00 format is not supported.",
+      "no_video": "No video or subtitle remained.",
+      "filter_failed": "Filtering failed.",
+      "move_failed": "Moving to Unassigned failed.",
+      "trash_failed": "Moving the original to trash failed.",
+      "wrong_password": "The password did not open the archive."
+    }
+  },
+  "health": {
+    "libraryTitle": "The library cannot be written.",
+    "libraryBody": "You can browse and download, but cannot upload or change content.",
+    "genericTitle": "VideoExplorer health needs attention.",
+    "genericBody": "Some system checks are failing.",
+    "details": "Details",
+    "detailsTitle": "Health details",
+    "copy": "Copy technical detail",
+    "noMessage": "No technical detail.",
+    "code": {
+      "library_not_writable": "Library is not writable",
+      "data_not_writable": "Data is not writable",
+      "sevenzip_missing": "7zz is missing",
+      "ffprobe_missing": "ffprobe is missing"
+    }
+  },
+  "trash": {
+    "emptyTitle": "Trash is empty",
+    "emptyBody": "Deleted items will appear here during the retention period.",
+    "empty": "Empty trash",
+    "restore": "Restore",
+    "restoreTitle": "Restore plan",
+    "restoreBody": "Choose a decision for each video whose destination is occupied.",
+    "conflict": "Destination occupied",
+    "decisionFor": "Decision for {{file}}",
+    "versionFor": "Version label for {{file}}",
+    "version": "Version label",
+    "replace": "Replace",
+    "keepBoth": "Keep both with a label",
+    "cancel": "Cancel this video",
+    "deleteForever": "Delete forever",
+    "deleteConfirmTitle": "Delete this entry forever?",
+    "deleteConfirmBody": "This action cannot be undone.",
+    "emptyConfirmTitle": "Empty trash?",
+    "emptyConfirmBody": "{{count}} entries will be deleted and cannot be restored.",
+    "purgeAt": "Purge: {{date}}",
+    "origin": { "upload": "Upload", "samba": "Samba", "library": "Library" },
+    "reason": {
+      "extracted": "Extracted original",
+      "filtered": "Filtered out",
+      "replaced": "Replaced",
+      "removed": "Removed"
+    }
+  },
+  "settings": {
+    "general": "General",
+    "trash": "Trash",
+    "sections": "Settings sections",
+    "language": "Language",
+    "scanning": "Scanning",
+    "scanningBody": "Scanning refreshes the library and Unassigned views.",
+    "scanNow": "Scan now",
+    "scan": {
+      "unassigned": "Unassigned",
+      "library": "Library",
+      "running": "Running",
+      "last": "Last review: {{date}}",
+      "never": "Not reviewed yet"
+    },
+    "jellyfin": "Jellyfin",
+    "jellyfinState": {
+      "unconfigured": "Not configured",
+      "connected": "Connected",
+      "error": "Error"
+    },
+    "jellyfinUnconfigured": "Configure Jellyfin on the server to refresh affected folders.",
+    "translation": {
+      "detected": "Detected route",
+      "configured": "Configured route",
+      "none": "No common route; full libraries are refreshed"
+    },
+    "jellyfinError": {
+      "discovery_failed": "Routes could not be detected.",
+      "notification_failed": "The last notification failed."
+    },
+    "jellyfinUnknown": "Jellyfin reported an error.",
+    "lastNotification": "Last successful notification: {{date}}",
+    "lastError": "Last error: {{date}}",
+    "tmdb": "TMDB",
+    "session": "Session",
+    "sessionBody": "Sign out on this device.",
+    "logout": "Sign out",
+    "about": "About",
+    "aboutBody": "VideoExplorer organizes your library for Jellyfin. It does not play video."
   },
   "screens": {
     "home": { "title": "Home", "body": "The home screen will be available here." },
