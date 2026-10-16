@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
 )
@@ -34,6 +35,17 @@ type viewTMDB struct {
 	configured bool
 	fail       bool
 	calls      int
+}
+
+type richViewTMDB struct {
+	viewTMDB
+	metadata TitleMetadata
+	err      error
+}
+
+func (t *richViewTMDB) Details(context.Context, domain.TitleKind, int64) (TitleMetadata, error) {
+	t.calls++
+	return t.metadata, t.err
 }
 
 func (t *viewTMDB) Configured() bool { return t.configured }
@@ -174,5 +186,110 @@ func TestThePosterComesFromTMDBOnlyForALinkedTitle(t *testing.T) {
 				t.Errorf("poster = %q (calls %d), want %q (calls %d)", got.Poster, tmdb.calls, tt.wantPoster, tt.wantCalls)
 			}
 		})
+	}
+}
+
+func TestTheTitlePageBuildsTheTMDBCollectionAndMarksLibraryMovies(t *testing.T) {
+	t.Parallel()
+	metadata := TitleMetadata{Title: "Iron Man", OriginalTitle: "Iron Man", Collection: &CollectionMetadata{ID: 10, Name: "Iron Man Collection", Movies: []CollectionMovieMetadata{
+		{ID: 1726, Title: "Iron Man", OriginalTitle: "Iron Man", Year: 2008},
+		{ID: 1727, Title: "Iron Man 2", OriginalTitle: "Iron Man 2", Year: 2010},
+	}}}
+	for _, tt := range []struct {
+		name           string
+		sister         bool
+		wantSisterLive bool
+	}{
+		{name: "sister in library", sister: true, wantSisterLive: true},
+		{name: "sister absent", sister: false, wantSisterLive: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			titles := []domain.LibraryTitle{movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")}
+			files := map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")}}
+			if tt.sister {
+				titles = append(titles, movie(2, 1727, "Movies/Iron Man 2 (2010) [tmdbid-1727]"))
+				files[2] = []domain.LibraryFile{liveFile(20, 2, "Movies/Iron Man 2 (2010) [tmdbid-1727]/Iron Man 2.mkv")}
+			}
+			tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: metadata}
+			got, err := NewLibraryViews(&viewRepo{titles: titles, files: files}, tmdb, nil).Title(t.Context(), 1)
+			if err != nil {
+				t.Fatalf("Title: %v", err)
+			}
+			if got.Collection == nil || len(got.Collection.Movies) != 2 {
+				t.Fatalf("collection = %+v", got.Collection)
+			}
+			if got.Collection.Movies[1].LibraryTitleID != map[bool]int64{true: 2, false: 0}[tt.wantSisterLive] {
+				t.Errorf("sister library id = %d, want live=%v", got.Collection.Movies[1].LibraryTitleID, tt.wantSisterLive)
+			}
+		})
+	}
+}
+
+func TestTheSeriesPageMarksPresentMissingAndUpcomingEpisodes(t *testing.T) {
+	t.Parallel()
+	series := domain.LibraryTitle{ID: 7, Kind: domain.KindSeries, Title: "Show", DiscTitle: "Show", Year: 2020, TMDBID: 100, Folder: "TV Shows/Show (2020)"}
+	video := domain.LibraryFile{ID: 70, TitleID: 7, Kind: domain.FileVideo, Rel: "TV Shows/Show (2020)/Season 01/Show - S01E05-E06.mkv", Place: domain.Place{Episode: true, Season: 1, First: 5, Last: 6}}
+	files := []domain.LibraryFile{video, {ID: 71, TitleID: 7, Kind: domain.FileVideo, Rel: "TV Shows/Show (2020)/Season 01/Show - S01E01.mkv", Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}
+	episodes := []EpisodeMetadata{
+		{ID: 11, Number: 1, Title: "One", AirDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{ID: 12, Number: 2, Title: "Two", AirDate: time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)},
+		{ID: 13, Number: 3, Title: "Three", AirDate: time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)},
+		{ID: 14, Number: 4, Title: "Four"},
+		{ID: 15, Number: 5, Title: "Five"},
+		{ID: 16, Number: 6, Title: "Six"},
+	}
+	metadata := TitleMetadata{Title: "Show", OriginalTitle: "The Show"}
+	metadata.Seasons = []SeasonMetadata{
+		{Number: 0, Episodes: []EpisodeMetadata{{ID: 1, Number: 1, Title: "Special", AirDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}}},
+		{Number: 1, Episodes: episodes},
+	}
+	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: metadata}
+	now := func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) }
+	got, err := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{series}, files: map[int64][]domain.LibraryFile{7: files}}, tmdb, nil, now).Title(t.Context(), 7)
+	if err != nil {
+		t.Fatalf("Title: %v", err)
+	}
+	if len(got.Seasons) != 2 || got.Seasons[0].Number != 0 || got.MissingEpisodes != 1 {
+		t.Fatalf("seasons=%+v missing=%d", got.Seasons, got.MissingEpisodes)
+	}
+	if got.Seasons[0].Episodes[0].Status != EpisodeMissing {
+		t.Errorf("special status = %q, want missing without affecting count", got.Seasons[0].Episodes[0].Status)
+	}
+	season := got.Seasons[1].Episodes
+	want := []EpisodeStatus{EpisodePresent, EpisodeMissing, EpisodeUpcoming, EpisodeUpcoming, EpisodePresent, EpisodePresent}
+	for i, status := range want {
+		if season[i].Status != status {
+			t.Errorf("episode %d status = %q, want %q", season[i].Number, season[i].Status, status)
+		}
+	}
+	if len(season[4].Files) != 1 || len(season[5].Files) != 1 || season[4].Files[0].ID != 70 || season[5].Files[0].ID != 70 {
+		t.Errorf("multi-episode file = %+v %+v", season[4].Files, season[5].Files)
+	}
+}
+
+func TestFreeTitleHasNoTMDBMissingEpisodes(t *testing.T) {
+	t.Parallel()
+	free := movie(1, 0, "Movies/Free (2020)")
+	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}}
+	got, err := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{free}, files: map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Free (2020)/Free.mkv")}}}, tmdb, nil).Title(t.Context(), 1)
+	if err != nil {
+		t.Fatalf("Title: %v", err)
+	}
+	if got.OriginalTitle != "" || len(got.Seasons) != 0 || got.MissingEpisodes != 0 || tmdb.calls != 0 {
+		t.Errorf("free title = %+v, TMDB calls=%d", got, tmdb.calls)
+	}
+}
+
+func TestTMDBWithoutCachedDetailsDoesNotBreakTheTitlePage(t *testing.T) {
+	t.Parallel()
+	linked := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
+	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, err: ErrTMDBUnavailable}
+	got, err := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{linked}, files: map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")}}}, tmdb, nil).Title(t.Context(), 1)
+	if err != nil {
+		t.Fatalf("Title: %v", err)
+	}
+	if got.Title != linked.Title || got.DiscTitle != linked.DiscTitle || got.Poster != "" || got.MissingEpisodes != 0 {
+		t.Errorf("record-only title = %+v", got)
 	}
 }

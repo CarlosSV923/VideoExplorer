@@ -31,6 +31,42 @@ func (libraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, erro
 	}, nil
 }
 
+type richLibraryRegistry struct{}
+
+func (richLibraryRegistry) TitleByFolder(context.Context, string) (domain.LibraryTitle, bool, error) {
+	return domain.LibraryTitle{}, false, nil
+}
+
+func (richLibraryRegistry) Titles(context.Context) ([]domain.LibraryTitle, error) {
+	return []domain.LibraryTitle{{ID: 7, Kind: domain.KindSeries, Title: "Show", DiscTitle: "Show", Year: 2020, TMDBID: 100, Folder: "TV Shows/Show (2020)"}}, nil
+}
+
+func (richLibraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, error) {
+	return []domain.LibraryFile{{ID: 71, TitleID: 7, Kind: domain.FileVideo, Rel: "TV Shows/Show (2020)/Season 01/Show - S01E01.mkv", Size: 10, Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}, nil
+}
+
+type richLibraryTMDB struct{}
+
+func (richLibraryTMDB) Configured() bool { return true }
+func (richLibraryTMDB) SearchTitles(context.Context, domain.TitleKind, string, int) ([]application.TMDBTitle, error) {
+	return nil, nil
+}
+
+func (richLibraryTMDB) Title(context.Context, domain.TitleKind, int64) (application.TMDBTitle, error) {
+	return application.TMDBTitle{}, nil
+}
+
+func (richLibraryTMDB) Chapters(context.Context, int64, int, int, int) (application.TMDBChapters, error) {
+	return application.TMDBChapters{}, nil
+}
+
+func (richLibraryTMDB) Details(context.Context, domain.TitleKind, int64) (application.TitleMetadata, error) {
+	return application.TitleMetadata{
+		Title: "Show", OriginalTitle: "The Show", Overview: "A synopsis", Backdrop: "backdrop.jpg", Poster: "poster.jpg", Logo: "logo.png", Genres: []string{"Drama"},
+		Seasons: []application.SeasonMetadata{{Number: 0}, {Number: 1, Episodes: []application.EpisodeMetadata{{ID: 11, Number: 1, Title: "Pilot", Overview: "First", Still: "still.jpg", AirDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, {ID: 12, Number: 2, Title: "Second", AirDate: time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)}}}},
+	}, nil
+}
+
 func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 	t.Parallel()
 	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil, nil)
@@ -57,6 +93,25 @@ func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 	}
 	if len(v.Subtitles) != 1 || v.Subtitles[0].Language != "es" {
 		t.Errorf("the subtitles: %+v", v.Subtitles)
+	}
+}
+
+func TestTheTitleHandlerAnswersTMDBDetailsAndEpisodeFiles(t *testing.T) {
+	t.Parallel()
+	h := NewLibraryHandler(application.NewLibraryViews(richLibraryRegistry{}, richLibraryTMDB{}, nil), nil, nil, nil)
+	got, err := h.GetLibraryTitle(t.Context(), httpapi.GetLibraryTitleRequestObject{Id: 7})
+	if err != nil {
+		t.Fatalf("GetLibraryTitle: %v", err)
+	}
+	title, ok := got.(httpapi.GetLibraryTitle200JSONResponse)
+	if !ok {
+		t.Fatalf("response = %T, want 200", got)
+	}
+	if title.Title != "Show" || title.OriginalTitle != "The Show" || title.Overview != "A synopsis" || title.Backdrop == nil || *title.Backdrop != "/api/images/backdrop/backdrop.jpg" || title.Logo == nil || *title.Logo != "/api/images/logo/logo.png" {
+		t.Errorf("TMDB details = %+v", title)
+	}
+	if len(title.Genres) != 1 || title.Genres[0] != "Drama" || len(title.Seasons) != 2 || title.Seasons[1].Episodes[0].Status != httpapi.Present || len(title.Seasons[1].Episodes[0].Files) != 1 || title.Seasons[1].Episodes[1].Status != httpapi.Missing {
+		t.Errorf("seasons = %+v", title.Seasons)
 	}
 }
 

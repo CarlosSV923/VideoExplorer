@@ -611,10 +611,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A title of the library with its files (RF-43)
-         * @description The title with its videos and their subtitles, the files that are out of the trash. The poster is
-         *     the file name that `/api/images/poster/{file}` serves, when TMDB is configured and knows the title
-         *     (spec §6); it is omitted otherwise. A chapter of a free series carries the title read from its name.
+         * A title of the library with its files and TMDB details (RF-43, RF-43a)
+         * @description The title with its videos and their subtitles, the files that are out of the trash, and the localized
+         *     TMDB data when the title is linked. Images are local `/api/images/...` routes (RNF-10). A free title
+         *     carries only its registry data: it has no TMDB episodes or missing count. A series includes season 0,
+         *     marks each TMDB episode as `present`, `missing` or `upcoming`, and repeats a multi-episode file in every
+         *     episode it covers (RF-43a). `missingEpisodes` counts only missing episodes in normal seasons (RF-40).
          */
         get: operations["getLibraryTitle"];
         put?: never;
@@ -1555,6 +1557,8 @@ export interface components {
             tmdbId?: number;
             /** @description Whether the tag [tmdbid-ID] is on in the folder and the files (RF-45). */
             idTag: boolean;
+            /** @description Missing episodes in normal seasons only; zero for movies, free titles and specials (RF-40, RF-43a). */
+            missingEpisodes: number;
         };
         /** @description A title of the library with its videos (RF-43). */
         LibraryTitle: {
@@ -1571,8 +1575,33 @@ export interface components {
              */
             tmdbId?: number;
             idTag: boolean;
-            /** @description The poster file name that `/api/images/poster/{file}` serves; omitted when there is none. */
+            /** @description Missing episodes in normal seasons only; specials (season 0), movies and free titles count as zero (RF-40, RF-43a). */
+            missingEpisodes: number;
+            /** @description The original title from TMDB; empty for free titles or when unavailable. */
+            originalTitle: string;
+            /** @description The localized TMDB synopsis; empty for free titles or when unavailable. */
+            overview: string;
+            /** @description Movie duration in minutes; zero when not applicable or unknown. */
+            runtime: number;
+            /** @description Localized TMDB genre names; empty for free titles or when unavailable. */
+            genres: string[];
+            /**
+             * Format: uri-reference
+             * @description Local `/api/images/poster/{file}` route; omitted when there is none.
+             */
             poster?: string;
+            /**
+             * Format: uri-reference
+             * @description Local `/api/images/backdrop/{file}` route; omitted when there is none.
+             */
+            backdrop?: string;
+            /**
+             * Format: uri-reference
+             * @description Local `/api/images/logo/{file}` route selected according to RF-61; omitted when there is none.
+             */
+            logo?: string;
+            collection?: components["schemas"]["LibraryCollection"];
+            seasons: components["schemas"]["LibrarySeason"][];
             videos: components["schemas"]["LibraryVideo"][];
         };
         /** @description A video of the title, with its subtitles. A movie has a part (0 for the whole movie); a series, a season and chapters. */
@@ -1593,6 +1622,59 @@ export interface components {
             /** @description The title of a chapter of a free series, read from its name (spec §6); omitted otherwise. */
             chapterTitle?: string;
             subtitles: components["schemas"]["LibrarySubtitle"][];
+        };
+        /** @description A TMDB season of a series, including season 0 (specials) (RF-43a). */
+        LibrarySeason: {
+            number: number;
+            episodes: components["schemas"]["LibraryEpisode"][];
+        };
+        /** @description A TMDB episode and the live library files that cover it (RF-43a). */
+        LibraryEpisode: {
+            /** Format: int64 */
+            id: number;
+            number: number;
+            title: string;
+            overview: string;
+            /**
+             * Format: uri-reference
+             * @description Local `/api/images/still/{file}` route; omitted when TMDB has no thumbnail.
+             */
+            thumbnail?: string;
+            /**
+             * Format: date
+             * @description TMDB emission date; omitted when TMDB has no date.
+             */
+            airDate?: string;
+            /**
+             * @description Present when a live file covers it; missing when emitted without a file; upcoming for a future or undated episode.
+             * @enum {string}
+             */
+            status: "present" | "missing" | "upcoming";
+            files: components["schemas"]["LibraryVideo"][];
+        };
+        /** @description The movie collection and its parts, with library membership (RF-43a). */
+        LibraryCollection: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            overview: string;
+            /** Format: uri-reference */
+            poster?: string;
+            /** Format: uri-reference */
+            backdrop?: string;
+            movies: components["schemas"]["LibraryCollectionMovie"][];
+        };
+        LibraryCollectionMovie: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            originalTitle: string;
+            year: number;
+            /** Format: uri-reference */
+            poster?: string;
+            inLibrary: boolean;
+            /** Format: int64 */
+            libraryTitleId?: number;
         };
         LibrarySubtitle: {
             /** Format: int64 */

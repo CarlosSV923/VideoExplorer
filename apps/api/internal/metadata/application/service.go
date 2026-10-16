@@ -50,6 +50,10 @@ func NewService(provider Provider, language string) *Service {
 	return &Service{provider: provider, language: language}
 }
 
+// Language returns the configured TMDB language so composition-root adapters can apply the same RF-61
+// logo selection rule as this service applies to text.
+func (s *Service) Language() string { return s.language }
+
 // Configured reports whether a provider is available.
 func (s *Service) Configured() bool { return s.provider != nil }
 

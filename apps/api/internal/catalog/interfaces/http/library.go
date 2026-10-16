@@ -13,6 +13,7 @@ import (
 	"strings"
 	"unicode"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -238,7 +239,7 @@ func asciiName(name string) string {
 // summaryToAPI returns the contract's view of a title in the list.
 func summaryToAPI(t application.TitleSummary) httpapi.LibraryTitleSummary {
 	return httpapi.LibraryTitleSummary{
-		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, Year: t.Year, TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag,
+		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, Year: t.Year, TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, MissingEpisodes: t.MissingEpisodes,
 	}
 }
 
@@ -246,17 +247,75 @@ func summaryToAPI(t application.TitleSummary) httpapi.LibraryTitleSummary {
 func detailToAPI(t application.TitleDetail) httpapi.LibraryTitle {
 	out := httpapi.LibraryTitle{
 		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, DiscTitle: t.DiscTitle, Year: t.Year,
-		TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, Videos: make([]httpapi.LibraryVideo, 0, len(t.Videos)),
+		TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, MissingEpisodes: t.MissingEpisodes, OriginalTitle: t.OriginalTitle,
+		Overview: t.Overview, Runtime: t.Runtime, Genres: append([]string(nil), t.Genres...), Seasons: make([]httpapi.LibrarySeason, 0, len(t.Seasons)), Videos: make([]httpapi.LibraryVideo, 0, len(t.Videos)),
 	}
 	if t.Poster != "" {
-		poster := t.Poster
+		poster := imageURL("poster", t.Poster)
 		out.Poster = &poster
+	}
+	if t.Backdrop != "" {
+		backdrop := imageURL("backdrop", t.Backdrop)
+		out.Backdrop = &backdrop
+	}
+	if t.Logo != "" {
+		logo := imageURL("logo", t.Logo)
+		out.Logo = &logo
+	}
+	if t.Collection != nil {
+		out.Collection = collectionToAPI(*t.Collection)
+	}
+	for _, s := range t.Seasons {
+		season := httpapi.LibrarySeason{Number: s.Number, Episodes: make([]httpapi.LibraryEpisode, 0, len(s.Episodes))}
+		for _, e := range s.Episodes {
+			episode := httpapi.LibraryEpisode{Id: e.ID, Number: e.Number, Title: e.Title, Overview: e.Overview, Status: httpapi.LibraryEpisodeStatus(e.Status), Files: make([]httpapi.LibraryVideo, 0, len(e.Files))}
+			if e.Still != "" {
+				still := imageURL("still", e.Still)
+				episode.Thumbnail = &still
+			}
+			if !e.AirDate.IsZero() {
+				date := openapi_types.Date{Time: e.AirDate}
+				episode.AirDate = &date
+			}
+			for _, file := range e.Files {
+				episode.Files = append(episode.Files, videoToAPI(file, t.Kind))
+			}
+			season.Episodes = append(season.Episodes, episode)
+		}
+		out.Seasons = append(out.Seasons, season)
 	}
 	for _, v := range t.Videos {
 		out.Videos = append(out.Videos, videoToAPI(v, t.Kind))
 	}
 	return out
 }
+
+func collectionToAPI(c application.CollectionView) *httpapi.LibraryCollection {
+	out := &httpapi.LibraryCollection{Id: c.ID, Name: c.Name, Overview: c.Overview, Movies: make([]httpapi.LibraryCollectionMovie, 0, len(c.Movies))}
+	if c.Poster != "" {
+		poster := imageURL("poster", c.Poster)
+		out.Poster = &poster
+	}
+	if c.Backdrop != "" {
+		backdrop := imageURL("backdrop", c.Backdrop)
+		out.Backdrop = &backdrop
+	}
+	for _, movie := range c.Movies {
+		item := httpapi.LibraryCollectionMovie{Id: movie.ID, Title: movie.Title, OriginalTitle: movie.OriginalTitle, Year: movie.Year, InLibrary: movie.LibraryTitleID != 0}
+		if movie.Poster != "" {
+			poster := imageURL("poster", movie.Poster)
+			item.Poster = &poster
+		}
+		if movie.LibraryTitleID != 0 {
+			id := movie.LibraryTitleID
+			item.LibraryTitleId = &id
+		}
+		out.Movies = append(out.Movies, item)
+	}
+	return out
+}
+
+func imageURL(kind, file string) string { return "/api/images/" + kind + "/" + file }
 
 // videoToAPI returns the contract's view of a video and its subtitles.
 func videoToAPI(v application.VideoView, kind domain.TitleKind) httpapi.LibraryVideo {

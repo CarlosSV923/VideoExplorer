@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AssignProblemCode.
@@ -291,6 +292,27 @@ func (e JobStatus) Valid() bool {
 	case Uploading:
 		return true
 	case WaitingParts:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LibraryEpisodeStatus.
+const (
+	Missing  LibraryEpisodeStatus = "missing"
+	Present  LibraryEpisodeStatus = "present"
+	Upcoming LibraryEpisodeStatus = "upcoming"
+)
+
+// Valid indicates whether the value is a known member of the LibraryEpisodeStatus enum.
+func (e LibraryEpisodeStatus) Valid() bool {
+	switch e {
+	case Missing:
+		return true
+	case Present:
+		return true
+	case Upcoming:
 		return true
 	default:
 		return false
@@ -950,6 +972,47 @@ type JobFailure string
 // with `POST /jobs/{id}/retry`. `cancelled` ends the job.
 type JobStatus string
 
+// LibraryCollection The movie collection and its parts, with library membership (RF-43a).
+type LibraryCollection struct {
+	Backdrop *string                  `json:"backdrop,omitempty"`
+	Id       int64                    `json:"id"`
+	Movies   []LibraryCollectionMovie `json:"movies"`
+	Name     string                   `json:"name"`
+	Overview string                   `json:"overview"`
+	Poster   *string                  `json:"poster,omitempty"`
+}
+
+// LibraryCollectionMovie defines model for LibraryCollectionMovie.
+type LibraryCollectionMovie struct {
+	Id             int64   `json:"id"`
+	InLibrary      bool    `json:"inLibrary"`
+	LibraryTitleId *int64  `json:"libraryTitleId,omitempty"`
+	OriginalTitle  string  `json:"originalTitle"`
+	Poster         *string `json:"poster,omitempty"`
+	Title          string  `json:"title"`
+	Year           int     `json:"year"`
+}
+
+// LibraryEpisode A TMDB episode and the live library files that cover it (RF-43a).
+type LibraryEpisode struct {
+	// AirDate TMDB emission date; omitted when TMDB has no date.
+	AirDate  *openapi_types.Date `json:"airDate,omitempty"`
+	Files    []LibraryVideo      `json:"files"`
+	Id       int64               `json:"id"`
+	Number   int                 `json:"number"`
+	Overview string              `json:"overview"`
+
+	// Status Present when a live file covers it; missing when emitted without a file; upcoming for a future or undated episode.
+	Status LibraryEpisodeStatus `json:"status"`
+
+	// Thumbnail Local `/api/images/still/{file}` route; omitted when TMDB has no thumbnail.
+	Thumbnail *string `json:"thumbnail,omitempty"`
+	Title     string  `json:"title"`
+}
+
+// LibraryEpisodeStatus Present when a live file covers it; missing when emitted without a file; upcoming for a future or undated episode.
+type LibraryEpisodeStatus string
+
 // LibraryFileTechnical Technical information of a video file in the library (RF-44).
 type LibraryFileTechnical struct {
 	Audio []TechnicalAudio `json:"audio"`
@@ -984,6 +1047,12 @@ type LibraryScope struct {
 // LibraryScopeKind defines model for LibraryScope.Kind.
 type LibraryScopeKind string
 
+// LibrarySeason A TMDB season of a series, including season 0 (specials) (RF-43a).
+type LibrarySeason struct {
+	Episodes []LibraryEpisode `json:"episodes"`
+	Number   int              `json:"number"`
+}
+
 // LibrarySubtitle defines model for LibrarySubtitle.
 type LibrarySubtitle struct {
 	Forced bool  `json:"forced"`
@@ -997,17 +1066,42 @@ type LibrarySubtitle struct {
 
 // LibraryTitle A title of the library with its videos (RF-43).
 type LibraryTitle struct {
+	// Backdrop Local `/api/images/backdrop/{file}` route; omitted when there is none.
+	Backdrop *string `json:"backdrop,omitempty"`
+
+	// Collection The movie collection and its parts, with library membership (RF-43a).
+	Collection *LibraryCollection `json:"collection,omitempty"`
+
 	// DiscTitle The disc title <T> of spec §5, the name of its folder and files.
 	DiscTitle string `json:"discTitle"`
-	Id        int64  `json:"id"`
-	IdTag     bool   `json:"idTag"`
+
+	// Genres Localized TMDB genre names; empty for free titles or when unavailable.
+	Genres []string `json:"genres"`
+	Id     int64    `json:"id"`
+	IdTag  bool     `json:"idTag"`
 
 	// Kind A movie (Movies/) or a series (TV Shows/), spec §2.
 	Kind TitleKind `json:"kind"`
 
-	// Poster The poster file name that `/api/images/poster/{file}` serves; omitted when there is none.
+	// Logo Local `/api/images/logo/{file}` route selected according to RF-61; omitted when there is none.
+	Logo *string `json:"logo,omitempty"`
+
+	// MissingEpisodes Missing episodes in normal seasons only; specials (season 0), movies and free titles count as zero (RF-40, RF-43a).
+	MissingEpisodes int `json:"missingEpisodes"`
+
+	// OriginalTitle The original title from TMDB; empty for free titles or when unavailable.
+	OriginalTitle string `json:"originalTitle"`
+
+	// Overview The localized TMDB synopsis; empty for free titles or when unavailable.
+	Overview string `json:"overview"`
+
+	// Poster Local `/api/images/poster/{file}` route; omitted when there is none.
 	Poster *string `json:"poster,omitempty"`
-	Title  string  `json:"title"`
+
+	// Runtime Movie duration in minutes; zero when not applicable or unknown.
+	Runtime int             `json:"runtime"`
+	Seasons []LibrarySeason `json:"seasons"`
+	Title   string          `json:"title"`
 
 	// TmdbId The TMDB id of a linked title; omitted for a free title.
 	TmdbId *int64         `json:"tmdbId,omitempty"`
@@ -1024,6 +1118,9 @@ type LibraryTitleSummary struct {
 
 	// Kind A movie (Movies/) or a series (TV Shows/), spec §2.
 	Kind TitleKind `json:"kind"`
+
+	// MissingEpisodes Missing episodes in normal seasons only; zero for movies, free titles and specials (RF-40, RF-43a).
+	MissingEpisodes int `json:"missingEpisodes"`
 
 	// Title The title the user sees (the TMDB title, or the free name).
 	Title string `json:"title"`
@@ -1717,7 +1814,7 @@ type ServerInterface interface {
 	// ListLibraryTitles The titles of the library (RF-40, RF-43)
 	// (GET /library/titles)
 	ListLibraryTitles(w http.ResponseWriter, r *http.Request)
-	// GetLibraryTitle A title of the library with its files (RF-43)
+	// GetLibraryTitle A title of the library with its files and TMDB details (RF-43, RF-43a)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(w http.ResponseWriter, r *http.Request, id TitleId)
 	// DownloadLibraryTitle Download a whole library title as a streamed store zip (RF-44)
@@ -5950,7 +6047,7 @@ type StrictServerInterface interface {
 	// ListLibraryTitles The titles of the library (RF-40, RF-43)
 	// (GET /library/titles)
 	ListLibraryTitles(ctx context.Context, request ListLibraryTitlesRequestObject) (ListLibraryTitlesResponseObject, error)
-	// GetLibraryTitle A title of the library with its files (RF-43)
+	// GetLibraryTitle A title of the library with its files and TMDB details (RF-43, RF-43a)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(ctx context.Context, request GetLibraryTitleRequestObject) (GetLibraryTitleResponseObject, error)
 	// DownloadLibraryTitle Download a whole library title as a streamed store zip (RF-44)

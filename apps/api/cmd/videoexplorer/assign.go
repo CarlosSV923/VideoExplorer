@@ -173,6 +173,80 @@ func (t tmdbOf) Title(ctx context.Context, kind catalogdomain.TitleKind, id int6
 	}, nil
 }
 
+// Details implements catalogapplication.LibraryMetadata for the title page (RF-43a). The service already
+// supplies cached, localized metadata; this adapter only translates the metadata context's types into the
+// catalog port and chooses the configured-language logo.
+func (t tmdbOf) Details(ctx context.Context, kind catalogdomain.TitleKind, id int64) (catalogapplication.TitleMetadata, error) {
+	if kind == catalogdomain.KindSeries {
+		series, err := t.svc.Series(ctx, id)
+		if err != nil {
+			return catalogapplication.TitleMetadata{}, tmdbErr(err)
+		}
+		out := catalogapplication.TitleMetadata{
+			Title: series.Title, OriginalTitle: series.OriginalTitle, Year: intOf(series.Year), Overview: series.Overview,
+			Genres: genreNames(series.Genres), Poster: posterFile(series.Images.Poster), Backdrop: posterFile(series.Images.Backdrop),
+			Logo:    chosenLogo(series.Images.Logos, t.svc.Language()),
+			Seasons: make([]catalogapplication.SeasonMetadata, 0, len(series.Seasons)),
+		}
+		for _, summary := range series.Seasons {
+			season, err := t.svc.Season(ctx, id, summary.Number)
+			if err != nil {
+				return catalogapplication.TitleMetadata{}, tmdbErr(err)
+			}
+			out.Seasons = append(out.Seasons, seasonMetadata(season))
+		}
+		return out, nil
+	}
+	movie, err := t.svc.Movie(ctx, id)
+	if err != nil {
+		return catalogapplication.TitleMetadata{}, tmdbErr(err)
+	}
+	out := catalogapplication.TitleMetadata{
+		Title: movie.Title, OriginalTitle: movie.OriginalTitle, Year: intOf(movie.Year), Runtime: movie.Runtime, Overview: movie.Overview,
+		Genres: genreNames(movie.Genres), Poster: posterFile(movie.Images.Poster), Backdrop: posterFile(movie.Images.Backdrop),
+		Logo: chosenLogo(movie.Images.Logos, t.svc.Language()),
+	}
+	if movie.Collection != nil {
+		collection, err := t.svc.Collection(ctx, movie.Collection.ID)
+		if err == nil {
+			out.Collection = collectionMetadata(collection)
+		}
+	}
+	return out, nil
+}
+
+func genreNames(genres []metadatadomain.Genre) []string {
+	out := make([]string, 0, len(genres))
+	for _, genre := range genres {
+		out = append(out, genre.Name)
+	}
+	return out
+}
+
+func chosenLogo(logos []metadatadomain.Logo, language string) string {
+	logo, ok := metadatadomain.PickLogo(logos, language)
+	if !ok {
+		return ""
+	}
+	return posterFile(logo.Path)
+}
+
+func seasonMetadata(season metadatadomain.Season) catalogapplication.SeasonMetadata {
+	out := catalogapplication.SeasonMetadata{Number: season.Number, Episodes: make([]catalogapplication.EpisodeMetadata, 0, len(season.Episodes))}
+	for _, episode := range season.Episodes {
+		out.Episodes = append(out.Episodes, catalogapplication.EpisodeMetadata{ID: episode.ID, Number: episode.Number, Title: episode.Title, Overview: episode.Overview, Still: posterFile(episode.StillPath), AirDate: episode.AirDate})
+	}
+	return out
+}
+
+func collectionMetadata(collection metadatadomain.Collection) *catalogapplication.CollectionMetadata {
+	out := &catalogapplication.CollectionMetadata{ID: collection.ID, Name: collection.Name, Overview: collection.Overview, Poster: posterFile(collection.PosterPath), Backdrop: posterFile(collection.BackdropPath), Movies: make([]catalogapplication.CollectionMovieMetadata, 0, len(collection.Parts))}
+	for _, movie := range collection.Parts {
+		out.Movies = append(out.Movies, catalogapplication.CollectionMovieMetadata{ID: movie.ID, Title: movie.Title, OriginalTitle: movie.OriginalTitle, Year: intOf(movie.Year), Poster: posterFile(movie.PosterPath)})
+	}
+	return out
+}
+
 // FindIMDb implements catalogapplication.ImportTMDB: the titles of one kind that TMDB links to an IMDb id (RF-29).
 func (t tmdbOf) FindIMDb(ctx context.Context, kind catalogdomain.TitleKind, imdbID string) ([]catalogapplication.TMDBTitle, error) {
 	found, err := t.svc.FindByIMDb(ctx, imdbID)
