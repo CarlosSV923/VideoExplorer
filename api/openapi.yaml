@@ -280,6 +280,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/MetadataRefreshFailed'
         '409':
           $ref: '#/components/responses/Conflict'
 
@@ -829,6 +831,29 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /library/collections/{id}:
+    get:
+      tags: [library]
+      operationId: getLibraryCollection
+      summary: A TMDB collection with its library membership (RF-40, RF-42a)
+      description: |
+        The collection from the stored TMDB metadata cache, including every movie
+        and whether it is present in the library. Membership is represented by
+        library title ids; filesystem paths are never exposed.
+      parameters:
+        - $ref: '#/components/parameters/CollectionId'
+      responses:
+        '200':
+          description: The collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /library/titles/{id}:
     get:
       tags: [library]
@@ -1293,6 +1318,15 @@ components:
       in: path
       required: true
       description: A title of the library, its id in the registry (RF-21, RF-43).
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    CollectionId:
+      name: id
+      in: path
+      required: true
+      description: A TMDB collection id (RF-40, RF-42a).
       schema:
         type: integer
         format: int64
@@ -2513,7 +2547,7 @@ components:
             $ref: '#/components/schemas/LibraryTitleSummary'
     LibraryTitleSummary:
       type: object
-      required: [id, kind, title, year, idTag]
+      required: [id, kind, title, discTitle, year, idTag, addedAt]
       additionalProperties: false
       properties:
         id:
@@ -2525,6 +2559,9 @@ components:
         title:
           type: string
           description: The title the user sees (the TMDB title, or the free name).
+        discTitle:
+          type: string
+          description: The title in the library folder and file names.
         year:
           type: integer
           minimum: 0
@@ -2538,10 +2575,43 @@ components:
         idTag:
           type: boolean
           description: Whether the tag [tmdbid-ID] is on in the folder and the files (RF-45).
+        originalTitle:
+          type: string
+          description: The original TMDB title from the stored metadata cache; omitted when unavailable.
+        poster:
+          type: string
+          format: uri-reference
+          description: Local poster route from the stored metadata cache; omitted when unavailable.
+        backdrop:
+          type: string
+          format: uri-reference
+          description: Local backdrop route from the stored metadata cache; omitted when unavailable.
+        genres:
+          type: array
+          items:
+            type: string
+          description: Localized TMDB genre names from the stored metadata cache; omitted when unavailable.
+        collection:
+          $ref: '#/components/schemas/LibraryTitleSummaryCollection'
+        addedAt:
+          type: string
+          format: date-time
+          description: When the first file of this title was registered.
         missingEpisodes:
           type: integer
           minimum: 0
           description: Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a).
+    LibraryTitleSummaryCollection:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
     LibraryTitle:
       type: object
       description: A title of the library with its videos (RF-43).

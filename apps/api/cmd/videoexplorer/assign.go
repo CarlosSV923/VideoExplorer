@@ -180,6 +180,48 @@ func (t tmdbOf) Details(ctx context.Context, kind catalogdomain.TitleKind, id in
 	return t.details(ctx, kind, id, false)
 }
 
+// StoredSummary reads only the metadata response cache. The library list must
+// remain available without turning stale entries into network calls (RF-42a).
+func (t tmdbOf) StoredSummary(ctx context.Context, kind catalogdomain.TitleKind, id int64) (catalogapplication.TitleSummaryMetadata, bool, error) {
+	if kind == catalogdomain.KindSeries {
+		series, found, err := t.svc.StoredSeries(ctx, id)
+		if err != nil || !found {
+			return catalogapplication.TitleSummaryMetadata{}, found, err
+		}
+		return catalogapplication.TitleSummaryMetadata{
+			OriginalTitle: series.OriginalTitle,
+			Poster:        posterFile(series.Images.Poster),
+			Backdrop:      posterFile(series.Images.Backdrop),
+			Genres:        genreNames(series.Genres),
+		}, true, nil
+	}
+	movie, found, err := t.svc.StoredMovie(ctx, id)
+	if err != nil || !found {
+		return catalogapplication.TitleSummaryMetadata{}, found, err
+	}
+	var collection *catalogapplication.CollectionRef
+	if movie.Collection != nil {
+		collection = &catalogapplication.CollectionRef{ID: movie.Collection.ID, Name: movie.Collection.Name}
+	}
+	return catalogapplication.TitleSummaryMetadata{
+		OriginalTitle: movie.OriginalTitle,
+		Poster:        posterFile(movie.Images.Poster),
+		Backdrop:      posterFile(movie.Images.Backdrop),
+		Genres:        genreNames(movie.Genres),
+		Collection:    collection,
+	}, true, nil
+}
+
+// Collection returns the regular cache-aware collection metadata for the
+// collection screen (RF-40, RF-42a).
+func (t tmdbOf) Collection(ctx context.Context, id int64) (catalogapplication.CollectionMetadata, error) {
+	collection, err := t.svc.Collection(ctx, id)
+	if err != nil {
+		return catalogapplication.CollectionMetadata{}, tmdbErr(err)
+	}
+	return *collectionMetadata(collection), nil
+}
+
 // Refresh implements catalogapplication.LibraryMetadataRefresher (RF-44). All
 // cache writes remain staged until the complete metadata graph has been read;
 // a TMDB error therefore cannot replace only part of the previous answer.

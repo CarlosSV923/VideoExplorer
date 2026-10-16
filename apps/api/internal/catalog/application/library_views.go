@@ -21,17 +21,53 @@ var ErrMetadataRefreshUnavailable = errors.New("metadata refresh is unavailable"
 
 // TitleSummary is a title of the library as the list shows it (RF-40, RF-43).
 type TitleSummary struct {
-	ID    int64
-	Kind  domain.TitleKind
-	Title string
-	Year  int
+	ID        int64
+	Kind      domain.TitleKind
+	Title     string
+	DiscTitle string
+	Year      int
+	AddedAt   time.Time
 	// TMDBID is 0 for a free title.
 	TMDBID int64
 	IDTag  bool
+	// Stored metadata is optional: a title list never refreshes TMDB (RF-42a).
+	OriginalTitle string
+	Poster        string
+	Backdrop      string
+	Genres        []string
+	Collection    *CollectionRef
 	// MissingEpisodes is the last successfully calculated number of emitted episodes missing from normal
 	// seasons. It is nil until the first calculation (RF-40, RF-43a).
 	MissingEpisodes *int
 }
+
+// CollectionRef is the lightweight collection identity used by title lists.
+type CollectionRef struct {
+	ID   int64
+	Name string
+}
+
+// LibraryMetadataSummary reads metadata already saved by the metadata context.
+// Implementations must not call TMDB; the list endpoint uses this port only.
+type LibraryMetadataSummary interface {
+	StoredSummary(ctx context.Context, kind domain.TitleKind, id int64) (TitleSummaryMetadata, bool, error)
+}
+
+// TitleSummaryMetadata is the cache-backed subset needed by RF-42a.
+type TitleSummaryMetadata struct {
+	OriginalTitle string
+	Poster        string
+	Backdrop      string
+	Genres        []string
+	Collection    *CollectionRef
+}
+
+// LibraryCollectionMetadata loads the metadata of a collection for the collection screen.
+type LibraryCollectionMetadata interface {
+	Collection(ctx context.Context, id int64) (CollectionMetadata, error)
+}
+
+var ErrCollectionNotFound = errors.New("the collection is not available")
 
 // TitleDetail is a title with its videos, as the page of the title shows them (RF-43).
 type TitleDetail struct {
@@ -216,6 +252,18 @@ func (v *LibraryViews) Titles(ctx context.Context) ([]TitleSummary, error) {
 	out := make([]TitleSummary, 0, len(live))
 	for _, t := range live {
 		summary := summaryOf(t)
+		if reader, ok := v.tmdb.(LibraryMetadataSummary); ok && t.TMDBID > 0 {
+			metadata, found, err := reader.StoredSummary(ctx, t.Kind, t.TMDBID)
+			if err != nil {
+				v.log.WarnContext(ctx, "stored metadata of a title not read", "title", t.ID, "error", err)
+			} else if found {
+				summary.OriginalTitle = metadata.OriginalTitle
+				summary.Poster = metadata.Poster
+				summary.Backdrop = metadata.Backdrop
+				summary.Genres = append([]string(nil), metadata.Genres...)
+				summary.Collection = metadata.Collection
+			}
+		}
 		if t.Kind == domain.KindSeries {
 			missing, err := v.storedMissingEpisodes(ctx, t.ID)
 			if err != nil {
@@ -226,6 +274,25 @@ func (v *LibraryViews) Titles(ctx context.Context) ([]TitleSummary, error) {
 		out = append(out, summary)
 	}
 	return out, nil
+}
+
+// Collection returns one collection and the current library membership. It is
+// intentionally separate from Titles: collection pages may use the regular
+// cache-aware metadata read, while the title list uses StoredSummary only.
+func (v *LibraryViews) Collection(ctx context.Context, id int64) (CollectionView, error) {
+	reader, ok := v.tmdb.(LibraryCollectionMetadata)
+	if !ok {
+		return CollectionView{}, ErrCollectionNotFound
+	}
+	metadata, err := reader.Collection(ctx, id)
+	if err != nil {
+		return CollectionView{}, err
+	}
+	view := collectionView(&metadata, v.collectionLibrary(ctx), domain.LibraryTitle{})
+	if view == nil {
+		return CollectionView{}, ErrCollectionNotFound
+	}
+	return *view, nil
 }
 
 // Title returns a title of the library with its files that are out of the trash (RF-43). The poster comes
@@ -310,7 +377,7 @@ func (v *LibraryViews) Refresh(ctx context.Context, id int64) (TitleDetail, erro
 
 // summaryOf returns the list's view of a title.
 func summaryOf(t domain.LibraryTitle) TitleSummary {
-	return TitleSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, Year: t.Year, TMDBID: t.TMDBID, IDTag: t.IDTag}
+	return TitleSummary{ID: t.ID, Kind: t.Kind, Title: t.Title, DiscTitle: t.DiscTitle, Year: t.Year, AddedAt: t.CreatedAt, TMDBID: t.TMDBID, IDTag: t.IDTag}
 }
 
 func (v *LibraryViews) storedMissingEpisodes(ctx context.Context, titleID int64) (*int, error) {

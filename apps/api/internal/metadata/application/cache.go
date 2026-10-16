@@ -200,6 +200,28 @@ func (c *CachedProvider) Collection(ctx context.Context, language string, id int
 	})
 }
 
+// StoredMovie returns only the response already present in the cache. It never
+// asks the upstream provider, even when the cached response is stale.
+func (c *CachedProvider) StoredMovie(ctx context.Context, language string, id int64) (domain.Movie, bool, error) {
+	return stored[domain.Movie](ctx, c, key("movie/"+strconv.FormatInt(id, 10), language, nil))
+}
+
+// StoredSeries returns only the response already present in the cache. It never
+// asks the upstream provider, even when the cached response is stale.
+func (c *CachedProvider) StoredSeries(ctx context.Context, language string, id int64) (domain.Series, bool, error) {
+	return stored[domain.Series](ctx, c, key("tv/"+strconv.FormatInt(id, 10), language, nil))
+}
+
+// StoredCollection returns only the response already present in the cache.
+func (c *CachedProvider) StoredCollection(ctx context.Context, language string, id int64) (domain.Collection, bool, error) {
+	return stored[domain.Collection](ctx, c, key("collection/"+strconv.FormatInt(id, 10), language, nil))
+}
+
+// StoredGenres returns only the response already present in the cache.
+func (c *CachedProvider) StoredGenres(ctx context.Context, language string, kind domain.MediaKind) ([]domain.Genre, bool, error) {
+	return stored[[]domain.Genre](ctx, c, key("genres/"+string(kind), language, nil))
+}
+
 // Genres answers from the cache while fresh (30 days).
 func (c *CachedProvider) Genres(ctx context.Context, language string, kind domain.MediaKind) ([]domain.Genre, error) {
 	return cached(ctx, c, key("genres/"+string(kind), language, nil), stableTTL, func(ctx context.Context) ([]domain.Genre, error) {
@@ -260,6 +282,24 @@ func lookup[T any](ctx context.Context, c *CachedProvider, key string) (value T,
 		return zero, time.Time{}, false
 	}
 	return value, entry.ExpiresAt, true
+}
+
+// stored is a cache-only lookup. Expiry intentionally does not affect the
+// result: RF-42a allows stale TMDB data for the title list.
+func stored[T any](ctx context.Context, c *CachedProvider, cacheKey string) (T, bool, error) {
+	var zero T
+	entry, found, err := c.store.Get(ctx, cacheKey)
+	if err != nil {
+		return zero, false, err
+	}
+	if !found {
+		return zero, false, nil
+	}
+	var value T
+	if err := json.Unmarshal(entry.Payload, &value); err != nil {
+		return zero, false, err
+	}
+	return value, true, nil
 }
 
 // save stores an answer. A failure is logged: the answer is still valid.

@@ -62,6 +62,17 @@ type richViewTMDB struct {
 	refreshErr error
 }
 
+type storedViewTMDB struct {
+	viewTMDB
+	metadata    TitleSummaryMetadata
+	storedCalls int
+}
+
+func (t *storedViewTMDB) StoredSummary(context.Context, domain.TitleKind, int64) (TitleSummaryMetadata, bool, error) {
+	t.storedCalls++
+	return t.metadata, true, nil
+}
+
 func (t *richViewTMDB) Details(context.Context, domain.TitleKind, int64) (TitleMetadata, error) {
 	t.calls++
 	return t.metadata, t.err
@@ -152,6 +163,65 @@ func TestTheTitleListReadsTheStoredCountWithoutCallingTMDB(t *testing.T) {
 	}
 	if tmdb.calls != 0 {
 		t.Fatalf("TMDB Details calls = %d, want 0", tmdb.calls)
+	}
+}
+
+func TestTheTitleListReadsSavedMetadataWithoutCallingTMDB(t *testing.T) {
+	t.Parallel()
+	added := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	linked := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
+	linked.CreatedAt = added
+	repo := &viewRepo{titles: []domain.LibraryTitle{linked}, files: map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")}}}
+	tmdb := &storedViewTMDB{metadata: TitleSummaryMetadata{
+		OriginalTitle: "Iron Man",
+		Poster:        "poster.jpg",
+		Backdrop:      "backdrop.jpg",
+		Genres:        []string{"Action", "Science Fiction"},
+		Collection:    &CollectionRef{ID: 10, Name: "Iron Man Collection"},
+	}}
+
+	got, err := NewLibraryViews(repo, tmdb, nil).Titles(t.Context())
+	if err != nil {
+		t.Fatalf("Titles: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("titles = %+v, want one title", got)
+	}
+	if got[0].AddedAt != added || got[0].OriginalTitle != "Iron Man" || got[0].Poster != "poster.jpg" || got[0].Backdrop != "backdrop.jpg" {
+		t.Errorf("saved title metadata = %+v", got[0])
+	}
+	if len(got[0].Genres) != 2 || got[0].Collection == nil || got[0].Collection.ID != 10 {
+		t.Errorf("saved genres and collection = %+v", got[0])
+	}
+	if tmdb.storedCalls != 1 || tmdb.calls != 0 {
+		t.Errorf("stored calls = %d, TMDB calls = %d; want one cache read and no upstream call", tmdb.storedCalls, tmdb.calls)
+	}
+}
+
+type collectionViewTMDB struct {
+	viewTMDB
+	metadata CollectionMetadata
+}
+
+func (t *collectionViewTMDB) Collection(context.Context, int64) (CollectionMetadata, error) {
+	return t.metadata, nil
+}
+
+func TestTheCollectionViewMarksOnlyLiveLibraryMembers(t *testing.T) {
+	t.Parallel()
+	first := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
+	repo := &viewRepo{titles: []domain.LibraryTitle{first}, files: map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")}}}
+	tmdb := &collectionViewTMDB{metadata: CollectionMetadata{ID: 10, Name: "Iron Man Collection", Movies: []CollectionMovieMetadata{
+		{ID: 1726, Title: "Iron Man", Year: 2008},
+		{ID: 1727, Title: "Iron Man 2", Year: 2010},
+	}}}
+
+	got, err := NewLibraryViews(repo, tmdb, nil).Collection(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("Collection: %v", err)
+	}
+	if got.ID != 10 || len(got.Movies) != 2 || got.Movies[0].LibraryTitleID != 1 || got.Movies[1].LibraryTitleID != 0 {
+		t.Errorf("collection = %+v, want first movie linked and second absent", got)
 	}
 }
 

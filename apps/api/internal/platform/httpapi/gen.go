@@ -1262,7 +1262,19 @@ type LibraryTitle struct {
 
 // LibraryTitleSummary defines model for LibraryTitleSummary.
 type LibraryTitleSummary struct {
-	Id int64 `json:"id"`
+	// AddedAt When the first file of this title was registered.
+	AddedAt time.Time `json:"addedAt"`
+
+	// Backdrop Local backdrop route from the stored metadata cache; omitted when unavailable.
+	Backdrop   *string                        `json:"backdrop,omitempty"`
+	Collection *LibraryTitleSummaryCollection `json:"collection,omitempty"`
+
+	// DiscTitle The title in the library folder and file names.
+	DiscTitle string `json:"discTitle"`
+
+	// Genres Localized TMDB genre names from the stored metadata cache; omitted when unavailable.
+	Genres *[]string `json:"genres,omitempty"`
+	Id     int64     `json:"id"`
 
 	// IdTag Whether the tag [tmdbid-ID] is on in the folder and the files (RF-45).
 	IdTag bool `json:"idTag"`
@@ -1273,6 +1285,12 @@ type LibraryTitleSummary struct {
 	// MissingEpisodes Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a).
 	MissingEpisodes *int `json:"missingEpisodes,omitempty"`
 
+	// OriginalTitle The original TMDB title from the stored metadata cache; omitted when unavailable.
+	OriginalTitle *string `json:"originalTitle,omitempty"`
+
+	// Poster Local poster route from the stored metadata cache; omitted when unavailable.
+	Poster *string `json:"poster,omitempty"`
+
 	// Title The title the user sees (the TMDB title, or the free name).
 	Title string `json:"title"`
 
@@ -1281,6 +1299,12 @@ type LibraryTitleSummary struct {
 
 	// Year The year of the premiere or of the first broadcast; 0 when unknown.
 	Year int `json:"year"`
+}
+
+// LibraryTitleSummaryCollection defines model for LibraryTitleSummaryCollection.
+type LibraryTitleSummaryCollection struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // LibraryTitles defines model for LibraryTitles.
@@ -1801,6 +1825,9 @@ type VideoSuggestion struct {
 // AssignLockToken defines model for AssignLockToken.
 type AssignLockToken = string
 
+// CollectionId defines model for CollectionId.
+type CollectionId = int64
+
 // EntryId defines model for EntryId.
 type EntryId = int64
 
@@ -2054,6 +2081,9 @@ type ServerInterface interface {
 	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(w http.ResponseWriter, r *http.Request, id JobId)
+	// GetLibraryCollection A TMDB collection with its library membership (RF-40, RF-42a)
+	// (GET /library/collections/{id})
+	GetLibraryCollection(w http.ResponseWriter, r *http.Request, id CollectionId)
 	// ListLibraryTitles The titles of the library (RF-40, RF-43)
 	// (GET /library/titles)
 	ListLibraryTitles(w http.ResponseWriter, r *http.Request)
@@ -2369,6 +2399,32 @@ func (siw *ServerInterfaceWrapper) RetryJob(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RetryJob(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLibraryCollection operation middleware
+func (siw *ServerInterfaceWrapper) GetLibraryCollection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id CollectionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLibraryCollection(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3509,6 +3565,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/scans", wrapper.RunScans)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles", wrapper.ListLibraryTitles)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/collections/{id}", wrapper.GetLibraryCollection)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/metadata/refresh", wrapper.RefreshLibraryTitleMetadata)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/files/{fileId}/technical", wrapper.GetLibraryFileTechnical)
@@ -4158,6 +4215,22 @@ func (response SubmitJobPassword409ApplicationProblemPlusJSONResponse) VisitSubm
 	return err
 }
 
+type SubmitJobPassword502ApplicationProblemPlusJSONResponse struct {
+	MetadataRefreshFailedApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitJobPassword502ApplicationProblemPlusJSONResponse) VisitSubmitJobPasswordResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RetryJobRequestObject struct {
 	Id JobId `json:"id"`
 }
@@ -4224,6 +4297,60 @@ func (response RetryJob409ApplicationProblemPlusJSONResponse) VisitRetryJobRespo
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryCollectionRequestObject struct {
+	Id CollectionId `json:"id"`
+}
+
+type GetLibraryCollectionResponseObject interface {
+	VisitGetLibraryCollectionResponse(w http.ResponseWriter) error
+}
+
+type GetLibraryCollection200JSONResponse LibraryCollection
+
+func (response GetLibraryCollection200JSONResponse) VisitGetLibraryCollectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryCollection401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetLibraryCollection401ApplicationProblemPlusJSONResponse) VisitGetLibraryCollectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryCollection404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetLibraryCollection404ApplicationProblemPlusJSONResponse) VisitGetLibraryCollectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6462,6 +6589,9 @@ type StrictServerInterface interface {
 	// RetryJob Retry a job that failed for a retryable reason
 	// (POST /jobs/{id}/retry)
 	RetryJob(ctx context.Context, request RetryJobRequestObject) (RetryJobResponseObject, error)
+	// GetLibraryCollection A TMDB collection with its library membership (RF-40, RF-42a)
+	// (GET /library/collections/{id})
+	GetLibraryCollection(ctx context.Context, request GetLibraryCollectionRequestObject) (GetLibraryCollectionResponseObject, error)
 	// ListLibraryTitles The titles of the library (RF-40, RF-43)
 	// (GET /library/titles)
 	ListLibraryTitles(ctx context.Context, request ListLibraryTitlesRequestObject) (ListLibraryTitlesResponseObject, error)
@@ -6892,6 +7022,32 @@ func (sh *strictHandler) RetryJob(w http.ResponseWriter, r *http.Request, id Job
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RetryJobResponseObject); ok {
 		if err := validResponse.VisitRetryJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLibraryCollection operation middleware
+func (sh *strictHandler) GetLibraryCollection(w http.ResponseWriter, r *http.Request, id CollectionId) {
+	var request GetLibraryCollectionRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLibraryCollection(ctx, request.(GetLibraryCollectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLibraryCollection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLibraryCollectionResponseObject); ok {
+		if err := validResponse.VisitGetLibraryCollectionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -57,6 +57,20 @@ func (h *LibraryHandler) ListLibraryTitles(ctx context.Context, _ httpapi.ListLi
 	return httpapi.ListLibraryTitles200JSONResponse(out), nil
 }
 
+// GetLibraryCollection implements the collection screen (RF-40, RF-42a).
+func (h *LibraryHandler) GetLibraryCollection(ctx context.Context, req httpapi.GetLibraryCollectionRequestObject) (httpapi.GetLibraryCollectionResponseObject, error) {
+	collection, err := h.views.Collection(ctx, req.Id)
+	if errors.Is(err, application.ErrCollectionNotFound) {
+		return httpapi.GetLibraryCollection404ApplicationProblemPlusJSONResponse{
+			NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem()),
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return httpapi.GetLibraryCollection200JSONResponse(*collectionToAPI(collection)), nil
+}
+
 // GetLibraryTitle implements httpapi.StrictServerInterface (RF-43): a title with its files.
 func (h *LibraryHandler) GetLibraryTitle(ctx context.Context, req httpapi.GetLibraryTitleRequestObject) (httpapi.GetLibraryTitleResponseObject, error) {
 	t, err := h.views.Title(ctx, req.Id)
@@ -266,7 +280,28 @@ func asciiName(name string) string {
 
 // summaryToAPI returns the contract's view of a title in the list.
 func summaryToAPI(t application.TitleSummary) httpapi.LibraryTitleSummary {
-	out := httpapi.LibraryTitleSummary{Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, Year: t.Year, TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag}
+	out := httpapi.LibraryTitleSummary{
+		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, DiscTitle: t.DiscTitle, Year: t.Year,
+		TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, AddedAt: t.AddedAt,
+	}
+	if t.OriginalTitle != "" {
+		out.OriginalTitle = &t.OriginalTitle
+	}
+	if t.Poster != "" {
+		poster := imageURL("poster", t.Poster)
+		out.Poster = &poster
+	}
+	if t.Backdrop != "" {
+		backdrop := imageURL("backdrop", t.Backdrop)
+		out.Backdrop = &backdrop
+	}
+	if len(t.Genres) > 0 {
+		genres := append([]string(nil), t.Genres...)
+		out.Genres = &genres
+	}
+	if t.Collection != nil {
+		out.Collection = &httpapi.LibraryTitleSummaryCollection{Id: t.Collection.ID, Name: t.Collection.Name}
+	}
 	if t.MissingEpisodes != nil {
 		out.MissingEpisodes = t.MissingEpisodes
 	}

@@ -46,6 +46,20 @@ func (richLibraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, 
 	return []domain.LibraryFile{{ID: 71, TitleID: 7, Kind: domain.FileVideo, Rel: "TV Shows/Show (2020)/Season 01/Show - S01E01.mkv", Size: 10, Place: domain.Place{Episode: true, Season: 1, First: 1, Last: 1}}}, nil
 }
 
+type collectionLibraryRegistry struct{}
+
+func (collectionLibraryRegistry) TitleByFolder(context.Context, string) (domain.LibraryTitle, bool, error) {
+	return domain.LibraryTitle{}, false, nil
+}
+
+func (collectionLibraryRegistry) Titles(context.Context) ([]domain.LibraryTitle, error) {
+	return []domain.LibraryTitle{{ID: 7, Kind: domain.KindMovie, Title: "Show", DiscTitle: "Show", Year: 2020, TMDBID: 100, Folder: "Movies/Show (2020)"}}, nil
+}
+
+func (collectionLibraryRegistry) Files(context.Context, int64) ([]domain.LibraryFile, error) {
+	return []domain.LibraryFile{{ID: 71, TitleID: 7, Kind: domain.FileVideo, Rel: "Movies/Show (2020)/Show.mkv"}}, nil
+}
+
 type richLibraryTMDB struct {
 	calls      *int
 	refreshErr error
@@ -81,6 +95,13 @@ func (t richLibraryTMDB) Refresh(context.Context, domain.TitleKind, int64) (appl
 	return application.TitleMetadata{Title: "Show"}, nil
 }
 
+func (richLibraryTMDB) Collection(context.Context, int64) (application.CollectionMetadata, error) {
+	return application.CollectionMetadata{ID: 10, Name: "Show Collection", Overview: "A collection", Poster: "collection.jpg", Movies: []application.CollectionMovieMetadata{
+		{ID: 100, Title: "Show", OriginalTitle: "The Show", Year: 2020, Poster: "show.jpg"},
+		{ID: 101, Title: "Another Show", OriginalTitle: "Another Show", Year: 2021, Poster: "another.jpg"},
+	}}, nil
+}
+
 func TestTheTitleListDoesNotAskTMDBForEachSeries(t *testing.T) {
 	t.Parallel()
 	calls := 0
@@ -98,6 +119,25 @@ func TestTheTitleListDoesNotAskTMDBForEachSeries(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("TMDB Details calls = %d, want 0", calls)
+	}
+}
+
+func TestTheCollectionHandlerAnswersCachedCollectionAndLibraryMembership(t *testing.T) {
+	t.Parallel()
+	h := NewLibraryHandler(application.NewLibraryViews(collectionLibraryRegistry{}, richLibraryTMDB{}, nil), nil, nil, nil)
+	got, err := h.GetLibraryCollection(t.Context(), httpapi.GetLibraryCollectionRequestObject{Id: 10})
+	if err != nil {
+		t.Fatalf("GetLibraryCollection: %v", err)
+	}
+	response, ok := got.(httpapi.GetLibraryCollection200JSONResponse)
+	if !ok {
+		t.Fatalf("response = %T, want 200", got)
+	}
+	if response.Id != 10 || response.Name != "Show Collection" || response.Overview != "A collection" || len(response.Movies) != 2 {
+		t.Fatalf("collection = %+v", response)
+	}
+	if response.Movies[0].LibraryTitleId == nil || *response.Movies[0].LibraryTitleId != 7 || response.Movies[1].LibraryTitleId != nil {
+		t.Errorf("membership = %+v, want first linked and second absent", response.Movies)
 	}
 }
 

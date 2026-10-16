@@ -267,6 +267,75 @@ func (s *Service) Collection(ctx context.Context, id int64) (domain.Collection, 
 	return c, nil
 }
 
+type storedProvider interface {
+	StoredMovie(context.Context, string, int64) (domain.Movie, bool, error)
+	StoredSeries(context.Context, string, int64) (domain.Series, bool, error)
+	StoredCollection(context.Context, string, int64) (domain.Collection, bool, error)
+	StoredGenres(context.Context, string, domain.MediaKind) ([]domain.Genre, bool, error)
+}
+
+// StoredMovie reads a movie from the response cache only. It is used by
+// library list views, which must never turn a stale cache entry into a TMDB
+// request (RF-42a).
+func (s *Service) StoredMovie(ctx context.Context, id int64) (domain.Movie, bool, error) {
+	p, ok := s.provider.(storedProvider)
+	if !ok || id <= 0 {
+		return domain.Movie{}, false, nil
+	}
+	movie, found, err := p.StoredMovie(ctx, s.language, id)
+	if err != nil || !found {
+		return movie, found, err
+	}
+	movie.Genres = s.storedGenreNames(ctx, p, domain.KindMovie, movie.Genres)
+	return movie, true, nil
+}
+
+// StoredSeries reads a series from the response cache only.
+func (s *Service) StoredSeries(ctx context.Context, id int64) (domain.Series, bool, error) {
+	p, ok := s.provider.(storedProvider)
+	if !ok || id <= 0 {
+		return domain.Series{}, false, nil
+	}
+	series, found, err := p.StoredSeries(ctx, s.language, id)
+	if err != nil || !found {
+		return series, found, err
+	}
+	series.Genres = s.storedGenreNames(ctx, p, domain.KindSeries, series.Genres)
+	return series, true, nil
+}
+
+// StoredCollection reads a collection from the response cache only.
+func (s *Service) StoredCollection(ctx context.Context, id int64) (domain.Collection, bool, error) {
+	p, ok := s.provider.(storedProvider)
+	if !ok || id <= 0 {
+		return domain.Collection{}, false, nil
+	}
+	return p.StoredCollection(ctx, s.language, id)
+}
+
+func (s *Service) storedGenreNames(ctx context.Context, p storedProvider, kind domain.MediaKind, genres []domain.Genre) []domain.Genre {
+	out := slices.Clone(genres)
+	for _, language := range append([]string{s.language}, s.fallbackLanguages()...) {
+		if !slices.ContainsFunc(out, func(g domain.Genre) bool { return g.Name == "" }) {
+			break
+		}
+		cached, found, err := p.StoredGenres(ctx, language, kind)
+		if err != nil || !found {
+			continue
+		}
+		names := make(map[int64]string, len(cached))
+		for _, genre := range cached {
+			names[genre.ID] = genre.Name
+		}
+		for i := range out {
+			if out[i].Name == "" {
+				out[i].Name = names[out[i].ID]
+			}
+		}
+	}
+	return out
+}
+
 // Genres returns the genre list of a kind, named in the configured language.
 func (s *Service) Genres(ctx context.Context, kind domain.MediaKind) ([]domain.Genre, error) {
 	if s.provider == nil {
