@@ -16,23 +16,40 @@ const (
 	StateError State = "error"
 )
 
+// TranslationSource says where the route mapping came from. None means that
+// Jellyfin's roots were not found and a full-library refresh is used.
+type TranslationSource string
+
+const (
+	// TranslationDetected means Jellyfin's virtual-folder locations supplied the mapping.
+	TranslationDetected TranslationSource = "detected"
+	// TranslationConfigured means JELLYFIN_LIBRARY_PATH supplied the mapping.
+	TranslationConfigured TranslationSource = "configured"
+	// TranslationNone means the adapter falls back to a full-library refresh.
+	TranslationNone TranslationSource = "none"
+)
+
 // Translation describes how the media server sees the two library roots.
 // Empty roots mean that the adapter could not map that root and must use a
 // full-library refresh for changes below it.
 type Translation struct {
-	Forced     bool
-	MoviesRoot string
-	SeriesRoot string
+	Forced      bool
+	Source      TranslationSource
+	LibraryRoot string
+	MoviesRoot  string
+	SeriesRoot  string
 }
 
 // Status is an in-memory snapshot of the media-server integration. It contains
 // no credentials and is safe to pass to a future HTTP status handler.
 type Status struct {
-	State       State
-	Translation Translation
-	FullRefresh bool
-	LastError   string
-	LastErrorAt time.Time
+	State              State
+	Translation        Translation
+	FullRefresh        bool
+	LastErrorCode      string
+	LastError          string
+	LastErrorAt        time.Time
+	LastNotificationAt time.Time
 }
 
 // Connection is the result of a successful adapter path discovery.

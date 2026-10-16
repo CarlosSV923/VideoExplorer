@@ -7,6 +7,7 @@ import (
 	catalogshttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/interfaces/http"
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
 	ingestionhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/interfaces/http"
+	mediaservershttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/mediaservers/interfaces/http"
 	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpx"
@@ -25,6 +26,7 @@ type (
 	sectionAPI   = catalogshttp.SectionHandler
 	scanAPI      = catalogshttp.ScanHandler
 	trashAPI     = catalogshttp.TrashHandler
+	settingsAPI  = mediaservershttp.Handler
 )
 
 // api assembles the bounded contexts' handlers into the generated interface.
@@ -39,6 +41,7 @@ type api struct {
 	*sectionAPI
 	*scanAPI
 	*trashAPI
+	*settingsAPI
 }
 
 var _ httpapi.StrictServerInterface = api{}
@@ -51,7 +54,10 @@ var _ httpapi.StrictServerInterface = api{}
 // request logging and panic recovery wrap everything (RNF-02). WithRequest puts
 // the request in the context: the image operation needs it for
 // http.ServeContent (Range and conditional requests).
-func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler, assign *catalogshttp.Handler, section *catalogshttp.SectionHandler, scans *catalogshttp.ScanHandler, library *catalogshttp.LibraryHandler, trash *catalogshttp.TrashHandler) http.Handler {
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler, assign *catalogshttp.Handler, section *catalogshttp.SectionHandler, scans *catalogshttp.ScanHandler, library *catalogshttp.LibraryHandler, trash *catalogshttp.TrashHandler, settings *mediaservershttp.Handler) http.Handler {
+	if settings == nil {
+		settings = mediaservershttp.NewHandler(nil)
+	}
 	server := api{
 		systemAPI:    health,
 		identityAPI:  identity,
@@ -62,6 +68,7 @@ func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Han
 		sectionAPI:   section,
 		scanAPI:      scans,
 		trashAPI:     trash,
+		settingsAPI:  settings,
 	}
 
 	mux := http.NewServeMux()

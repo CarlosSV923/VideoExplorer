@@ -55,19 +55,19 @@ func TestDiscoverPathDetectionTable(t *testing.T) {
 		{
 			name:     "finds movie and series roots",
 			body:     `[{"Locations":["/srv/media/Movies"]},{"Locations":["/srv/media/TV Shows"]}]`,
-			want:     domain.Translation{MoviesRoot: "/srv/media/Movies", SeriesRoot: "/srv/media/TV Shows"},
+			want:     domain.Translation{Source: domain.TranslationDetected, LibraryRoot: "/srv/media", MoviesRoot: "/srv/media/Movies", SeriesRoot: "/srv/media/TV Shows"},
 			wantGets: 1,
 		},
 		{
 			name:     "finds no configured roots",
 			body:     `[{"Locations":["/srv/music"]}]`,
-			want:     domain.Translation{},
+			want:     domain.Translation{Source: domain.TranslationNone},
 			wantGets: 1,
 		},
 		{
 			name:       "forced path skips detection",
 			forcedPath: "/srv/media",
-			want:       domain.Translation{Forced: true},
+			want:       domain.Translation{Forced: true, Source: domain.TranslationConfigured, LibraryRoot: "/srv/media", MoviesRoot: "/srv/media/Movies", SeriesRoot: "/srv/media/TV Shows"},
 		},
 	}
 	for _, tt := range tests {

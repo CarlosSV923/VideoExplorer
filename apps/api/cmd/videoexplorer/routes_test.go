@@ -13,6 +13,7 @@ import (
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	identityhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/interfaces/http"
 	ingestionhttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/interfaces/http"
+	mediaservershttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/mediaservers/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/infrastructure/imagecache"
 	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
@@ -65,7 +66,7 @@ func newTestRoutesWithUploads(t *testing.T, cookieSecure bool, images applicatio
 		t.Fatal(err)
 	}
 	log := slog.New(slog.DiscardHandler)
-	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), ingest, uploads, nil, nil, scans, nil, nil)
+	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), ingest, uploads, nil, nil, scans, nil, nil, mediaservershttp.NewHandler(nil))
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
@@ -270,6 +271,11 @@ func TestSessionFlow(t *testing.T) {
 	rec = do(t, h, http.MethodGet, "/api/auth/session", "", cookie)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"expiresAt"`) {
 		t.Fatalf("session with cookie: status %d, body %q; want 200 with expiresAt", rec.Code, rec.Body.String())
+	}
+
+	rec = do(t, h, http.MethodGet, "/api/settings", "", cookie)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"unconfigured"`) {
+		t.Fatalf("settings with cookie: status %d, body %q; want 200 with Jellyfin state", rec.Code, rec.Body.String())
 	}
 
 	tampered := &http.Cookie{Name: identityhttp.CookieName, Value: cookie.Value + "x"}

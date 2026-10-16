@@ -34,6 +34,7 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/sevenzip"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/workspace"
+	mediaservershttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/mediaservers/interfaces/http"
 	metadatahttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/interfaces/http"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/config"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/database"
@@ -167,8 +168,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 
 	library := newLibrary(cfg, conn, catalog, meta, ingest.Service, log)
+	health := newHealth(cfg).WithJellyfinState(mediaServer.HealthState)
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler, library, catalogshttp.NewTrashHandler(catalog.Trash, cfg.TrashRetentionDays)))
+		routes(log, identity, health, metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler, library, catalogshttp.NewTrashHandler(catalog.Trash, cfg.TrashRetentionDays), mediaservershttp.NewHandler(mediaServer)))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)

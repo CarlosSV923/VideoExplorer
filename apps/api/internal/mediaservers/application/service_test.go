@@ -151,8 +151,24 @@ func TestNotificationFailureDoesNotEscapeAndIsKeptInStatus(t *testing.T) {
 	clock.advance(30 * time.Second)
 
 	status := service.Status()
-	if status.State != domain.StateError || status.LastError != "upstream unavailable" || !status.LastErrorAt.Equal(clock.Now()) {
+	if status.State != domain.StateError || status.LastErrorCode != application.ErrorCodeNotification || status.LastError != "upstream unavailable" || !status.LastErrorAt.Equal(clock.Now()) {
 		t.Fatalf("status = %+v, want the failed notification and its time", status)
+	}
+}
+
+func TestSuccessfulNotificationKeepsItsTimestamp(t *testing.T) {
+	t.Parallel()
+
+	clock := &fakeClock{now: time.Date(2026, time.October, 15, 12, 0, 0, 0, time.UTC)}
+	backend := &fakeBackend{configured: true}
+	service := newTestService(t, backend, clock)
+
+	service.NotifyFolders(t.Context(), []string{"Movies/Movie"})
+	clock.advance(30 * time.Second)
+
+	status := service.Status()
+	if status.State != domain.StateConnected || !status.LastNotificationAt.Equal(clock.Now()) {
+		t.Fatalf("status = %+v, want a successful notification timestamp", status)
 	}
 }
 

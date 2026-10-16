@@ -32,8 +32,11 @@ func serveHealth(t *testing.T, h *system.Handler) *httptest.ResponseRecorder {
 // healthBody decodes the answer. Each check keeps its raw keys so the tests can
 // check the JSON shape, not only the Go values.
 type healthBody struct {
-	Status string           `json:"status"`
-	Checks []map[string]any `json:"checks"`
+	Status   string           `json:"status"`
+	Checks   []map[string]any `json:"checks"`
+	Jellyfin struct {
+		State string `json:"state"`
+	} `json:"jellyfin"`
 }
 
 func decodeHealth(t *testing.T, rec *httptest.ResponseRecorder) healthBody {
@@ -243,6 +246,32 @@ func TestGetHealthFailureKeepsItsDataAndMessage(t *testing.T) {
 	}
 	if msg, _ := c["message"].(string); strings.Contains(msg, "\n") {
 		t.Errorf("message must be one line: %q", msg)
+	}
+}
+
+func TestJellyfinErrorDoesNotChangeHealthStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		checks     []system.Check
+		wantStatus string
+	}{
+		{name: "passing checks remain ok", wantStatus: "ok"},
+		{name: "an unrelated failing check remains degraded", checks: []system.Check{failingCheck("data", httpapi.DataNotWritable, system.Failure{Message: "no"})}, wantStatus: "degraded"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			h := system.NewHandler(tt.checks...).WithJellyfinState(func() string { return "error" })
+			body := decodeHealth(t, serveHealth(t, h))
+			if body.Status != tt.wantStatus {
+				t.Errorf("status = %q, want %q", body.Status, tt.wantStatus)
+			}
+			if body.Jellyfin.State != "error" {
+				t.Errorf("jellyfin.state = %q, want error", body.Jellyfin.State)
+			}
+		})
 	}
 }
 

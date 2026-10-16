@@ -39,14 +39,29 @@ type Failure struct {
 
 // Handler implements GetHealth by running its checks on every request.
 type Handler struct {
-	checks  []Check
-	timeout time.Duration
+	checks        []Check
+	timeout       time.Duration
+	jellyfinState func() string
 }
 
 // NewHandler builds the handler. The checks run concurrently and are reported
 // in the order given.
 func NewHandler(checks ...Check) *Handler {
-	return &Handler{checks: checks, timeout: checkTimeout}
+	return &Handler{
+		checks:        checks,
+		timeout:       checkTimeout,
+		jellyfinState: func() string { return "unconfigured" },
+	}
+}
+
+// WithJellyfinState supplies the public health snapshot without making
+// Jellyfin one of the process diagnostics. A nil provider keeps the safe
+// unconfigured default used by tests and by installations without Jellyfin.
+func (h *Handler) WithJellyfinState(provider func() string) *Handler {
+	if provider != nil {
+		h.jellyfinState = provider
+	}
+	return h
 }
 
 // GetHealth implements httpapi.StrictServerInterface. It always answers 200:
@@ -63,9 +78,17 @@ func (h *Handler) GetHealth(ctx context.Context, _ httpapi.GetHealthRequestObjec
 			status = httpapi.Degraded
 		}
 	}
+	jellyfinState := "unconfigured"
+	if h.jellyfinState != nil {
+		jellyfinState = h.jellyfinState()
+	}
 	cacheControl := noStore
 	return httpapi.GetHealth200JSONResponse{
-		Body:    httpapi.Health{Status: status, Checks: checks},
+		Body: httpapi.Health{
+			Status:   status,
+			Checks:   checks,
+			Jellyfin: httpapi.JellyfinHealth{State: httpapi.JellyfinHealthState(jellyfinState)},
+		},
 		Headers: httpapi.GetHealth200ResponseHeaders{CacheControl: &cacheControl},
 	}, nil
 }

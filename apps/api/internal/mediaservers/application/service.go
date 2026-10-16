@@ -18,6 +18,10 @@ const (
 	// RefreshWindow is the debounce window required by RF-50.
 	RefreshWindow = 30 * time.Second
 	refreshPeriod = time.Hour
+	// ErrorCodeDiscovery is the stable settings code for a failed route lookup.
+	ErrorCodeDiscovery = "discovery_failed"
+	// ErrorCodeNotification is the stable settings code for a failed refresh.
+	ErrorCodeNotification = "notification_failed"
 )
 
 // Timer is the part of a timer needed by the injected clock.
@@ -80,7 +84,7 @@ func NewService(backend Backend, clock Clock, log *slog.Logger) *Service {
 		clock:   clock,
 		log:     log,
 		pending: map[string]struct{}{},
-		status:  domain.Status{State: state},
+		status:  domain.Status{State: state, Translation: domain.Translation{Source: domain.TranslationNone}, FullRefresh: state == domain.StateConnected},
 	}
 }
 
@@ -114,15 +118,18 @@ func (s *Service) RefreshConfiguration(ctx context.Context) {
 	}
 	connection, err := s.backend.Discover(ctx)
 	if err != nil {
-		s.failed(err)
+		s.failed(err, ErrorCodeDiscovery)
 		return
 	}
-	s.setStatus(domain.Status{
-		State:       domain.StateConnected,
-		Translation: connection.Translation,
-		FullRefresh: !connection.Translation.Forced &&
-			(connection.Translation.MoviesRoot == "" || connection.Translation.SeriesRoot == ""),
-	})
+	status := s.Status()
+	status.State = domain.StateConnected
+	status.Translation = connection.Translation
+	status.FullRefresh = !connection.Translation.Forced &&
+		(connection.Translation.MoviesRoot == "" || connection.Translation.SeriesRoot == "")
+	status.LastErrorCode = ""
+	status.LastError = ""
+	status.LastErrorAt = time.Time{}
+	s.setStatus(status)
 }
 
 // Status returns the latest in-memory state for the future settings/health
@@ -132,6 +139,9 @@ func (s *Service) Status() domain.Status {
 	defer s.mu.Unlock()
 	return s.status
 }
+
+// HealthState returns only the state required by the public health endpoint.
+func (s *Service) HealthState() string { return string(s.Status().State) }
 
 // NotifyFolders queues title or season folders. No-assigned and metadata paths
 // are deliberately ignored even if a caller passes them by mistake.
@@ -169,20 +179,23 @@ func (s *Service) flush() {
 	sort.Strings(folders)
 
 	if err := s.backend.Refresh(context.Background(), folders); err != nil {
-		s.failed(err)
+		s.failed(err, ErrorCodeNotification)
 		return
 	}
 	status := s.Status()
 	status.State = domain.StateConnected
+	status.LastErrorCode = ""
 	status.LastError = ""
 	status.LastErrorAt = time.Time{}
+	status.LastNotificationAt = s.clock.Now()
 	s.setStatus(status)
 }
 
-func (s *Service) failed(err error) {
+func (s *Service) failed(err error, code string) {
 	now := s.clock.Now()
 	status := s.Status()
 	status.State = domain.StateError
+	status.LastErrorCode = code
 	status.LastError = err.Error()
 	status.LastErrorAt = now
 	s.setStatus(status)

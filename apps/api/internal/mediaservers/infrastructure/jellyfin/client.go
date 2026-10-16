@@ -114,7 +114,14 @@ func (c *Client) Discover(ctx context.Context) (domain.Connection, error) {
 		return domain.Connection{}, nil
 	}
 	if c.cfg.ForcedLibraryPath != "" {
-		translation := domain.Translation{Forced: true}
+		root := cleanRemotePath(c.cfg.ForcedLibraryPath)
+		translation := domain.Translation{
+			Forced:      true,
+			Source:      domain.TranslationConfigured,
+			LibraryRoot: root,
+			MoviesRoot:  path.Join(root, c.cfg.MoviesDir),
+			SeriesRoot:  path.Join(root, c.cfg.SeriesDir),
+		}
 		c.setTranslation(translation)
 		return domain.Connection{Translation: translation}, nil
 	}
@@ -123,7 +130,7 @@ func (c *Client) Discover(ctx context.Context) (domain.Connection, error) {
 	if err := c.request(ctx, http.MethodGet, "/Library/VirtualFolders", nil, &folders); err != nil {
 		return domain.Connection{}, err
 	}
-	translation := domain.Translation{}
+	translation := domain.Translation{Source: domain.TranslationNone}
 	for _, folder := range folders {
 		for _, location := range folder.Locations {
 			if translation.MoviesRoot == "" && hasRootSuffix(location, c.cfg.MoviesDir) {
@@ -134,6 +141,10 @@ func (c *Client) Discover(ctx context.Context) (domain.Connection, error) {
 			}
 		}
 	}
+	if translation.MoviesRoot != "" || translation.SeriesRoot != "" {
+		translation.Source = domain.TranslationDetected
+	}
+	translation.LibraryRoot = commonRoot(translation.MoviesRoot, translation.SeriesRoot)
 	c.setTranslation(translation)
 	return domain.Connection{Translation: translation}, nil
 }
@@ -213,6 +224,36 @@ func cleanRemotePath(raw string) string {
 }
 
 func equalPathPart(a, b string) bool { return strings.EqualFold(a, b) }
+
+func commonRoot(first, second string) string {
+	if first == "" && second == "" {
+		return ""
+	}
+	if first == "" {
+		return path.Dir(second)
+	}
+	if second == "" {
+		return path.Dir(first)
+	}
+	firstParts := strings.Split(strings.Trim(path.Clean(first), "/"), "/")
+	secondParts := strings.Split(strings.Trim(path.Clean(second), "/"), "/")
+	length := len(firstParts)
+	if len(secondParts) < length {
+		length = len(secondParts)
+	}
+	common := make([]string, 0, length)
+	for i := 0; i < length && equalPathPart(firstParts[i], secondParts[i]); i++ {
+		common = append(common, firstParts[i])
+	}
+	if len(common) == 0 {
+		return ""
+	}
+	root := strings.Join(common, "/")
+	if strings.HasPrefix(first, "/") {
+		return "/" + root
+	}
+	return root
+}
 
 func (c *Client) request(ctx context.Context, method, endpoint string, body any, out any) error {
 	var payload []byte
