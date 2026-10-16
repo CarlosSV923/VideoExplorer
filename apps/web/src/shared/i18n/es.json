@@ -14,7 +14,57 @@
     "hidePassword": "Ocultar contraseña",
     "clear": "Limpiar",
     "previous": "Anterior",
-    "next": "Siguiente"
+    "next": "Siguiente",
+    "retry": "Reintentar"
+  },
+  "login": {
+    "title": "Entrar",
+    "body": "Usa la contraseña de VideoExplorer para continuar.",
+    "password": "Contraseña",
+    "submit": "Entrar"
+  },
+  "errors": {
+    "loginUnauthorized": "La contraseña no es correcta.",
+    "rateLimited": "Demasiados intentos. Espera un momento y vuelve a intentarlo.",
+    "loginFailed": "No se pudo iniciar sesión.",
+    "loadTitle": "No se pudo cargar",
+    "loadBody": "Comprueba la conexión con VideoExplorer y vuelve a intentarlo."
+  },
+  "notFound": {
+    "title": "No encontramos esa página",
+    "body": "La ruta que has abierto no existe."
+  },
+  "screens": {
+    "home": { "title": "Inicio", "body": "La pantalla de inicio estará disponible aquí." },
+    "movies": {
+      "title": "Películas",
+      "body": "La cuadrícula de películas estará disponible aquí."
+    },
+    "series": { "title": "Series", "body": "La cuadrícula de series estará disponible aquí." },
+    "movieDetail": {
+      "title": "Ficha de película",
+      "body": "La ficha de la película estará disponible aquí."
+    },
+    "seriesDetail": {
+      "title": "Ficha de serie",
+      "body": "La ficha de la serie estará disponible aquí."
+    },
+    "edit": {
+      "title": "Editar y reasignar",
+      "body": "La edición del título estará disponible aquí."
+    },
+    "collection": { "title": "Colección", "body": "La colección estará disponible aquí." },
+    "search": { "title": "Buscar", "body": "La búsqueda global estará disponible aquí." },
+    "unassigned": {
+      "title": "No asignados",
+      "body": "La sección de No asignados estará disponible aquí."
+    },
+    "assign": { "title": "Asignar", "body": "La asignación estará disponible aquí." },
+    "generalSettings": {
+      "title": "Ajustes generales",
+      "body": "Los ajustes generales estarán disponibles aquí."
+    },
+    "trashSettings": { "title": "Papelera", "body": "La papelera estará disponible aquí." }
   },
   "language": {
     "label": "Idioma",

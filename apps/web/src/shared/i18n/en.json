@@ -14,7 +14,51 @@
     "hidePassword": "Hide password",
     "clear": "Clear",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "retry": "Retry"
+  },
+  "login": {
+    "title": "Sign in",
+    "body": "Use the VideoExplorer password to continue.",
+    "password": "Password",
+    "submit": "Sign in"
+  },
+  "errors": {
+    "loginUnauthorized": "The password is not correct.",
+    "rateLimited": "Too many attempts. Wait a moment and try again.",
+    "loginFailed": "Could not sign in.",
+    "loadTitle": "Could not load",
+    "loadBody": "Check the connection to VideoExplorer and try again."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "The route you opened does not exist."
+  },
+  "screens": {
+    "home": { "title": "Home", "body": "The home screen will be available here." },
+    "movies": { "title": "Movies", "body": "The movie grid will be available here." },
+    "series": { "title": "Series", "body": "The series grid will be available here." },
+    "movieDetail": {
+      "title": "Movie details",
+      "body": "The movie details will be available here."
+    },
+    "seriesDetail": {
+      "title": "Series details",
+      "body": "The series details will be available here."
+    },
+    "edit": { "title": "Edit and reassign", "body": "Title editing will be available here." },
+    "collection": { "title": "Collection", "body": "The collection will be available here." },
+    "search": { "title": "Search", "body": "Global search will be available here." },
+    "unassigned": {
+      "title": "Unassigned",
+      "body": "The unassigned section will be available here."
+    },
+    "assign": { "title": "Assign", "body": "Assignment will be available here." },
+    "generalSettings": {
+      "title": "General settings",
+      "body": "General settings will be available here."
+    },
+    "trashSettings": { "title": "Trash", "body": "The trash will be available here." }
   },
   "language": {
     "label": "Language",
