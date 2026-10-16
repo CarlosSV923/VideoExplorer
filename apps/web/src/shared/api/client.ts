@@ -16,6 +16,7 @@ export function createApiClient(
 ): ApiClient {
   return createClient<paths>({
     baseUrl: options.baseUrl ?? '/api',
+    credentials: 'same-origin',
     ...(options.fetch ? { fetch: options.fetch } : {}),
   })
 }
