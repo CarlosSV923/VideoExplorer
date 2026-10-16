@@ -227,6 +227,9 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 		for _, h := range hits {
 			hit := TitleHit{Source: "tmdb", TMDBID: h.ID, Kind: kind, Title: h.Title, Year: h.Year, PosterFile: h.PosterFile}
 			hit.LibraryID = libraryIDOf(titles, kind, h.ID)
+			if hit.LibraryID != 0 {
+				hit.Source = "library"
+			}
 			out.TMDB = append(out.TMDB, hit)
 		}
 	}
@@ -355,6 +358,9 @@ func (a *Assignments) bestMatch(ctx context.Context, r NameReading, titles []dom
 	}
 	h := TitleHit{Source: "tmdb", TMDBID: hits[0].ID, Kind: r.Kind, Title: hits[0].Title, Year: hits[0].Year, PosterFile: hits[0].PosterFile}
 	h.LibraryID = libraryIDOf(titles, r.Kind, h.TMDBID)
+	if h.LibraryID != 0 {
+		h.Source = "library"
+	}
 	return &h
 }
 

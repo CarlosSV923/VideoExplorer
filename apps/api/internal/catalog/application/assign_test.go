@@ -300,6 +300,10 @@ func TestSuggestionsReadTheNamesAndTheBestTMDBMatch(t *testing.T) {
 	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
 	e.tmdbSeries(1396, "Breaking Bad", "Breaking Bad", 2008)
 	e.tmdb.hits["series|breaking bad"] = []application.TMDBTitle{{ID: 1396, Title: "Breaking Bad", Year: 2008}}
+	e.registerTitle(domain.LibraryTitle{
+		Kind: domain.KindSeries, Title: "Breaking Bad", DiscTitle: "Breaking Bad", Year: 2008, TMDBID: 1396,
+		Folder: "TV Shows/Breaking Bad (2008) [tmdbid-1396]", IDTag: true,
+	}, nil)
 	id := e.entry("Breaking.Bad.S01", domain.RelationEpisodes, false, map[string]string{
 		"Breaking.Bad.S01E01.mkv":           "e1",
 		"Breaking.Bad.S01E02.mkv":           "e2",
@@ -319,7 +323,7 @@ func TestSuggestionsReadTheNamesAndTheBestTMDBMatch(t *testing.T) {
 	if !s.TMDBConfigured || s.Relation != string(domain.RelationEpisodes) {
 		t.Fatalf("configured=%v relation=%q", s.TMDBConfigured, s.Relation)
 	}
-	if s.Title == nil || s.Title.TMDBID != 1396 || s.Title.Kind != domain.KindSeries {
+	if s.Title == nil || s.Title.TMDBID != 1396 || s.Title.Kind != domain.KindSeries || s.Title.Source != "library" || s.Title.LibraryID == 0 {
 		t.Errorf("entry title = %+v, want the series of the chapters (RF-03)", s.Title)
 	}
 	if len(s.Videos) != 2 || s.Videos[0].Match == nil || s.Videos[0].Reading.Chapter == nil || *s.Videos[0].Reading.Chapter != 1 {
@@ -383,7 +387,7 @@ func TestSearchPutsTheLibraryTitlesFirst(t *testing.T) {
 	if !res.TMDBAvailable || len(res.TMDB) != 2 {
 		t.Fatalf("tmdb = %+v available=%v", res.TMDB, res.TMDBAvailable)
 	}
-	if res.TMDB[0].LibraryID == 0 || res.TMDB[1].LibraryID != 0 {
+	if res.TMDB[0].LibraryID == 0 || res.TMDB[0].Source != "library" || res.TMDB[1].LibraryID != 0 {
 		t.Errorf("the TMDB title already in the library points to it: %+v", res.TMDB)
 	}
 
