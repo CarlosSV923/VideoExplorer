@@ -22,6 +22,12 @@ func newLibrary(cfg config.Config, conn *sql.DB, catalog catalogWiring, meta met
 	files := libraryfs.New(cfg.LibraryPath)
 	library := catalogsqlite.NewLibraryRepository(conn)
 	prober := ingestionapplication.NewCachedProber(ffprobe.New(""), fileid.Identifier{}, ingestionsqlite.NewMediaProbeRepository(conn), log)
+	catalog.Trash.ConfigureRestore(catalogapplication.TrashRestoreDeps{
+		Repository: catalogsqlite.NewTrashRepository(conn), Library: library, Files: files, Engine: catalog.Engine,
+		Finder: catalogapplication.NewDuplicateFinder(library, files, hasherOf{ingest: ingest}, cfg.VideoExtensions),
+		Media:  mediaOf{prober: prober, log: log}, SubtitleExts: cfg.SubtitleExtensions,
+		Roots: catalogapplication.Roots{Movies: cfg.MoviesDir, Series: cfg.SeriesDir}, Now: time.Now,
+	})
 	edits := catalogapplication.NewEdits(catalogapplication.EditDeps{
 		Library:      library,
 		Files:        files,

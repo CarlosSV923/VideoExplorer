@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	catalogshttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/interfaces/http"
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/infrastructure/sevenzip"
@@ -123,6 +124,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 	} else if n > 0 {
 		log.Info("interrupted library changes undone", "operations", n)
 	}
+	go catalog.Trash.RunPurge(ctx, time.Hour, time.Duration(cfg.TrashRetentionDays)*24*time.Hour, log)
 
 	ingest := newIngestion(conn, log, ctx.Done())
 	uploads := newUploads(cfg, log, ingest.Service)
@@ -158,8 +160,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 		return err
 	}
 
+	library := newLibrary(cfg, conn, catalog, meta, ingest.Service, log)
 	srv := httpserver.New(net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler, newLibrary(cfg, conn, catalog, meta, ingest.Service, log)))
+		routes(log, identity, newHealth(cfg), metadatahttp.NewHandler(meta.Images, log), ingest.Handler, uploads.handler, assign.Handler, assign.Section, scans.Handler, library, catalogshttp.NewTrashHandler(catalog.Trash, cfg.TrashRetentionDays)))
 
 	var lc net.ListenConfig
 	ln, err := lc.Listen(ctx, "tcp", srv.Addr)

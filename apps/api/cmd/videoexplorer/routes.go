@@ -24,6 +24,7 @@ type (
 	libraryAPI   = catalogshttp.LibraryHandler
 	sectionAPI   = catalogshttp.SectionHandler
 	scanAPI      = catalogshttp.ScanHandler
+	trashAPI     = catalogshttp.TrashHandler
 )
 
 // api assembles the bounded contexts' handlers into the generated interface.
@@ -37,6 +38,7 @@ type api struct {
 	*libraryAPI
 	*sectionAPI
 	*scanAPI
+	*trashAPI
 }
 
 var _ httpapi.StrictServerInterface = api{}
@@ -49,7 +51,7 @@ var _ httpapi.StrictServerInterface = api{}
 // request logging and panic recovery wrap everything (RNF-02). WithRequest puts
 // the request in the context: the image operation needs it for
 // http.ServeContent (Range and conditional requests).
-func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler, assign *catalogshttp.Handler, section *catalogshttp.SectionHandler, scans *catalogshttp.ScanHandler, library *catalogshttp.LibraryHandler) http.Handler {
+func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Handler, metadata *metadatahttp.Handler, ingestion *ingestionhttp.Handler, uploads http.Handler, assign *catalogshttp.Handler, section *catalogshttp.SectionHandler, scans *catalogshttp.ScanHandler, library *catalogshttp.LibraryHandler, trash *catalogshttp.TrashHandler) http.Handler {
 	server := api{
 		systemAPI:    health,
 		identityAPI:  identity,
@@ -59,6 +61,7 @@ func routes(log *slog.Logger, identity *identityhttp.Handler, health *system.Han
 		libraryAPI:   library,
 		sectionAPI:   section,
 		scanAPI:      scans,
+		trashAPI:     trash,
 	}
 
 	mux := http.NewServeMux()

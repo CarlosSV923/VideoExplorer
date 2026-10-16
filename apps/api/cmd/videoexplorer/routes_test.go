@@ -65,7 +65,7 @@ func newTestRoutesWithUploads(t *testing.T, cookieSecure bool, images applicatio
 		t.Fatal(err)
 	}
 	log := slog.New(slog.DiscardHandler)
-	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), ingest, uploads, nil, nil, scans, nil)
+	return routes(log, identity, system.NewHandler(), metadatahttp.NewHandler(images, log), ingest, uploads, nil, nil, scans, nil, nil)
 }
 
 func do(t *testing.T, h http.Handler, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {

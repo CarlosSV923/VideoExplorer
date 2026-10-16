@@ -107,19 +107,19 @@ func (e CheckCode) Valid() bool {
 
 // Defines values for DuplicateDecision.
 const (
-	KeepBoth DuplicateDecision = "keep_both"
-	Replace  DuplicateDecision = "replace"
-	Skip     DuplicateDecision = "skip"
+	DuplicateDecisionKeepBoth DuplicateDecision = "keep_both"
+	DuplicateDecisionReplace  DuplicateDecision = "replace"
+	DuplicateDecisionSkip     DuplicateDecision = "skip"
 )
 
 // Valid indicates whether the value is a known member of the DuplicateDecision enum.
 func (e DuplicateDecision) Valid() bool {
 	switch e {
-	case KeepBoth:
+	case DuplicateDecisionKeepBoth:
 		return true
-	case Replace:
+	case DuplicateDecisionReplace:
 		return true
-	case Skip:
+	case DuplicateDecisionSkip:
 		return true
 	default:
 		return false
@@ -396,18 +396,84 @@ func (e TitleSource) Valid() bool {
 	}
 }
 
+// Defines values for TrashEntryOrigin.
+const (
+	TrashEntryOriginLibrary TrashEntryOrigin = "library"
+	TrashEntryOriginSamba   TrashEntryOrigin = "samba"
+	TrashEntryOriginUpload  TrashEntryOrigin = "upload"
+)
+
+// Valid indicates whether the value is a known member of the TrashEntryOrigin enum.
+func (e TrashEntryOrigin) Valid() bool {
+	switch e {
+	case TrashEntryOriginLibrary:
+		return true
+	case TrashEntryOriginSamba:
+		return true
+	case TrashEntryOriginUpload:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrashEntryReason.
+const (
+	Extracted TrashEntryReason = "extracted"
+	Filtered  TrashEntryReason = "filtered"
+	Removed   TrashEntryReason = "removed"
+	Replaced  TrashEntryReason = "replaced"
+)
+
+// Valid indicates whether the value is a known member of the TrashEntryReason enum.
+func (e TrashEntryReason) Valid() bool {
+	switch e {
+	case Extracted:
+		return true
+	case Filtered:
+		return true
+	case Removed:
+		return true
+	case Replaced:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrashRestoreDecision.
+const (
+	TrashRestoreDecisionCancel   TrashRestoreDecision = "cancel"
+	TrashRestoreDecisionKeepBoth TrashRestoreDecision = "keep_both"
+	TrashRestoreDecisionReplace  TrashRestoreDecision = "replace"
+)
+
+// Valid indicates whether the value is a known member of the TrashRestoreDecision enum.
+func (e TrashRestoreDecision) Valid() bool {
+	switch e {
+	case TrashRestoreDecisionCancel:
+		return true
+	case TrashRestoreDecisionKeepBoth:
+		return true
+	case TrashRestoreDecisionReplace:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UnassignedEntryOrigin.
 const (
-	Samba  UnassignedEntryOrigin = "samba"
-	Upload UnassignedEntryOrigin = "upload"
+	UnassignedEntryOriginSamba  UnassignedEntryOrigin = "samba"
+	UnassignedEntryOriginUpload UnassignedEntryOrigin = "upload"
 )
 
 // Valid indicates whether the value is a known member of the UnassignedEntryOrigin enum.
 func (e UnassignedEntryOrigin) Valid() bool {
 	switch e {
-	case Samba:
+	case UnassignedEntryOriginSamba:
 		return true
-	case Upload:
+	case UnassignedEntryOriginUpload:
 		return true
 	default:
 		return false
@@ -1205,6 +1271,81 @@ type TitleSearch struct {
 // user (`free`, spec §6).
 type TitleSource string
 
+// TrashEntry An entry in the trash, with its files and expiry (RF-31a).
+type TrashEntry struct {
+	BatchId *string          `json:"batchId,omitempty"`
+	Files   []TrashFile      `json:"files"`
+	Id      int64            `json:"id"`
+	Origin  TrashEntryOrigin `json:"origin"`
+	PurgeAt time.Time        `json:"purgeAt"`
+	Reason  TrashEntryReason `json:"reason"`
+
+	// RelativePath Original path inside the drop or library when known.
+	RelativePath *string   `json:"relativePath,omitempty"`
+	TrashedAt    time.Time `json:"trashedAt"`
+}
+
+// TrashEntryOrigin defines model for TrashEntry.Origin.
+type TrashEntryOrigin string
+
+// TrashEntryReason defines model for TrashEntry.Reason.
+type TrashEntryReason string
+
+// TrashFile defines model for TrashFile.
+type TrashFile struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
+
+// TrashList defines model for TrashList.
+type TrashList struct {
+	Entries []TrashEntry `json:"entries"`
+}
+
+// TrashRestoreDecision RF-24 decision for a restored video.
+type TrashRestoreDecision string
+
+// TrashRestoreFilePlan defines model for TrashRestoreFilePlan.
+type TrashRestoreFilePlan struct {
+	Allowed      []TrashRestoreDecision `json:"allowed"`
+	Destinations []string               `json:"destinations"`
+	Duplicates   []PlanDuplicate        `json:"duplicates"`
+	File         string                 `json:"file"`
+
+	// Proposal RF-24 decision for a restored video.
+	Proposal *TrashRestoreDecision `json:"proposal,omitempty"`
+
+	// VersionIncomplete The proposed label needs an editable value before keep_both can be committed.
+	VersionIncomplete bool `json:"versionIncomplete"`
+
+	// VersionProposal Proposed version label for the restored video (RF-24).
+	VersionProposal *string `json:"versionProposal,omitempty"`
+}
+
+// TrashRestorePlan defines model for TrashRestorePlan.
+type TrashRestorePlan struct {
+	EntryId int64                  `json:"entryId"`
+	Files   []TrashRestoreFilePlan `json:"files"`
+}
+
+// TrashRestoreRequest defines model for TrashRestoreRequest.
+type TrashRestoreRequest struct {
+	Decisions []struct {
+		// Decision RF-24 decision for a restored video.
+		Decision TrashRestoreDecision `json:"decision"`
+		File     string               `json:"file"`
+
+		// Version Version label written when choosing keep_both (RF-24).
+		Version *string `json:"version,omitempty"`
+	} `json:"decisions"`
+}
+
+// TrashRestoreResult defines model for TrashRestoreResult.
+type TrashRestoreResult struct {
+	// Restored Destination paths restored by the engine.
+	Restored []string `json:"restored"`
+}
+
 // UnassignedEntry An entry of No asignados: a first-level folder of `_unassigned/`, or a loose file (RF-08, RF-27).
 // Its `id` is its id in the registry and stays while the entry is in No asignados.
 type UnassignedEntry struct {
@@ -1355,6 +1496,9 @@ type JobId = string
 // TitleId defines model for TitleId.
 type TitleId = int64
 
+// TrashId defines model for TrashId.
+type TrashId = int64
+
 // AssignConflict RFC 9457 problem details of an assignment, with the stable reason in `code`.
 type AssignConflict = AssignProblem
 
@@ -1465,6 +1609,9 @@ type TrashTitleScopeJSONRequestBody = LibraryScope
 // MoveTitleToUnassignedJSONRequestBody defines body for MoveTitleToUnassigned for application/json ContentType.
 type MoveTitleToUnassignedJSONRequestBody = LibraryScope
 
+// RestoreTrashEntryJSONRequestBody defines body for RestoreTrashEntry for application/json ContentType.
+type RestoreTrashEntryJSONRequestBody = TrashRestoreRequest
+
 // CommitAssignJSONRequestBody defines body for CommitAssign for application/json ContentType.
 type CommitAssignJSONRequestBody = AssignRequest
 
@@ -1545,6 +1692,21 @@ type ServerInterface interface {
 	// SearchTitles Titles to assign to, the library's first (RF-21)
 	// (GET /titles/search)
 	SearchTitles(w http.ResponseWriter, r *http.Request, params SearchTitlesParams)
+	// EmptyTrash Permanently empty the trash (RF-30, RF-31a)
+	// (DELETE /trash)
+	EmptyTrash(w http.ResponseWriter, r *http.Request)
+	// ListTrash List trash entries, newest first (RF-31a)
+	// (GET /trash)
+	ListTrash(w http.ResponseWriter, r *http.Request)
+	// DeleteTrashEntry Permanently delete a trash entry (RF-30, RF-31a)
+	// (DELETE /trash/{id})
+	DeleteTrashEntry(w http.ResponseWriter, r *http.Request, id TrashId)
+	// RestoreTrashEntry Restore an entry to its source (RF-31, RF-31a)
+	// (POST /trash/{id}/restore)
+	RestoreTrashEntry(w http.ResponseWriter, r *http.Request, id TrashId)
+	// PlanTrashRestore Preview restoring an entry (RF-31, RF-31a)
+	// (POST /trash/{id}/restore/plan)
+	PlanTrashRestore(w http.ResponseWriter, r *http.Request, id TrashId)
 	// GetUnassigned The entries of No asignados, read now from _unassigned/ (RF-27)
 	// (GET /unassigned)
 	GetUnassigned(w http.ResponseWriter, r *http.Request)
@@ -2058,6 +2220,112 @@ func (siw *ServerInterfaceWrapper) SearchTitles(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SearchTitles(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EmptyTrash operation middleware
+func (siw *ServerInterfaceWrapper) EmptyTrash(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EmptyTrash(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTrash operation middleware
+func (siw *ServerInterfaceWrapper) ListTrash(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTrash(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTrashEntry operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTrashEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TrashId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTrashEntry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreTrashEntry operation middleware
+func (siw *ServerInterfaceWrapper) RestoreTrashEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TrashId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreTrashEntry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlanTrashRestore operation middleware
+func (siw *ServerInterfaceWrapper) PlanTrashRestore(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TrashId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlanTrashRestore(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2587,6 +2855,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/id-tag/commit", wrapper.CommitTitleIDTag)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/unassigned", wrapper.MoveTitleToUnassigned)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/trash", wrapper.TrashTitleScope)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/trash", wrapper.EmptyTrash)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/trash", wrapper.ListTrash)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/trash/{id}", wrapper.DeleteTrashEntry)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/trash/{id}/restore/plan", wrapper.PlanTrashRestore)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/trash/{id}/restore", wrapper.RestoreTrashEntry)
 
 	return m
 }
@@ -3978,6 +4251,247 @@ func (response SearchTitles401ApplicationProblemPlusJSONResponse) VisitSearchTit
 	return err
 }
 
+type EmptyTrashRequestObject struct {
+}
+
+type EmptyTrashResponseObject interface {
+	VisitEmptyTrashResponse(w http.ResponseWriter) error
+}
+
+type EmptyTrash204Response struct {
+}
+
+func (response EmptyTrash204Response) VisitEmptyTrashResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type EmptyTrash401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response EmptyTrash401ApplicationProblemPlusJSONResponse) VisitEmptyTrashResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTrashRequestObject struct {
+}
+
+type ListTrashResponseObject interface {
+	VisitListTrashResponse(w http.ResponseWriter) error
+}
+
+type ListTrash200JSONResponse TrashList
+
+func (response ListTrash200JSONResponse) VisitListTrashResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTrash401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListTrash401ApplicationProblemPlusJSONResponse) VisitListTrashResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTrashEntryRequestObject struct {
+	Id TrashId `json:"id"`
+}
+
+type DeleteTrashEntryResponseObject interface {
+	VisitDeleteTrashEntryResponse(w http.ResponseWriter) error
+}
+
+type DeleteTrashEntry204Response struct {
+}
+
+func (response DeleteTrashEntry204Response) VisitDeleteTrashEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteTrashEntry401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTrashEntry401ApplicationProblemPlusJSONResponse) VisitDeleteTrashEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTrashEntry404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteTrashEntry404ApplicationProblemPlusJSONResponse) VisitDeleteTrashEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTrashEntryRequestObject struct {
+	Id   TrashId `json:"id"`
+	Body *RestoreTrashEntryJSONRequestBody
+}
+
+type RestoreTrashEntryResponseObject interface {
+	VisitRestoreTrashEntryResponse(w http.ResponseWriter) error
+}
+
+type RestoreTrashEntry200JSONResponse TrashRestoreResult
+
+func (response RestoreTrashEntry200JSONResponse) VisitRestoreTrashEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTrashEntry401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RestoreTrashEntry401ApplicationProblemPlusJSONResponse) VisitRestoreTrashEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTrashEntry404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RestoreTrashEntry404ApplicationProblemPlusJSONResponse) VisitRestoreTrashEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RestoreTrashEntry409ApplicationProblemPlusJSONResponse struct {
+	EditConflictApplicationProblemPlusJSONResponse
+}
+
+func (response RestoreTrashEntry409ApplicationProblemPlusJSONResponse) VisitRestoreTrashEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTrashRestoreRequestObject struct {
+	Id TrashId `json:"id"`
+}
+
+type PlanTrashRestoreResponseObject interface {
+	VisitPlanTrashRestoreResponse(w http.ResponseWriter) error
+}
+
+type PlanTrashRestore200JSONResponse TrashRestorePlan
+
+func (response PlanTrashRestore200JSONResponse) VisitPlanTrashRestoreResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTrashRestore401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTrashRestore401ApplicationProblemPlusJSONResponse) VisitPlanTrashRestoreResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlanTrashRestore404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response PlanTrashRestore404ApplicationProblemPlusJSONResponse) VisitPlanTrashRestoreResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetUnassignedRequestObject struct {
 }
 
@@ -4754,6 +5268,21 @@ type StrictServerInterface interface {
 	// SearchTitles Titles to assign to, the library's first (RF-21)
 	// (GET /titles/search)
 	SearchTitles(ctx context.Context, request SearchTitlesRequestObject) (SearchTitlesResponseObject, error)
+	// EmptyTrash Permanently empty the trash (RF-30, RF-31a)
+	// (DELETE /trash)
+	EmptyTrash(ctx context.Context, request EmptyTrashRequestObject) (EmptyTrashResponseObject, error)
+	// ListTrash List trash entries, newest first (RF-31a)
+	// (GET /trash)
+	ListTrash(ctx context.Context, request ListTrashRequestObject) (ListTrashResponseObject, error)
+	// DeleteTrashEntry Permanently delete a trash entry (RF-30, RF-31a)
+	// (DELETE /trash/{id})
+	DeleteTrashEntry(ctx context.Context, request DeleteTrashEntryRequestObject) (DeleteTrashEntryResponseObject, error)
+	// RestoreTrashEntry Restore an entry to its source (RF-31, RF-31a)
+	// (POST /trash/{id}/restore)
+	RestoreTrashEntry(ctx context.Context, request RestoreTrashEntryRequestObject) (RestoreTrashEntryResponseObject, error)
+	// PlanTrashRestore Preview restoring an entry (RF-31, RF-31a)
+	// (POST /trash/{id}/restore/plan)
+	PlanTrashRestore(ctx context.Context, request PlanTrashRestoreRequestObject) (PlanTrashRestoreResponseObject, error)
 	// GetUnassigned The entries of No asignados, read now from _unassigned/ (RF-27)
 	// (GET /unassigned)
 	GetUnassigned(ctx context.Context, request GetUnassignedRequestObject) (GetUnassignedResponseObject, error)
@@ -5434,6 +5963,139 @@ func (sh *strictHandler) SearchTitles(w http.ResponseWriter, r *http.Request, pa
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SearchTitlesResponseObject); ok {
 		if err := validResponse.VisitSearchTitlesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EmptyTrash operation middleware
+func (sh *strictHandler) EmptyTrash(w http.ResponseWriter, r *http.Request) {
+	var request EmptyTrashRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EmptyTrash(ctx, request.(EmptyTrashRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EmptyTrash")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EmptyTrashResponseObject); ok {
+		if err := validResponse.VisitEmptyTrashResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTrash operation middleware
+func (sh *strictHandler) ListTrash(w http.ResponseWriter, r *http.Request) {
+	var request ListTrashRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTrash(ctx, request.(ListTrashRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTrash")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTrashResponseObject); ok {
+		if err := validResponse.VisitListTrashResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteTrashEntry operation middleware
+func (sh *strictHandler) DeleteTrashEntry(w http.ResponseWriter, r *http.Request, id TrashId) {
+	var request DeleteTrashEntryRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteTrashEntry(ctx, request.(DeleteTrashEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteTrashEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteTrashEntryResponseObject); ok {
+		if err := validResponse.VisitDeleteTrashEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RestoreTrashEntry operation middleware
+func (sh *strictHandler) RestoreTrashEntry(w http.ResponseWriter, r *http.Request, id TrashId) {
+	var request RestoreTrashEntryRequestObject
+
+	request.Id = id
+
+	var body RestoreTrashEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RestoreTrashEntry(ctx, request.(RestoreTrashEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RestoreTrashEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RestoreTrashEntryResponseObject); ok {
+		if err := validResponse.VisitRestoreTrashEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PlanTrashRestore operation middleware
+func (sh *strictHandler) PlanTrashRestore(w http.ResponseWriter, r *http.Request, id TrashId) {
+	var request PlanTrashRestoreRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PlanTrashRestore(ctx, request.(PlanTrashRestoreRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlanTrashRestore")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PlanTrashRestoreResponseObject); ok {
+		if err := validResponse.VisitPlanTrashRestoreResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

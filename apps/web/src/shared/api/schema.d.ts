@@ -729,10 +729,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List trash entries, newest first (RF-31a) */
+        get: operations["listTrash"];
+        put?: never;
+        post?: never;
+        /**
+         * Permanently empty the trash (RF-30, RF-31a)
+         * @description The caller presents confirmation in the UI; this operation does not ask for it.
+         */
+        delete: operations["emptyTrash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently delete a trash entry (RF-30, RF-31a)
+         * @description The caller presents confirmation in the UI; this operation does not ask for it.
+         */
+        delete: operations["deleteTrashEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/{id}/restore/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview restoring an entry (RF-31, RF-31a) */
+        post: operations["planTrashRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an entry to its source (RF-31, RF-31a) */
+        post: operations["restoreTrashEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TrashList: {
+            entries: components["schemas"]["TrashEntry"][];
+        };
+        /** @description An entry in the trash, with its files and expiry (RF-31a). */
+        TrashEntry: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            origin: "upload" | "samba" | "library";
+            /** @enum {string} */
+            reason: "extracted" | "filtered" | "replaced" | "removed";
+            /** Format: date-time */
+            trashedAt: string;
+            /** Format: date-time */
+            purgeAt: string;
+            /** @description Original path inside the drop or library when known. */
+            relativePath?: string;
+            batchId?: string;
+            files: components["schemas"]["TrashFile"][];
+        };
+        TrashFile: {
+            name: string;
+            /** Format: int64 */
+            size: number;
+        };
+        TrashRestorePlan: {
+            /** Format: int64 */
+            entryId: number;
+            files: components["schemas"]["TrashRestoreFilePlan"][];
+        };
+        TrashRestoreFilePlan: {
+            file: string;
+            destinations: string[];
+            duplicates: components["schemas"]["PlanDuplicate"][];
+            allowed: components["schemas"]["TrashRestoreDecision"][];
+            proposal?: components["schemas"]["TrashRestoreDecision"];
+            /** @description Proposed version label for the restored video (RF-24). */
+            versionProposal?: string;
+            /** @description The proposed label needs an editable value before keep_both can be committed. */
+            versionIncomplete: boolean;
+        };
+        /**
+         * @description RF-24 decision for a restored video.
+         * @enum {string}
+         */
+        TrashRestoreDecision: "replace" | "keep_both" | "cancel";
+        TrashRestoreRequest: {
+            decisions: {
+                file: string;
+                decision: components["schemas"]["TrashRestoreDecision"];
+                /** @description Version label written when choosing keep_both (RF-24). */
+                version?: string;
+            }[];
+        };
+        TrashRestoreResult: {
+            /** @description Destination paths restored by the engine. */
+            restored: string[];
+        };
         /**
          * @description Kind of title image. Each kind has the TMDB size of spec §6: poster w500,
          *     backdrop w1280, logo w500, still w300.
@@ -1603,6 +1736,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Trash entry id (RF-31a). */
+        TrashId: number;
         /** @description A title of the library, its id in the registry (RF-21, RF-43). */
         TitleId: number;
         /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
@@ -2483,6 +2618,124 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trash entries with files and purge dates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    emptyTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trash is empty. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteTrashEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Trash entry id (RF-31a). */
+                id: components["parameters"]["TrashId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry and its files are permanently deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    planTrashRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Trash entry id (RF-31a). */
+                id: components["parameters"]["TrashId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restore destinations and conflicts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashRestorePlan"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    restoreTrashEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Trash entry id (RF-31a). */
+                id: components["parameters"]["TrashId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrashRestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description The entry was restored, or restored is empty when the user cancels (RF-24). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashRestoreResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EditConflict"];
         };
     };
 }

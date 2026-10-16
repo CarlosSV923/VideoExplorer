@@ -963,6 +963,92 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /trash:
+    get:
+      tags: [library]
+      operationId: listTrash
+      summary: List trash entries, newest first (RF-31a)
+      responses:
+        '200':
+          description: Trash entries with files and purge dates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrashList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [library]
+      operationId: emptyTrash
+      summary: Permanently empty the trash (RF-30, RF-31a)
+      description: The caller presents confirmation in the UI; this operation does not ask for it.
+      responses:
+        '204':
+          description: The trash is empty.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trash/{id}:
+    delete:
+      tags: [library]
+      operationId: deleteTrashEntry
+      summary: Permanently delete a trash entry (RF-30, RF-31a)
+      description: The caller presents confirmation in the UI; this operation does not ask for it.
+      parameters:
+        - $ref: '#/components/parameters/TrashId'
+      responses:
+        '204':
+          description: The entry and its files are permanently deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trash/{id}/restore/plan:
+    post:
+      tags: [library]
+      operationId: planTrashRestore
+      summary: Preview restoring an entry (RF-31, RF-31a)
+      parameters:
+        - $ref: '#/components/parameters/TrashId'
+      responses:
+        '200':
+          description: Restore destinations and conflicts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrashRestorePlan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /trash/{id}/restore:
+    post:
+      tags: [library]
+      operationId: restoreTrashEntry
+      summary: Restore an entry to its source (RF-31, RF-31a)
+      parameters:
+        - $ref: '#/components/parameters/TrashId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrashRestoreRequest'
+      responses:
+        '200':
+          description: The entry was restored, or restored is empty when the user cancels (RF-24).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrashRestoreResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EditConflict'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -971,6 +1057,15 @@ components:
       name: ve_session
 
   parameters:
+    TrashId:
+      name: id
+      in: path
+      required: true
+      description: Trash entry id (RF-31a).
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     TitleId:
       name: id
       in: path
@@ -1088,6 +1183,128 @@ components:
             $ref: '#/components/schemas/Problem'
 
   schemas:
+    TrashList:
+      type: object
+      required: [entries]
+      additionalProperties: false
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrashEntry'
+    TrashEntry:
+      type: object
+      description: An entry in the trash, with its files and expiry (RF-31a).
+      required: [id, origin, reason, trashedAt, purgeAt, files]
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        origin:
+          type: string
+          enum: [upload, samba, library]
+        reason:
+          type: string
+          enum: [extracted, filtered, replaced, removed]
+        trashedAt:
+          type: string
+          format: date-time
+        purgeAt:
+          type: string
+          format: date-time
+        relativePath:
+          type: string
+          description: Original path inside the drop or library when known.
+        batchId:
+          type: string
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrashFile'
+    TrashFile:
+      type: object
+      required: [name, size]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+          minimum: 0
+    TrashRestorePlan:
+      type: object
+      required: [entryId, files]
+      additionalProperties: false
+      properties:
+        entryId:
+          type: integer
+          format: int64
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrashRestoreFilePlan'
+    TrashRestoreFilePlan:
+      type: object
+      required: [file, destinations, duplicates, allowed, versionIncomplete]
+      additionalProperties: false
+      properties:
+        file:
+          type: string
+        destinations:
+          type: array
+          items:
+            type: string
+        duplicates:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanDuplicate'
+        allowed:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrashRestoreDecision'
+        proposal:
+          $ref: '#/components/schemas/TrashRestoreDecision'
+        versionProposal:
+          type: string
+          description: Proposed version label for the restored video (RF-24).
+        versionIncomplete:
+          type: boolean
+          description: The proposed label needs an editable value before keep_both can be committed.
+    TrashRestoreDecision:
+      type: string
+      enum: [replace, keep_both, cancel]
+      description: RF-24 decision for a restored video.
+    TrashRestoreRequest:
+      type: object
+      required: [decisions]
+      additionalProperties: false
+      properties:
+        decisions:
+          type: array
+          items:
+            type: object
+            required: [file, decision]
+            additionalProperties: false
+            properties:
+              file:
+                type: string
+              decision:
+                $ref: '#/components/schemas/TrashRestoreDecision'
+              version:
+                type: string
+                description: Version label written when choosing keep_both (RF-24).
+    TrashRestoreResult:
+      type: object
+      required: [restored]
+      additionalProperties: false
+      properties:
+        restored:
+          type: array
+          items:
+            type: string
+          description: Destination paths restored by the engine.
     ImageKind:
       type: string
       description: |
