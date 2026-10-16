@@ -78,7 +78,7 @@ Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [x] Vista previa de edición y de etiqueta: listar los duplicados detectados con su propuesta antes de que el usuario decida (como Asignar); hoy solo aparecen tras responder
 - [x] Papelera completa: listar, restaurar a su origen con conflicto, borrar, vaciar, purga a 30 días; revisar `library_files.video_id ON DELETE CASCADE` (hoy borrar un video borra la fila de sus subtítulos aunque estén en la papelera); la importación debe ignorar los títulos que están solo en la papelera (hoy `Library.Titles` los devuelve)
 - [ ] Descargas: archivo con Range y zip *store* (de GameExplorer)
-- [ ] Info técnica (ffprobe)
+- [~] Info técnica (ffprobe) de un archivo de la biblioteca (RF-44)
 - [ ] Ficha: lista de capítulos presentes y faltantes por temporada según TMDB, con miniatura, título y sinopsis (RF-43), y datos de TMDB de la ficha (backdrop, géneros, sinopsis, colección)
 - [ ] «Actualizar datos» de TMDB desde la ficha (RF-44, §6)
 
