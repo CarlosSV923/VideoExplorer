@@ -4,6 +4,7 @@ import { useCatalogPorts } from './ports'
 
 export const libraryTitlesKey = ['library', 'titles'] as const
 export const libraryTitleKey = (id: number) => ['library', 'titles', id] as const
+export const libraryCollectionKey = (id: number) => ['library', 'collections', id] as const
 export const unassignedKey = ['unassigned'] as const
 export const trashKey = ['trash'] as const
 export const scansKey = ['scans'] as const
@@ -22,6 +23,14 @@ export function useLibraryTitles() {
 export function useLibraryTitle(id: number) {
   const ports = useCatalogPorts()
   return useQuery({ queryKey: libraryTitleKey(id), queryFn: () => ports.libraryTitle(id) })
+}
+
+export function useLibraryCollection(id: number) {
+  const ports = useCatalogPorts()
+  return useQuery({
+    queryKey: libraryCollectionKey(id),
+    queryFn: () => ports.libraryCollection(id),
+  })
 }
 
 export function useInvalidateCatalog() {

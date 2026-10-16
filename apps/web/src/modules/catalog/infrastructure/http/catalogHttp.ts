@@ -18,6 +18,7 @@ export function createCatalogHttp(client: ApiClient, baseUrl = '/api'): CatalogP
   return {
     libraryTitles: () => unwrap(client.GET('/library/titles')),
     libraryTitle: (id) => unwrap(client.GET('/library/titles/{id}', title(id))),
+    libraryCollection: (id) => unwrap(client.GET('/library/collections/{id}', title(id))),
     fileTechnical: (titleId, fileId) =>
       unwrap(client.GET('/library/titles/{id}/files/{fileId}/technical', file(titleId, fileId))),
     downloadTitleUrl: (titleId) => url(`/library/titles/${String(titleId)}/download`),

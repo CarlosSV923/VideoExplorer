@@ -626,6 +626,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/collections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A TMDB collection with its library membership (RF-40, RF-42a)
+         * @description The collection from the stored TMDB metadata cache, including every movie
+         *     and whether it is present in the library. Membership is represented by
+         *     library title ids; filesystem paths are never exposed.
+         */
+        get: operations["getLibraryCollection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/library/titles/{id}": {
         parameters: {
             query?: never;
@@ -1647,6 +1669,8 @@ export interface components {
             kind: components["schemas"]["TitleKind"];
             /** @description The title the user sees (the TMDB title, or the free name). */
             title: string;
+            /** @description The title in the library folder and file names. */
+            discTitle: string;
             /** @description The year of the premiere or of the first broadcast; 0 when unknown. */
             year: number;
             /**
@@ -1656,8 +1680,33 @@ export interface components {
             tmdbId?: number;
             /** @description Whether the tag [tmdbid-ID] is on in the folder and the files (RF-45). */
             idTag: boolean;
+            /** @description The original TMDB title from the stored metadata cache; omitted when unavailable. */
+            originalTitle?: string;
+            /**
+             * Format: uri-reference
+             * @description Local poster route from the stored metadata cache; omitted when unavailable.
+             */
+            poster?: string;
+            /**
+             * Format: uri-reference
+             * @description Local backdrop route from the stored metadata cache; omitted when unavailable.
+             */
+            backdrop?: string;
+            /** @description Localized TMDB genre names from the stored metadata cache; omitted when unavailable. */
+            genres?: string[];
+            collection?: components["schemas"]["LibraryTitleSummaryCollection"];
+            /**
+             * Format: date-time
+             * @description When the first file of this title was registered.
+             */
+            addedAt: string;
             /** @description Missing episodes in normal seasons only; omitted until the first successful calculation (RF-40, RF-43a). */
             missingEpisodes?: number;
+        };
+        LibraryTitleSummaryCollection: {
+            /** Format: int64 */
+            id: number;
+            name: string;
         };
         /** @description A title of the library with its videos (RF-43). */
         LibraryTitle: {
@@ -2104,6 +2153,8 @@ export interface components {
         TrashId: number;
         /** @description A title of the library, its id in the registry (RF-21, RF-43). */
         TitleId: number;
+        /** @description A TMDB collection id (RF-40, RF-42a). */
+        CollectionId: number;
         /** @description A video file id in the title's library registry (RF-44). */
         LibraryFileId: number;
         /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
@@ -2328,6 +2379,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            502: components["responses"]["MetadataRefreshFailed"];
         };
     };
     retryJob: {
@@ -2870,6 +2922,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getLibraryCollection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A TMDB collection id (RF-40, RF-42a). */
+                id: components["parameters"]["CollectionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The collection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryCollection"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getLibraryTitle: {

@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next'
 
+import { useCatalogPorts } from '@/modules/catalog/application/ports'
 import { LanguageToggle } from '@/shared/i18n/LanguageToggle'
 import { Brand } from '@/shared/ui'
+import { CatalogScreen } from '@/modules/catalog/ui/CatalogScreens'
 
 export type ScreenKey =
   | 'home'
@@ -17,8 +19,32 @@ export type ScreenKey =
   | 'generalSettings'
   | 'trashSettings'
 
-export function MarkerScreen({ screen }: { screen: ScreenKey }) {
+export function MarkerScreen({
+  screen,
+  id,
+  search,
+}: {
+  screen: ScreenKey
+  id?: number
+  search?: { orden?: string; genero?: string; incompletas?: string; q?: string }
+}) {
   const { t } = useTranslation()
+  const catalog = useCatalogPorts()
+  if (
+    [
+      'home',
+      'movies',
+      'series',
+      'movieDetail',
+      'seriesDetail',
+      'edit',
+      'collection',
+      'search',
+    ].includes(screen) &&
+    typeof catalog.libraryTitles === 'function'
+  ) {
+    return <CatalogScreen screen={screen} id={id} search={search} />
+  }
   return (
     <main className="mx-auto flex min-h-app max-w-screen-xl flex-col gap-8 p-6">
       <header className="flex items-center justify-between gap-4">

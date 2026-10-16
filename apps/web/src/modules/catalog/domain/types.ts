@@ -3,6 +3,7 @@ import type { components } from '@/shared/api/schema'
 export type LibraryTitles = components['schemas']['LibraryTitles']
 export type LibraryTitleSummary = components['schemas']['LibraryTitleSummary']
 export type LibraryTitle = components['schemas']['LibraryTitle']
+export type LibraryCollection = components['schemas']['LibraryCollection']
 export type LibraryVideo = components['schemas']['LibraryVideo']
 export type LibrarySeason = components['schemas']['LibrarySeason']
 export type LibraryFileTechnical = components['schemas']['LibraryFileTechnical']

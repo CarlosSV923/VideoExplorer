@@ -12,6 +12,7 @@ import type {
   EditResult,
   IDTagRequest,
   LibraryFileTechnical,
+  LibraryCollection,
   LibraryScope,
   LibraryTitle,
   LibraryTitles,
@@ -27,6 +28,7 @@ import type {
 export interface CatalogPorts {
   libraryTitles(): Promise<LibraryTitles>
   libraryTitle(id: number): Promise<LibraryTitle>
+  libraryCollection(id: number): Promise<LibraryCollection>
   fileTechnical(titleId: number, fileId: number): Promise<LibraryFileTechnical>
   downloadTitleUrl(titleId: number): DownloadUrl
   downloadSeasonUrl(titleId: number, season: number): DownloadUrl

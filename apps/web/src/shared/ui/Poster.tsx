@@ -1,6 +1,9 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { cx } from './cx'
+import { ChevronLeftIcon, ChevronRightIcon } from './icons'
+import { IconButton } from './Button'
 
 export interface PosterProps {
   title: string
@@ -92,6 +95,13 @@ export function PosterRow({
   seeAll?: ReactNode
   children: ReactNode
 }) {
+  const { t } = useTranslation()
+  const row = useRef<HTMLDivElement>(null)
+  const scroll = (direction: number) =>
+    row.current?.scrollBy({
+      left: direction * Math.max(240, row.current.clientWidth - 176),
+      behavior: 'smooth',
+    })
   return (
     <section aria-labelledby={`poster-row-${title}`} className="flex min-w-0 flex-col gap-3">
       <div className="flex items-center justify-between gap-4">
@@ -103,8 +113,27 @@ export function PosterRow({
         </h2>
         {seeAll}
       </div>
-      <div className="flex min-w-0 gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2">
-        {children}
+      <div className="relative min-w-0">
+        <IconButton
+          label={t('common.previous')}
+          className="absolute top-1/2 left-1 z-10 -translate-y-1/2 bg-surface/90"
+          onClick={() => scroll(-1)}
+        >
+          <ChevronLeftIcon />
+        </IconButton>
+        <div
+          ref={row}
+          className="flex min-w-0 gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory px-12 pb-2"
+        >
+          {children}
+        </div>
+        <IconButton
+          label={t('common.next')}
+          className="absolute top-1/2 right-1 z-10 -translate-y-1/2 bg-surface/90"
+          onClick={() => scroll(1)}
+        >
+          <ChevronRightIcon />
+        </IconButton>
       </div>
     </section>
   )

@@ -135,7 +135,7 @@ const moviesRoute = createRoute({
     orden: typeof search.orden === 'string' ? search.orden : undefined,
     genero: typeof search.genero === 'string' ? search.genero : undefined,
   }),
-  component: () => <MarkerScreen screen="movies" />,
+  component: MoviesRoute,
 })
 const seriesRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -145,25 +145,97 @@ const seriesRoute = createRoute({
     genero: typeof search.genero === 'string' ? search.genero : undefined,
     incompletas: search.incompletas === '1' ? '1' : undefined,
   }),
-  component: () => <MarkerScreen screen="series" />,
+  component: SeriesRoute,
 })
-const movieDetailRoute = screenRoute('/peliculas/$id', 'movieDetail')
-const seriesDetailRoute = screenRoute('/series/$id', 'seriesDetail')
-const movieEditRoute = screenRoute('/peliculas/$id/editar', 'edit')
-const seriesEditRoute = screenRoute('/series/$id/editar', 'edit')
-const collectionRoute = screenRoute('/colecciones/$id', 'collection')
+const movieDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/peliculas/$id',
+  component: MovieDetailRoute,
+})
+const seriesDetailRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/series/$id',
+  component: SeriesDetailRoute,
+})
+const movieEditRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/peliculas/$id/editar',
+  component: EditRoute,
+})
+const seriesEditRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/series/$id/editar',
+  component: EditRoute,
+})
+const collectionRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/colecciones/$id',
+  component: CollectionRoute,
+})
 const searchRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/buscar',
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === 'string' ? search.q : '',
   }),
-  component: () => <MarkerScreen screen="search" />,
+  component: SearchRoute,
 })
 const unassignedRoute = screenRoute('/no-asignados', 'unassigned')
 const assignRoute = screenRoute('/no-asignados/$id/asignar', 'assign')
 const generalSettingsRoute = screenRoute('/ajustes/general', 'generalSettings')
 const trashSettingsRoute = screenRoute('/ajustes/papelera', 'trashSettings')
+
+function MoviesRoute() {
+  const search = moviesRoute.useSearch()
+  return (
+    <MarkerScreen
+      screen="movies"
+      search={{
+        ...(search.orden !== undefined ? { orden: search.orden } : {}),
+        ...(search.genero !== undefined ? { genero: search.genero } : {}),
+      }}
+    />
+  )
+}
+
+function SeriesRoute() {
+  const search = seriesRoute.useSearch()
+  return (
+    <MarkerScreen
+      screen="series"
+      search={{
+        ...(search.orden !== undefined ? { orden: search.orden } : {}),
+        ...(search.genero !== undefined ? { genero: search.genero } : {}),
+        ...(search.incompletas !== undefined ? { incompletas: search.incompletas } : {}),
+      }}
+    />
+  )
+}
+
+function MovieDetailRoute() {
+  const { id } = movieDetailRoute.useParams()
+  return <MarkerScreen screen="movieDetail" id={Number(id)} />
+}
+
+function SeriesDetailRoute() {
+  const { id } = seriesDetailRoute.useParams()
+  return <MarkerScreen screen="seriesDetail" id={Number(id)} />
+}
+
+function EditRoute() {
+  const { id } = movieEditRoute.useParams()
+  return <MarkerScreen screen="edit" id={Number(id)} />
+}
+
+function CollectionRoute() {
+  const { id } = collectionRoute.useParams()
+  return <MarkerScreen screen="collection" id={Number(id)} />
+}
+
+function SearchRoute() {
+  const search = searchRoute.useSearch()
+  return <MarkerScreen screen="search" search={search} />
+}
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
