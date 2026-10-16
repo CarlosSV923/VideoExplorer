@@ -85,7 +85,7 @@ Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 ## Fase 8 — Integración con Jellyfin
 Depende de: 7 · Cubre: RF-50
 - [x] Puerto `MediaServerNotifier` + adaptador Jellyfin (con la detección de rutas de RF-50a) (refresco por carpeta, agrupado en 30 s); el puerto deja abierta la puerta a otros servidores en el futuro
-- [~] Estado en Ajustes y en `/api/health` (RF-50a, RF-62); previo: la autenticación con Jellyfin 12.2 debe usar `Authorization: MediaBrowser Token="…"` (rechaza `X-Emby-Token`)
+- [x] Estado en Ajustes y en `/api/health` (RF-50a, RF-62); previo: la autenticación con Jellyfin 12.2 debe usar `Authorization: MediaBrowser Token="…"` (rechaza `X-Emby-Token`)
 
 ## Fase 9 — Diseño → código
 Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
