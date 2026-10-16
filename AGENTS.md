@@ -35,7 +35,7 @@ pnpm lint:web && pnpm typecheck:web && pnpm format:check && pnpm test:web
 
 ## Finishing a task
 1. Make the checks above pass.
-2. Commit locally with small, focused messages in English; stage **only the files you changed** (never `git add -A` / `git add .`). Leave the index empty when you finish. End every commit message with:
+2. Commit locally with small, focused messages in English in Conventional Commits style (`feat(catalog): …`, `fix(ingestion): …`, `test(...)`, `docs(...)`), citing the RF/RNF IDs in the subject when they apply; stage **only the files you changed** (never `git add -A` / `git add .`). Leave the index empty when you finish. End every commit message with:
    `Co-Authored-By: Codex <noreply@openai.com>`
 3. Your final message is the report to the orchestrator, **in Spanish**, with exactly these sections:
    - **Estado**: `completada` · `bloqueada (duda)` · `bloqueada (error)`.
