@@ -97,7 +97,7 @@ Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
 
 ## Fase 10 — Frontend con adaptadores HTTP
 Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
-- [~] Puertos y adaptadores `http/` por módulo; router y TanStack Query
+- [x] Puertos y adaptadores `http/` por módulo; router y TanStack Query: puertos y adaptadores de todo el contrato (descargas e imágenes como URL, SSE de trabajos), `AppError` por tipo sin mostrar el `detail`, composición en `src/app`, rutas de `design-handoff.md` §5 con marcadores, login mínimo y vuelta tras sesión vencida
 - [ ] Pantallas completas; subidas con `tus-js-client` y pregunta de relación (envía `partsTotal` por conjunto multiparte, RF-03); decidir cómo se cancela desde la UI un trabajo ya extraído (tus DELETE ya no encuentra el comprimido); en No asignados, explicar una entrada que se ve vacía porque solo guarda contenido dentro de carpetas ocultas o del sistema (RF-27)
 - [ ] Prueba real contra la API con archivos reales
 - [ ] README EN/ES: estado del proyecto al día (fases cerradas)
