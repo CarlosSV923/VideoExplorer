@@ -7,6 +7,7 @@ import (
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpx"
 )
 
 // SectionArrivals is what the section shows of the copies of Samba that the ingestion takes as uploads
@@ -58,6 +59,41 @@ func (h *SectionHandler) GetUnassigned(ctx context.Context, _ httpapi.GetUnassig
 		out.Jobs = []httpapi.UploadJob{}
 	}
 	return httpapi.GetUnassigned200JSONResponse(out), nil
+}
+
+// DownloadUnassignedEntry implements the complete-entry download (RF-27).
+func (h *SectionHandler) DownloadUnassignedEntry(ctx context.Context, req httpapi.DownloadUnassignedEntryRequestObject) (httpapi.DownloadUnassignedEntryResponseObject, error) {
+	d, err := h.svc.Download(ctx, req.Id)
+	if errors.Is(err, application.ErrEntryNotFound) || errors.Is(err, application.ErrFileNotFound) || errors.Is(err, application.ErrDownloadUnavailable) {
+		return httpapi.DownloadUnassignedEntry404ApplicationProblemPlusJSONResponse{NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem())}, nil
+	}
+	if isEntryConflict(err) {
+		return httpapi.DownloadUnassignedEntry409ApplicationProblemPlusJSONResponse{EntryConflictApplicationProblemPlusJSONResponse: entryConflict(err)}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.download(ctx, d), nil
+}
+
+// DownloadUnassignedFile implements a Range-capable file download (RF-27).
+func (h *SectionHandler) DownloadUnassignedFile(ctx context.Context, req httpapi.DownloadUnassignedFileRequestObject) (httpapi.DownloadUnassignedFileResponseObject, error) {
+	d, err := h.svc.DownloadFile(ctx, req.Id, req.Params.Path)
+	if errors.Is(err, application.ErrEntryNotFound) || errors.Is(err, application.ErrFileNotFound) || errors.Is(err, application.ErrInvalidPath) || errors.Is(err, application.ErrDownloadUnavailable) {
+		return httpapi.DownloadUnassignedFile404ApplicationProblemPlusJSONResponse{NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem())}, nil
+	}
+	if isEntryConflict(err) {
+		return httpapi.DownloadUnassignedFile409ApplicationProblemPlusJSONResponse{EntryConflictApplicationProblemPlusJSONResponse: entryConflict(err)}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.download(ctx, d), nil
+}
+
+func (h *SectionHandler) download(ctx context.Context, d application.Download) downloadResponse {
+	r, _ := httpx.Request(ctx)
+	return downloadResponse{d: d, r: r, files: h.svc.DownloadFiles()}
 }
 
 // TrashUnassignedEntry implements httpapi.StrictServerInterface (RF-27, RF-30): the entry goes to the trash.

@@ -493,6 +493,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/unassigned/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download an entry of No asignados (RF-27)
+         * @description Downloads a loose file directly, or a folder as a store-only zip preserving the entry's structure.
+         *     The exact zip size is announced. An entry that is copying or being assigned answers 409.
+         */
+        get: operations["downloadUnassignedEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/unassigned/{id}/files/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download one file of No asignados with HTTP Range support (RF-27) */
+        get: operations["downloadUnassignedFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scans": {
         parameters: {
             query?: never;
@@ -603,6 +641,68 @@ export interface paths {
          *     path and size; the technical fields are empty or zero.
          */
         get: operations["getLibraryFileTechnical"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a whole library title as a streamed store zip (RF-44)
+         * @description Streams the live videos and their external subtitles of the title, keeping the title folder and
+         *     its subfolders as they are on disk. The zip is store-only, announces its exact Content-Length, and
+         *     uses Zip64 when needed. Files in the trash are not included; the server builds every path from the
+         *     title id and its registry.
+         */
+        get: operations["downloadLibraryTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/seasons/{season}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download one season of a library series as a streamed store zip (RF-44) */
+        get: operations["downloadLibrarySeason"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/files/{fileId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download one library file with HTTP Range support (RF-44)
+         * @description Streams one live video or external subtitle selected by its registry id. Range and conditional
+         *     requests are handled by http.ServeContent. The server builds the filesystem path from both ids and
+         *     refuses missing, trashed or symbolic-link files.
+         */
+        get: operations["downloadLibraryFile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2393,6 +2493,76 @@ export interface operations {
             409: components["responses"]["EntryConflict"];
         };
     };
+    downloadUnassignedEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry file or zip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EntryConflict"];
+            /** @description The requested range cannot be satisfied. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    downloadUnassignedFile: {
+        parameters: {
+            query: {
+                /** @description The file path as listed inside the entry; it is checked against the entry and never used as a filesystem path. */
+                path: string;
+            };
+            header?: never;
+            path: {
+                /** @description Entry of No asignados, its id in the registry of the unassigned section (`GET` of the section, RF-27). */
+                id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["EntryConflict"];
+            /** @description The requested range cannot be satisfied. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getScans: {
         parameters: {
             query?: never;
@@ -2532,6 +2702,91 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    downloadLibraryTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The title as a streamed zip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadLibrarySeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+                season: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The season as a streamed zip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadLibraryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+                /** @description A video file id in the title's library registry (RF-44). */
+                fileId: components["parameters"]["LibraryFileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description The requested range cannot be satisfied. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     planTitleEdit: {

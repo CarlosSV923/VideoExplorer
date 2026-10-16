@@ -3,11 +3,23 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
+	"mime"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpapi"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/httpx"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/platform/zipstream"
 )
 
 // LibraryHandler implements the reads of the title pages (RF-40, RF-43) of httpapi.StrictServerInterface.
@@ -15,15 +27,20 @@ type LibraryHandler struct {
 	views     *application.LibraryViews
 	edits     *application.Edits
 	technical *application.LibraryTechnical
+	downloads *application.LibraryDownloads
 	log       *slog.Logger
 }
 
 // NewLibraryHandler builds the handler over the library reads and the edits of a title (RF-44). log may be nil.
-func NewLibraryHandler(views *application.LibraryViews, edits *application.Edits, technical *application.LibraryTechnical, log *slog.Logger) *LibraryHandler {
+func NewLibraryHandler(views *application.LibraryViews, edits *application.Edits, technical *application.LibraryTechnical, log *slog.Logger, downloads ...*application.LibraryDownloads) *LibraryHandler {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &LibraryHandler{views: views, edits: edits, technical: technical, log: log}
+	var d *application.LibraryDownloads
+	if len(downloads) > 0 {
+		d = downloads[0]
+	}
+	return &LibraryHandler{views: views, edits: edits, technical: technical, downloads: d, log: log}
 }
 
 // ListLibraryTitles implements httpapi.StrictServerInterface (RF-40): the titles of the library.
@@ -66,6 +83,156 @@ func (h *LibraryHandler) GetLibraryFileTechnical(ctx context.Context, req httpap
 		return nil, err
 	}
 	return httpapi.GetLibraryFileTechnical200JSONResponse(technicalToAPI(t)), nil
+}
+
+// DownloadLibraryTitle implements the streamed complete-title download (RF-44).
+func (h *LibraryHandler) DownloadLibraryTitle(ctx context.Context, req httpapi.DownloadLibraryTitleRequestObject) (httpapi.DownloadLibraryTitleResponseObject, error) {
+	if h.downloads == nil {
+		return nil, errors.New("library downloads are not configured")
+	}
+	d, err := h.downloads.Title(ctx, req.Id)
+	if errors.Is(err, application.ErrTitleNotFound) || errors.Is(err, application.ErrDownloadUnavailable) {
+		return httpapi.DownloadLibraryTitle404ApplicationProblemPlusJSONResponse{NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem())}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.download(ctx, d), nil
+}
+
+// DownloadLibrarySeason implements the streamed season download (RF-44).
+func (h *LibraryHandler) DownloadLibrarySeason(ctx context.Context, req httpapi.DownloadLibrarySeasonRequestObject) (httpapi.DownloadLibrarySeasonResponseObject, error) {
+	if h.downloads == nil {
+		return nil, errors.New("library downloads are not configured")
+	}
+	d, err := h.downloads.Season(ctx, req.Id, req.Season)
+	if errors.Is(err, application.ErrTitleNotFound) || errors.Is(err, application.ErrLibraryFileNotFound) || errors.Is(err, application.ErrDownloadUnavailable) {
+		return httpapi.DownloadLibrarySeason404ApplicationProblemPlusJSONResponse{NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem())}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.download(ctx, d), nil
+}
+
+// DownloadLibraryFile implements a Range-capable single library file download (RF-44).
+func (h *LibraryHandler) DownloadLibraryFile(ctx context.Context, req httpapi.DownloadLibraryFileRequestObject) (httpapi.DownloadLibraryFileResponseObject, error) {
+	if h.downloads == nil {
+		return nil, errors.New("library downloads are not configured")
+	}
+	d, err := h.downloads.File(ctx, req.Id, req.FileId)
+	if errors.Is(err, application.ErrTitleNotFound) || errors.Is(err, application.ErrLibraryFileNotFound) || errors.Is(err, application.ErrDownloadUnavailable) {
+		return httpapi.DownloadLibraryFile404ApplicationProblemPlusJSONResponse{NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem())}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.download(ctx, d), nil
+}
+
+// downloadResponse is the streaming response for all library downloads.
+type downloadResponse struct {
+	d     application.Download
+	r     *http.Request
+	files application.DownloadFiles
+	log   *slog.Logger
+}
+
+func (h *LibraryHandler) download(ctx context.Context, d application.Download) downloadResponse {
+	r, _ := httpx.Request(ctx)
+	var files application.DownloadFiles
+	if h.downloads != nil {
+		files = h.downloads.Files()
+	}
+	return downloadResponse{d: d, r: r, files: files, log: h.log}
+}
+
+func (d downloadResponse) VisitDownloadLibraryTitleResponse(w http.ResponseWriter) error {
+	return d.visit(w)
+}
+
+func (d downloadResponse) VisitDownloadLibrarySeasonResponse(w http.ResponseWriter) error {
+	return d.visit(w)
+}
+
+func (d downloadResponse) VisitDownloadLibraryFileResponse(w http.ResponseWriter) error {
+	return d.visit(w)
+}
+
+func (d downloadResponse) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+	return d.visit(w)
+}
+
+func (d downloadResponse) VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error {
+	return d.visit(w)
+}
+
+func (d downloadResponse) visit(w http.ResponseWriter) error {
+	if d.files == nil {
+		return errors.New("download: files are not configured")
+	}
+	w.Header().Set("Content-Disposition", contentDisposition(d.d.Name))
+	w.Header().Set("Cache-Control", "no-store")
+	if d.d.File != nil {
+		return d.serveFile(w)
+	}
+	entries := make([]zipstream.Entry, 0, len(d.d.Entries))
+	for _, e := range d.d.Entries {
+		e := e
+		entries = append(entries, zipstream.Entry{Name: e.Name, Size: e.Size, Modified: e.Modified, Open: func() (io.ReadCloser, error) {
+			return d.files.Open(e.Path)
+		}})
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Length", strconv.FormatInt(zipstream.Size(entries), 10))
+	w.WriteHeader(http.StatusOK)
+	if err := zipstream.Write(w, entries); err != nil {
+		if d.log != nil {
+			d.log.Warn("zip download interrupted", "name", d.d.Name, "error", err)
+		}
+	}
+	return nil
+}
+
+func (d downloadResponse) serveFile(w http.ResponseWriter) error {
+	if d.r == nil {
+		return errors.New("download: request missing from context (httpx.WithRequest)")
+	}
+	if d.files == nil {
+		return errors.New("download: files are not configured")
+	}
+	f, err := d.files.Open(d.d.File.Path)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", d.d.Name, err)
+	}
+	defer f.Close()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeContent(w, d.r, "", d.d.File.Modified, f)
+	return nil
+}
+
+// contentDisposition uses an ASCII fallback plus RFC 6266 filename* for UTF-8 names.
+func contentDisposition(name string) string {
+	ascii := asciiName(name)
+	if ascii == name {
+		return mime.FormatMediaType("attachment", map[string]string{"filename": name})
+	}
+	return mime.FormatMediaType("attachment", map[string]string{"filename": ascii}) + "; filename*=UTF-8''" + url.PathEscape(name)
+}
+
+func asciiName(name string) string {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(name) {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+		case r < 0x20 || r == '"' || r == '\\' || r == 0x7f:
+		case r < 0x80:
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
 }
 
 // summaryToAPI returns the contract's view of a title in the list.

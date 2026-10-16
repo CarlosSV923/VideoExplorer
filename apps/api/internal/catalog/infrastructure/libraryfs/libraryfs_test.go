@@ -353,6 +353,25 @@ func TestSizeReadsOnlyRegularFilesOfTheLibrary(t *testing.T) {
 	}
 }
 
+func TestOpenRejectsSymbolicLinks(t *testing.T) {
+	t.Parallel()
+	fs, root := fixture(t)
+	outside := filepath.Join(t.TempDir(), "secret.mkv")
+	if err := os.WriteFile(outside, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "Movies", "link.mkv")
+	if err := os.MkdirAll(filepath.Dir(link), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symbolic links are not available here: %v", err)
+	}
+	if _, err := fs.Open(link); err == nil {
+		t.Fatal("Open followed a symbolic link")
+	}
+}
+
 func TestLibraryPathIsInsideTheRoot(t *testing.T) {
 	t.Parallel()
 

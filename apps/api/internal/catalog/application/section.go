@@ -30,6 +30,7 @@ var (
 type SectionDeps struct {
 	Unassigned UnassignedRepository
 	Files      Files
+	Downloads  DownloadFiles
 	Engine     *Engine
 	// VideoExts and SubtitleExts are the extensions with their dot (VIDEO_EXTENSIONS, SUBTITLE_EXTENSIONS).
 	VideoExts    []string
@@ -68,6 +69,10 @@ func NewSection(d SectionDeps) *Section {
 	s.subExt = extSet(d.SubtitleExts)
 	return s
 }
+
+// DownloadFiles returns the safe filesystem port used by the download
+// adapter. It is not a client-facing path API.
+func (s *Section) DownloadFiles() DownloadFiles { return s.d.Downloads }
 
 // Sync is the reading that GET /api/unassigned and the scan of _unassigned/ share (RF-27, RF-27a, RF-28):
 // the settled copies of Samba are taken first, then No asignados is read as the disk holds it now. A copy
@@ -154,6 +159,125 @@ func (s *Section) List(ctx context.Context) ([]SectionEntry, error) {
 		return nil
 	})
 	return out, err
+}
+
+// Download prepares one file or a complete entry of No asignados. A loose
+// entry is served as its only file; a folder is a store zip whose names retain
+// the entry folder and every listed subfolder (RF-27).
+func (s *Section) Download(ctx context.Context, id int64) (Download, error) {
+	entries, err := s.List(ctx)
+	if err != nil {
+		return Download{}, err
+	}
+	e := findSectionEntry(entries, id)
+	if e == nil {
+		return Download{}, ErrEntryNotFound
+	}
+	if err := sectionDownloadAllowed(e.Status); err != nil {
+		return Download{}, err
+	}
+	if len(e.Files) == 0 {
+		return Download{}, ErrEntryNotFound
+	}
+	if e.Loose {
+		return s.downloadFile(e, e.Files[0].Path)
+	}
+	if s.d.Downloads == nil {
+		return Download{}, fmt.Errorf("catalog: downloads are not configured")
+	}
+	out := Download{Name: e.Name + ".zip", Entries: make([]DownloadEntry, 0, len(e.Files))}
+	for _, f := range e.Files {
+		file, err := s.entryDownloadFile(e, f.Path)
+		if err != nil {
+			return Download{}, err
+		}
+		out.Entries = append(out.Entries, DownloadEntry{
+			Name: path.Join(e.Name, f.Path), Path: file.Path, Size: file.Size, Modified: file.Modified,
+		})
+	}
+	slices.SortFunc(out.Entries, func(a, b DownloadEntry) int { return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)) })
+	return out, nil
+}
+
+// DownloadFile prepares one listed file of an entry. The path is a selector,
+// not a filesystem path: it must belong to the server's current entry view.
+func (s *Section) DownloadFile(ctx context.Context, id int64, rel string) (Download, error) {
+	entries, err := s.List(ctx)
+	if err != nil {
+		return Download{}, err
+	}
+	e := findSectionEntry(entries, id)
+	if e == nil {
+		return Download{}, ErrEntryNotFound
+	}
+	if err := sectionDownloadAllowed(e.Status); err != nil {
+		return Download{}, err
+	}
+	return s.downloadFile(e, rel)
+}
+
+func (s *Section) downloadFile(e *SectionEntry, rel string) (Download, error) {
+	if e.Loose && rel != "" {
+		return Download{}, ErrFileNotFound
+	}
+	if !e.Loose && !domain.SafeEntryPath(rel) {
+		return Download{}, ErrInvalidPath
+	}
+	var found bool
+	for _, f := range e.Files {
+		if f.Path == rel {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return Download{}, ErrFileNotFound
+	}
+	file, err := s.entryDownloadFile(e, rel)
+	if err != nil {
+		return Download{}, err
+	}
+	return Download{Name: path.Base(file.Path), File: &file}, nil
+}
+
+func (s *Section) entryDownloadFile(e *SectionEntry, rel string) (DownloadFile, error) {
+	if s.d.Downloads == nil {
+		return DownloadFile{}, fmt.Errorf("catalog: downloads are not configured")
+	}
+	var p string
+	var name string
+	if e.Loose {
+		p = s.d.Downloads.UnassignedPath(e.Name)
+		name = e.Name
+	} else {
+		p = s.d.Downloads.UnassignedPath(e.Name, filepath.FromSlash(rel))
+		name = path.Base(rel)
+	}
+	info, err := s.d.Downloads.Info(p)
+	if err != nil {
+		return DownloadFile{}, fmt.Errorf("%w: %s: %w", ErrDownloadUnavailable, name, err)
+	}
+	return DownloadFile{Path: p, Size: info.Size, Modified: info.Modified}, nil
+}
+
+func sectionDownloadAllowed(status string) error {
+	switch status {
+	case domain.StatusCopying:
+		return ErrCopying
+	case domain.StatusAssigning:
+		return ErrAssigning
+	default:
+		return nil
+	}
+}
+
+func findSectionEntry(entries []SectionEntry, id int64) *SectionEntry {
+	for i := range entries {
+		if entries[i].ID == id {
+			return &entries[i]
+		}
+	}
+	return nil
 }
 
 // TrashEntry sends a whole entry to the trash (RF-27, RF-30): each of its files goes with its own trash

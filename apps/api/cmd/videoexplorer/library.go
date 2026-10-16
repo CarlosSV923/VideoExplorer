@@ -43,7 +43,8 @@ func newLibrary(cfg config.Config, conn *sql.DB, catalog catalogWiring, meta met
 	})
 	views := catalogapplication.NewLibraryViews(library, tmdbOf{svc: meta.Service}, log)
 	technical := catalogapplication.NewLibraryTechnical(library, files, technicalOf{prober: prober}, log)
-	return catalogshttp.NewLibraryHandler(views, edits, technical, log)
+	downloads := catalogapplication.NewLibraryDownloads(library, files)
+	return catalogshttp.NewLibraryHandler(views, edits, technical, log, downloads)
 }
 
 // technicalOf adapts ingestion's cached ffprobe port to the catalog's technical

@@ -47,7 +47,7 @@ func setupSection(t *testing.T) *sectionHTTP {
 	repo := catalogsqlite.NewUnassignedRepository(conn)
 	library := catalogsqlite.NewLibraryRepository(conn)
 	section := application.NewSection(application.SectionDeps{
-		Unassigned: repo, Files: files, Engine: engine, VideoExts: []string{".mkv"}, SubtitleExts: []string{".srt"}, Now: clock,
+		Unassigned: repo, Files: files, Downloads: files, Engine: engine, VideoExts: []string{".mkv"}, SubtitleExts: []string{".srt"}, Now: clock,
 	})
 	env.svc = section
 	env.section = catalogshttp.NewSectionHandler(section, nil)

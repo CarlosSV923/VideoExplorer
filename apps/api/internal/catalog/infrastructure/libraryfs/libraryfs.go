@@ -34,7 +34,10 @@ type FS struct {
 	rename func(from, to string) error
 }
 
-var _ application.Files = (*FS)(nil)
+var (
+	_ application.Files         = (*FS)(nil)
+	_ application.DownloadFiles = (*FS)(nil)
+)
 
 // New builds the file system of a library root. Its trash and its operations' scratch
 // area are .videoexplorer/trash and .videoexplorer/ops.
@@ -60,17 +63,24 @@ func (f *FS) LibraryPath(elem ...string) string {
 
 // Size implements application.Files: the size of a regular file, refused when it goes through a link.
 func (f *FS) Size(p string) (int64, error) {
+	info, err := f.Info(p)
+	return info.Size, err
+}
+
+// Info implements application.DownloadFiles: metadata of a regular file,
+// refused when the path is outside the library or goes through a link.
+func (f *FS) Info(p string) (application.FileInfo, error) {
 	if err := f.readable(p); err != nil {
-		return 0, err
+		return application.FileInfo{}, err
 	}
 	info, err := os.Lstat(p)
 	if err != nil {
-		return 0, err
+		return application.FileInfo{}, err
 	}
 	if !info.Mode().IsRegular() {
-		return 0, fmt.Errorf("libraryfs: %s is not a regular file", p)
+		return application.FileInfo{}, fmt.Errorf("libraryfs: %s is not a regular file", p)
 	}
-	return info.Size(), nil
+	return application.FileInfo{Size: info.Size(), Modified: info.ModTime()}, nil
 }
 
 // ReadHeader returns the first n bytes of the regular file at p inside the library, fewer when the file is
@@ -189,6 +199,22 @@ func (f *FS) Exists(p string) (bool, error) {
 	default:
 		return false, err
 	}
+}
+
+// Open implements application.DownloadFiles. A symbolic link is rejected
+// before os.Open so downloads never follow links (RNF-02).
+func (f *FS) Open(p string) (io.ReadSeekCloser, error) {
+	if err := f.readable(p); err != nil {
+		return nil, err
+	}
+	info, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("libraryfs: %s is not a regular file", p)
+	}
+	return os.Open(p) //nolint:gosec // checked by readable and Lstat above
 }
 
 // RemoveAll implements application.Files.

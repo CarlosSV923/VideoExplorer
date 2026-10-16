@@ -1599,6 +1599,12 @@ type CommitAssignParams struct {
 	XAssignLock *AssignLockToken `json:"X-Assign-Lock,omitempty"`
 }
 
+// DownloadUnassignedFileParams defines parameters for DownloadUnassignedFile.
+type DownloadUnassignedFileParams struct {
+	// Path The file path as listed inside the entry; it is checked against the entry and never used as a filesystem path.
+	Path string `form:"path" json:"path"`
+}
+
 // ReleaseAssignLockParams defines parameters for ReleaseAssignLock.
 type ReleaseAssignLockParams struct {
 	// XAssignLock The token of the assignment lock that `POST /unassigned/{id}/lock` answered. A call without
@@ -1714,12 +1720,18 @@ type ServerInterface interface {
 	// GetLibraryTitle A title of the library with its files (RF-43)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(w http.ResponseWriter, r *http.Request, id TitleId)
+	// DownloadLibraryTitle Download a whole library title as a streamed store zip (RF-44)
+	// (GET /library/titles/{id}/download)
+	DownloadLibraryTitle(w http.ResponseWriter, r *http.Request, id TitleId)
 	// CommitTitleEdit Store the edit of a title as one change of the library (RF-44)
 	// (POST /library/titles/{id}/edit/commit)
 	CommitTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId)
 	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
 	// (POST /library/titles/{id}/edit/plan)
 	PlanTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId)
+	// DownloadLibraryFile Download one library file with HTTP Range support (RF-44)
+	// (GET /library/titles/{id}/files/{fileId}/download)
+	DownloadLibraryFile(w http.ResponseWriter, r *http.Request, id TitleId, fileId LibraryFileId)
 	// GetLibraryFileTechnical Technical information of a library video (RF-44)
 	// (GET /library/titles/{id}/files/{fileId}/technical)
 	GetLibraryFileTechnical(w http.ResponseWriter, r *http.Request, id TitleId, fileId LibraryFileId)
@@ -1729,6 +1741,9 @@ type ServerInterface interface {
 	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
 	// (POST /library/titles/{id}/id-tag/plan)
 	PlanTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId)
+	// DownloadLibrarySeason Download one season of a library series as a streamed store zip (RF-44)
+	// (GET /library/titles/{id}/seasons/{season}/download)
+	DownloadLibrarySeason(w http.ResponseWriter, r *http.Request, id TitleId, season int)
 	// TrashTitleScope Send a title, a season or a file to the trash, with its subtitles (RF-44, RF-30)
 	// (POST /library/titles/{id}/trash)
 	TrashTitleScope(w http.ResponseWriter, r *http.Request, id TitleId)
@@ -1768,9 +1783,15 @@ type ServerInterface interface {
 	// DeleteUnassignedEntry Delete an entry of No asignados for good (RF-27, RF-30)
 	// (POST /unassigned/{id}/delete)
 	DeleteUnassignedEntry(w http.ResponseWriter, r *http.Request, id EntryId)
+	// DownloadUnassignedEntry Download an entry of No asignados (RF-27)
+	// (GET /unassigned/{id}/download)
+	DownloadUnassignedEntry(w http.ResponseWriter, r *http.Request, id EntryId)
 	// DeleteUnassignedFile Delete one file of an entry of No asignados for good (RF-27, RF-30)
 	// (POST /unassigned/{id}/files/delete)
 	DeleteUnassignedFile(w http.ResponseWriter, r *http.Request, id EntryId)
+	// DownloadUnassignedFile Download one file of No asignados with HTTP Range support (RF-27)
+	// (GET /unassigned/{id}/files/download)
+	DownloadUnassignedFile(w http.ResponseWriter, r *http.Request, id EntryId, params DownloadUnassignedFileParams)
 	// TrashUnassignedFile Send one file of an entry of No asignados to the trash (RF-27, RF-30)
 	// (POST /unassigned/{id}/files/trash)
 	TrashUnassignedFile(w http.ResponseWriter, r *http.Request, id EntryId)
@@ -2051,6 +2072,32 @@ func (siw *ServerInterfaceWrapper) GetLibraryTitle(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// DownloadLibraryTitle operation middleware
+func (siw *ServerInterfaceWrapper) DownloadLibraryTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadLibraryTitle(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CommitTitleEdit operation middleware
 func (siw *ServerInterfaceWrapper) CommitTitleEdit(w http.ResponseWriter, r *http.Request) {
 
@@ -2094,6 +2141,41 @@ func (siw *ServerInterfaceWrapper) PlanTitleEdit(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PlanTitleEdit(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadLibraryFile operation middleware
+func (siw *ServerInterfaceWrapper) DownloadLibraryFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "fileId" -------------
+	var fileId LibraryFileId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "fileId", r.PathValue("fileId"), &fileId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fileId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadLibraryFile(w, r, id, fileId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2181,6 +2263,41 @@ func (siw *ServerInterfaceWrapper) PlanTitleIDTag(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PlanTitleIDTag(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadLibrarySeason operation middleware
+func (siw *ServerInterfaceWrapper) DownloadLibrarySeason(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadLibrarySeason(w, r, id, season)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2512,6 +2629,32 @@ func (siw *ServerInterfaceWrapper) DeleteUnassignedEntry(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// DownloadUnassignedEntry operation middleware
+func (siw *ServerInterfaceWrapper) DownloadUnassignedEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadUnassignedEntry(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteUnassignedFile operation middleware
 func (siw *ServerInterfaceWrapper) DeleteUnassignedFile(w http.ResponseWriter, r *http.Request) {
 
@@ -2529,6 +2672,48 @@ func (siw *ServerInterfaceWrapper) DeleteUnassignedFile(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteUnassignedFile(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadUnassignedFile operation middleware
+func (siw *ServerInterfaceWrapper) DownloadUnassignedFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id EntryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadUnassignedFileParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadUnassignedFile(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2931,12 +3116,17 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/delete", wrapper.DeleteUnassignedEntry)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/files/trash", wrapper.TrashUnassignedFile)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/unassigned/{id}/files/delete", wrapper.DeleteUnassignedFile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/unassigned/{id}/download", wrapper.DownloadUnassignedEntry)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/unassigned/{id}/files/download", wrapper.DownloadUnassignedFile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/scans", wrapper.GetScans)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/scans", wrapper.RunScans)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/titles/search", wrapper.SearchTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles", wrapper.ListLibraryTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/files/{fileId}/technical", wrapper.GetLibraryFileTechnical)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/download", wrapper.DownloadLibraryTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/seasons/{season}/download", wrapper.DownloadLibrarySeason)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/files/{fileId}/download", wrapper.DownloadLibraryFile)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/plan", wrapper.PlanTitleEdit)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/edit/commit", wrapper.CommitTitleEdit)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/id-tag/plan", wrapper.PlanTitleIDTag)
@@ -3737,6 +3927,66 @@ func (response GetLibraryTitle404ApplicationProblemPlusJSONResponse) VisitGetLib
 	return err
 }
 
+type DownloadLibraryTitleRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type DownloadLibraryTitleResponseObject interface {
+	VisitDownloadLibraryTitleResponse(w http.ResponseWriter) error
+}
+
+type DownloadLibraryTitle200ApplicationzipResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadLibraryTitle200ApplicationzipResponse) VisitDownloadLibraryTitleResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/zip")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadLibraryTitle401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadLibraryTitle401ApplicationProblemPlusJSONResponse) VisitDownloadLibraryTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadLibraryTitle404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadLibraryTitle404ApplicationProblemPlusJSONResponse) VisitDownloadLibraryTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CommitTitleEditRequestObject struct {
 	Id   TitleId `json:"id"`
 	Body *CommitTitleEditJSONRequestBody
@@ -3907,6 +4157,75 @@ func (response PlanTitleEdit404ApplicationProblemPlusJSONResponse) VisitPlanTitl
 	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
+}
+
+type DownloadLibraryFileRequestObject struct {
+	Id     TitleId       `json:"id"`
+	FileId LibraryFileId `json:"fileId"`
+}
+
+type DownloadLibraryFileResponseObject interface {
+	VisitDownloadLibraryFileResponse(w http.ResponseWriter) error
+}
+
+type DownloadLibraryFile200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadLibraryFile200ApplicationoctetStreamResponse) VisitDownloadLibraryFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadLibraryFile401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadLibraryFile401ApplicationProblemPlusJSONResponse) VisitDownloadLibraryFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadLibraryFile404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadLibraryFile404ApplicationProblemPlusJSONResponse) VisitDownloadLibraryFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadLibraryFile416Response struct {
+}
+
+func (response DownloadLibraryFile416Response) VisitDownloadLibraryFileResponse(w http.ResponseWriter) error {
+	w.WriteHeader(416)
+	return nil
 }
 
 type GetLibraryFileTechnicalRequestObject struct {
@@ -4125,6 +4444,67 @@ type PlanTitleIDTag404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PlanTitleIDTag404ApplicationProblemPlusJSONResponse) VisitPlanTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadLibrarySeasonRequestObject struct {
+	Id     TitleId `json:"id"`
+	Season int     `json:"season"`
+}
+
+type DownloadLibrarySeasonResponseObject interface {
+	VisitDownloadLibrarySeasonResponse(w http.ResponseWriter) error
+}
+
+type DownloadLibrarySeason200ApplicationzipResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadLibrarySeason200ApplicationzipResponse) VisitDownloadLibrarySeasonResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/zip")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadLibrarySeason401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadLibrarySeason401ApplicationProblemPlusJSONResponse) VisitDownloadLibrarySeasonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadLibrarySeason404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadLibrarySeason404ApplicationProblemPlusJSONResponse) VisitDownloadLibrarySeasonResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4838,6 +5218,110 @@ func (response DeleteUnassignedEntry409ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
+type DownloadUnassignedEntryRequestObject struct {
+	Id EntryId `json:"id"`
+}
+
+type DownloadUnassignedEntryResponseObject interface {
+	VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error
+}
+
+type DownloadUnassignedEntry200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadUnassignedEntry200ApplicationoctetStreamResponse) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadUnassignedEntry200ApplicationzipResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadUnassignedEntry200ApplicationzipResponse) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/zip")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadUnassignedEntry401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadUnassignedEntry401ApplicationProblemPlusJSONResponse) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadUnassignedEntry404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadUnassignedEntry404ApplicationProblemPlusJSONResponse) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadUnassignedEntry409ApplicationProblemPlusJSONResponse struct {
+	EntryConflictApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadUnassignedEntry409ApplicationProblemPlusJSONResponse) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadUnassignedEntry416Response struct {
+}
+
+func (response DownloadUnassignedEntry416Response) VisitDownloadUnassignedEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(416)
+	return nil
+}
+
 type DeleteUnassignedFileRequestObject struct {
 	Id   EntryId `json:"id"`
 	Body *DeleteUnassignedFileJSONRequestBody
@@ -4917,6 +5401,91 @@ func (response DeleteUnassignedFile409ApplicationProblemPlusJSONResponse) VisitD
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
+}
+
+type DownloadUnassignedFileRequestObject struct {
+	Id     EntryId `json:"id"`
+	Params DownloadUnassignedFileParams
+}
+
+type DownloadUnassignedFileResponseObject interface {
+	VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error
+}
+
+type DownloadUnassignedFile200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadUnassignedFile200ApplicationoctetStreamResponse) VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadUnassignedFile401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadUnassignedFile401ApplicationProblemPlusJSONResponse) VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadUnassignedFile404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadUnassignedFile404ApplicationProblemPlusJSONResponse) VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadUnassignedFile409ApplicationProblemPlusJSONResponse struct {
+	EntryConflictApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadUnassignedFile409ApplicationProblemPlusJSONResponse) VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadUnassignedFile416Response struct {
+}
+
+func (response DownloadUnassignedFile416Response) VisitDownloadUnassignedFileResponse(w http.ResponseWriter) error {
+	w.WriteHeader(416)
+	return nil
 }
 
 type TrashUnassignedFileRequestObject struct {
@@ -5384,12 +5953,18 @@ type StrictServerInterface interface {
 	// GetLibraryTitle A title of the library with its files (RF-43)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(ctx context.Context, request GetLibraryTitleRequestObject) (GetLibraryTitleResponseObject, error)
+	// DownloadLibraryTitle Download a whole library title as a streamed store zip (RF-44)
+	// (GET /library/titles/{id}/download)
+	DownloadLibraryTitle(ctx context.Context, request DownloadLibraryTitleRequestObject) (DownloadLibraryTitleResponseObject, error)
 	// CommitTitleEdit Store the edit of a title as one change of the library (RF-44)
 	// (POST /library/titles/{id}/edit/commit)
 	CommitTitleEdit(ctx context.Context, request CommitTitleEditRequestObject) (CommitTitleEditResponseObject, error)
 	// PlanTitleEdit Preview the edit of a title, with its new name, its folder and where each file goes (RF-44)
 	// (POST /library/titles/{id}/edit/plan)
 	PlanTitleEdit(ctx context.Context, request PlanTitleEditRequestObject) (PlanTitleEditResponseObject, error)
+	// DownloadLibraryFile Download one library file with HTTP Range support (RF-44)
+	// (GET /library/titles/{id}/files/{fileId}/download)
+	DownloadLibraryFile(ctx context.Context, request DownloadLibraryFileRequestObject) (DownloadLibraryFileResponseObject, error)
 	// GetLibraryFileTechnical Technical information of a library video (RF-44)
 	// (GET /library/titles/{id}/files/{fileId}/technical)
 	GetLibraryFileTechnical(ctx context.Context, request GetLibraryFileTechnicalRequestObject) (GetLibraryFileTechnicalResponseObject, error)
@@ -5399,6 +5974,9 @@ type StrictServerInterface interface {
 	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
 	// (POST /library/titles/{id}/id-tag/plan)
 	PlanTitleIDTag(ctx context.Context, request PlanTitleIDTagRequestObject) (PlanTitleIDTagResponseObject, error)
+	// DownloadLibrarySeason Download one season of a library series as a streamed store zip (RF-44)
+	// (GET /library/titles/{id}/seasons/{season}/download)
+	DownloadLibrarySeason(ctx context.Context, request DownloadLibrarySeasonRequestObject) (DownloadLibrarySeasonResponseObject, error)
 	// TrashTitleScope Send a title, a season or a file to the trash, with its subtitles (RF-44, RF-30)
 	// (POST /library/titles/{id}/trash)
 	TrashTitleScope(ctx context.Context, request TrashTitleScopeRequestObject) (TrashTitleScopeResponseObject, error)
@@ -5438,9 +6016,15 @@ type StrictServerInterface interface {
 	// DeleteUnassignedEntry Delete an entry of No asignados for good (RF-27, RF-30)
 	// (POST /unassigned/{id}/delete)
 	DeleteUnassignedEntry(ctx context.Context, request DeleteUnassignedEntryRequestObject) (DeleteUnassignedEntryResponseObject, error)
+	// DownloadUnassignedEntry Download an entry of No asignados (RF-27)
+	// (GET /unassigned/{id}/download)
+	DownloadUnassignedEntry(ctx context.Context, request DownloadUnassignedEntryRequestObject) (DownloadUnassignedEntryResponseObject, error)
 	// DeleteUnassignedFile Delete one file of an entry of No asignados for good (RF-27, RF-30)
 	// (POST /unassigned/{id}/files/delete)
 	DeleteUnassignedFile(ctx context.Context, request DeleteUnassignedFileRequestObject) (DeleteUnassignedFileResponseObject, error)
+	// DownloadUnassignedFile Download one file of No asignados with HTTP Range support (RF-27)
+	// (GET /unassigned/{id}/files/download)
+	DownloadUnassignedFile(ctx context.Context, request DownloadUnassignedFileRequestObject) (DownloadUnassignedFileResponseObject, error)
 	// TrashUnassignedFile Send one file of an entry of No asignados to the trash (RF-27, RF-30)
 	// (POST /unassigned/{id}/files/trash)
 	TrashUnassignedFile(ctx context.Context, request TrashUnassignedFileRequestObject) (TrashUnassignedFileResponseObject, error)
@@ -5844,6 +6428,32 @@ func (sh *strictHandler) GetLibraryTitle(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// DownloadLibraryTitle operation middleware
+func (sh *strictHandler) DownloadLibraryTitle(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request DownloadLibraryTitleRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadLibraryTitle(ctx, request.(DownloadLibraryTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadLibraryTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadLibraryTitleResponseObject); ok {
+		if err := validResponse.VisitDownloadLibraryTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CommitTitleEdit operation middleware
 func (sh *strictHandler) CommitTitleEdit(w http.ResponseWriter, r *http.Request, id TitleId) {
 	var request CommitTitleEditRequestObject
@@ -5903,6 +6513,33 @@ func (sh *strictHandler) PlanTitleEdit(w http.ResponseWriter, r *http.Request, i
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PlanTitleEditResponseObject); ok {
 		if err := validResponse.VisitPlanTitleEditResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadLibraryFile operation middleware
+func (sh *strictHandler) DownloadLibraryFile(w http.ResponseWriter, r *http.Request, id TitleId, fileId LibraryFileId) {
+	var request DownloadLibraryFileRequestObject
+
+	request.Id = id
+	request.FileId = fileId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadLibraryFile(ctx, request.(DownloadLibraryFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadLibraryFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadLibraryFileResponseObject); ok {
+		if err := validResponse.VisitDownloadLibraryFileResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5996,6 +6633,33 @@ func (sh *strictHandler) PlanTitleIDTag(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PlanTitleIDTagResponseObject); ok {
 		if err := validResponse.VisitPlanTitleIDTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadLibrarySeason operation middleware
+func (sh *strictHandler) DownloadLibrarySeason(w http.ResponseWriter, r *http.Request, id TitleId, season int) {
+	var request DownloadLibrarySeasonRequestObject
+
+	request.Id = id
+	request.Season = season
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadLibrarySeason(ctx, request.(DownloadLibrarySeasonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadLibrarySeason")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadLibrarySeasonResponseObject); ok {
+		if err := validResponse.VisitDownloadLibrarySeasonResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -6360,6 +7024,32 @@ func (sh *strictHandler) DeleteUnassignedEntry(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// DownloadUnassignedEntry operation middleware
+func (sh *strictHandler) DownloadUnassignedEntry(w http.ResponseWriter, r *http.Request, id EntryId) {
+	var request DownloadUnassignedEntryRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadUnassignedEntry(ctx, request.(DownloadUnassignedEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadUnassignedEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadUnassignedEntryResponseObject); ok {
+		if err := validResponse.VisitDownloadUnassignedEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteUnassignedFile operation middleware
 func (sh *strictHandler) DeleteUnassignedFile(w http.ResponseWriter, r *http.Request, id EntryId) {
 	var request DeleteUnassignedFileRequestObject
@@ -6386,6 +7076,33 @@ func (sh *strictHandler) DeleteUnassignedFile(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteUnassignedFileResponseObject); ok {
 		if err := validResponse.VisitDeleteUnassignedFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadUnassignedFile operation middleware
+func (sh *strictHandler) DownloadUnassignedFile(w http.ResponseWriter, r *http.Request, id EntryId, params DownloadUnassignedFileParams) {
+	var request DownloadUnassignedFileRequestObject
+
+	request.Id = id
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadUnassignedFile(ctx, request.(DownloadUnassignedFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadUnassignedFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadUnassignedFileResponseObject); ok {
+		if err := validResponse.VisitDownloadUnassignedFileResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

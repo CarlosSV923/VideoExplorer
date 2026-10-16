@@ -39,7 +39,7 @@ func newCatalog(conn *sql.DB, cfg config.Config, log *slog.Logger) catalogWiring
 		Trash:      catalogapplication.NewTrash(catalogsqlite.NewTrashRepository(conn), files, engine, time.Now),
 		Unassigned: catalogapplication.NewUnassigned(unassigned, files, engine, time.Now),
 		Section: catalogapplication.NewSection(catalogapplication.SectionDeps{
-			Unassigned: unassigned, Files: files, Engine: engine,
+			Unassigned: unassigned, Files: files, Downloads: files, Engine: engine,
 			VideoExts: cfg.VideoExtensions, SubtitleExts: cfg.SubtitleExtensions, Now: time.Now, Log: log,
 		}),
 	}

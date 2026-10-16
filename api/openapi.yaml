@@ -652,6 +652,69 @@ paths:
         '409':
           $ref: '#/components/responses/EntryConflict'
 
+  /unassigned/{id}/download:
+    get:
+      tags: [section]
+      operationId: downloadUnassignedEntry
+      summary: Download an entry of No asignados (RF-27)
+      description: |
+        Downloads a loose file directly, or a folder as a store-only zip preserving the entry's structure.
+        The exact zip size is announced. An entry that is copying or being assigned answers 409.
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      responses:
+        '200':
+          description: The entry file or zip.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EntryConflict'
+        '416':
+          description: The requested range cannot be satisfied.
+
+  /unassigned/{id}/files/download:
+    get:
+      tags: [section]
+      operationId: downloadUnassignedFile
+      summary: Download one file of No asignados with HTTP Range support (RF-27)
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+        - name: path
+          in: query
+          required: true
+          description: The file path as listed inside the entry; it is checked against the entry and never used as a filesystem path.
+          schema:
+            type: string
+            minLength: 0
+            maxLength: 1024
+      responses:
+        '200':
+          description: The file.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EntryConflict'
+        '416':
+          description: The requested range cannot be satisfied.
+
   /scans:
     get:
       tags: [scans]
@@ -792,6 +855,85 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/download:
+    get:
+      tags: [library]
+      operationId: downloadLibraryTitle
+      summary: Download a whole library title as a streamed store zip (RF-44)
+      description: |
+        Streams the live videos and their external subtitles of the title, keeping the title folder and
+        its subfolders as they are on disk. The zip is store-only, announces its exact Content-Length, and
+        uses Zip64 when needed. Files in the trash are not included; the server builds every path from the
+        title id and its registry.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      responses:
+        '200':
+          description: The title as a streamed zip.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/seasons/{season}/download:
+    get:
+      tags: [library]
+      operationId: downloadLibrarySeason
+      summary: Download one season of a library series as a streamed store zip (RF-44)
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 999
+      responses:
+        '200':
+          description: The season as a streamed zip.
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/files/{fileId}/download:
+    get:
+      tags: [library]
+      operationId: downloadLibraryFile
+      summary: Download one library file with HTTP Range support (RF-44)
+      description: |
+        Streams one live video or external subtitle selected by its registry id. Range and conditional
+        requests are handled by http.ServeContent. The server builds the filesystem path from both ids and
+        refuses missing, trashed or symbolic-link files.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+        - $ref: '#/components/parameters/LibraryFileId'
+      responses:
+        '200':
+          description: The file.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '416':
+          description: The requested range cannot be satisfied.
 
   /library/titles/{id}/edit/plan:
     post:
