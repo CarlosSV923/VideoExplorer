@@ -93,15 +93,12 @@ func TestImageSourceFailures(t *testing.T) {
 func TestImageSourceUnreachableIsUpstream(t *testing.T) {
 	t.Parallel()
 
-	cdn := httptest.NewServer(http.NotFoundHandler())
-	base := cdn.URL + "/"
-	cdn.Close() // nothing listens any more
-
 	ref, err := domain.NewImageRef("poster", "p.jpg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = tmdb.NewImageSource(nil, base).Fetch(t.Context(), ref)
+	hc := &http.Client{Transport: unreachableTransport{}}
+	_, err = tmdb.NewImageSource(hc, "https://cdn.invalid/").Fetch(t.Context(), ref)
 	if !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("err = %v, want ErrUpstream", err)
 	}

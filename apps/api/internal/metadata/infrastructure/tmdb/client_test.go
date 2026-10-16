@@ -509,6 +509,12 @@ func (c *countingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return c.next.RoundTrip(r)
 }
 
+type unreachableTransport struct{}
+
+func (unreachableTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("network is unreachable")
+}
+
 func TestTimeoutIsRetriedAndReported(t *testing.T) {
 	t.Parallel()
 
@@ -667,11 +673,18 @@ func TestCredentialNeverAppearsInErrors(t *testing.T) {
 func TestTransportErrorDoesNotLeakTheKey(t *testing.T) {
 	t.Parallel()
 
-	f := newFakeTMDB(t, nil)
-	c := newClient(t, f, tmdb.Config{APIKey: testAPIKey, MaxAttempts: 2})
-	f.srv.Close() // the connection fails; the error carries the request URL
+	c, err := tmdb.New(tmdb.Config{
+		APIKey:      testAPIKey,
+		BaseURL:     "https://tmdb.invalid/3",
+		MaxAttempts: 2,
+		RetryDelay:  time.Millisecond,
+		HTTPClient:  &http.Client{Transport: unreachableTransport{}},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 
-	_, err := c.Movie(t.Context(), "es-MX", 8)
+	_, err = c.Movie(t.Context(), "es-MX", 8)
 	if !errors.Is(err, domain.ErrUpstream) {
 		t.Fatalf("err = %v, want ErrUpstream", err)
 	}
