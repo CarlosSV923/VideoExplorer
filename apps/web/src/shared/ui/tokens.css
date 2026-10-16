@@ -1,0 +1,195 @@
+@import 'tailwindcss';
+
+/* The visual vocabulary from docs/design-handoff.md §1. No Tailwind palette
+   is available accidentally: every colour used by the UI is intentional. */
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+
+  --color-bg: #0c0c0f;
+  --color-bg-sunken: #070709;
+  --color-surface: #15151a;
+  --color-surface-2: #1d1d23;
+  --color-surface-3: #26262e;
+  --color-surface-missing: #121216;
+  --color-overlay: rgb(7 7 9 / 0.84);
+  --color-hover: rgb(255 255 255 / 0.08);
+  --background-image-scrim: linear-gradient(180deg, rgb(12 12 15 / 0.96), transparent);
+  --color-line: #2e2e37;
+  --color-control: #7a7a86;
+  --color-ink-1: #f5f5f7;
+  --color-ink-2: #c4c4cc;
+  --color-ink-3: #9696a1;
+  --color-accent: #35d0ba;
+  --color-accent-hover: #6fe3d1;
+  --color-on-accent: #04201c;
+  --color-success-surface: #0f2e2a;
+  --color-success-ink: #7fe8d7;
+  --color-warning: #f5c451;
+  --color-on-warning: #1f1604;
+  --color-warning-surface: #2e2614;
+  --color-warning-ink: #ffe3a0;
+  --color-warning-muted: #bfa165;
+  --color-info: #8ab4ff;
+  --color-info-surface: #1a2333;
+  --color-info-ink: #cfe0ff;
+  --color-danger: #ff8577;
+  --color-on-danger: #2a0b07;
+  --color-danger-surface: #3a1b18;
+  --color-danger-ink: #ffd6d0;
+  --color-progress-upload: #f5f5f7;
+  --color-progress-extract: #8ab4ff;
+
+  --font-sans: Outfit, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --text-display-hero: clamp(44px, 6vw, 76px);
+  --text-display-hero--line-height: 0.95;
+  --text-display: 56px;
+  --text-display--line-height: 1;
+  --text-page-title: 44px;
+  --text-page-title--line-height: 1;
+  --text-title: 28px;
+  --text-title--line-height: 1.2;
+  --text-heading: 24px;
+  --text-heading--line-height: 1.2;
+  --text-subheading: 20px;
+  --text-subheading--line-height: 1.2;
+  --text-label: 14px;
+  --text-label--line-height: 1.2;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.5;
+  --text-body: 16px;
+  --text-body--line-height: 1.5;
+  --text-body-sm: 15px;
+  --text-body-sm--line-height: 1.4;
+  --text-caption: 13px;
+  --text-caption--line-height: 1.25;
+  --text-mono: 14px;
+  --text-mono--line-height: 1.4;
+  --tracking-label: 0.08em;
+
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-7: 32px;
+  --spacing-8: 40px;
+  --spacing-page-x: 48px;
+  --spacing-row-gap: 36px;
+  --spacing-control-lg: 52px;
+  --spacing-control-md: 48px;
+  --spacing-control-sm: 44px;
+  --spacing-poster-w: 176px;
+  --spacing-thumb-w: 224px;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  --ease-cinema: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-fade-in: fade-in 120ms ease-out;
+  --animate-dialog-in: dialog-in 160ms ease-out;
+  --animate-sheet-in: sheet-in 220ms ease-out;
+  --animate-panel-in: panel-in 200ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--color-bg);
+    color: var(--color-ink-1);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  a {
+    color: var(--color-accent);
+  }
+  a:hover {
+    color: var(--color-accent-hover);
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+  label:has(input:focus-visible) {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+  @media (min-width: 640px) {
+    :root {
+      --page-x: 32px;
+    }
+  }
+  @media (min-width: 1024px) {
+    :root {
+      --page-x: 48px;
+    }
+  }
+  @media (max-width: 639px) {
+    :root {
+      --page-x: 16px;
+      --row-gap: 26px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0ms !important;
+      transition-duration: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility page-padding {
+  padding-inline: var(--page-x, 16px);
+}
+@utility font-display {
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+@utility font-mono-file {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
