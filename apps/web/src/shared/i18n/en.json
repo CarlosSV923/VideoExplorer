@@ -133,7 +133,7 @@
     "confirmFileTrashTitle": "Send this file to trash?",
     "confirmFileTrashBody": "The file and its subtitles can be restored during the retention period.",
     "editSubtitle": "The preview shows final names and paths.",
-    "currentMatch": "TMDB match",
+    "currentMatch": "Current match",
     "changeMatch": "Change match",
     "idTagDescription": "It goes on the folder and movie files so Jellyfin does not confuse this title with another one.",
     "versionLabel": "Version label",

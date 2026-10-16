@@ -36,7 +36,9 @@ const detail: LibraryTitle = {
   backdrop: '/api/images/backdrop/amber.jpg',
   poster: '/api/images/poster/amber.jpg',
   seasons: [],
-  videos: [{ id: 10, path: 'Película.mkv', size: 100, version: '', part: 0, subtitles: [] }],
+  videos: [
+    { id: 10, path: 'Película.mkv', size: 2_000_000_000, version: '', part: 0, subtitles: [] },
+  ],
 }
 
 function renderScreen(screenName: 'home' | 'edit', catalog: Partial<CatalogPorts>, metadata = {}) {
@@ -134,6 +136,8 @@ describe('Biblioteca', () => {
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'Coincidencia de TMDB' })).toBeInTheDocument(),
     )
+    expect(screen.getByText('2,0 GB')).toBeInTheDocument()
+    expect(screen.getAllByText('Coincidencia de TMDB')).toHaveLength(1)
     expect(screen.getByRole('link', { name: 'Película Ámbar' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).not.toBeInTheDocument()
     fireEvent.change(screen.getByRole('textbox', { name: 'Coincidencia de TMDB' }), {

@@ -133,7 +133,7 @@
     "confirmFileTrashTitle": "¿Mandar este archivo a la papelera?",
     "confirmFileTrashBody": "El archivo y sus subtítulos se podrán restaurar durante el periodo de retención.",
     "editSubtitle": "La vista previa muestra los nombres y rutas finales.",
-    "currentMatch": "Coincidencia de TMDB",
+    "currentMatch": "Coincidencia actual",
     "changeMatch": "Cambiar coincidencia",
     "idTagDescription": "Va en la carpeta y en los archivos de la película para que Jellyfin no la confunda con otra.",
     "versionLabel": "Etiqueta de versión",

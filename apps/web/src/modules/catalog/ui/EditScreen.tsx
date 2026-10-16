@@ -18,6 +18,7 @@ import { LibraryLayout } from '@/app/LibraryLayout'
 import { useMetadataPorts } from '@/modules/metadata/application/ports'
 import { useTitleSearch } from '@/modules/metadata/application/queries'
 import { isAppError } from '@/shared/kernel/errors'
+import { useFormat } from '@/shared/i18n/hooks'
 import {
   Banner,
   Button,
@@ -79,6 +80,7 @@ function issueMessage(t: Translate, issue?: PlanIssue): string | undefined {
 
 export function EditScreen({ id }: { id: number }) {
   const { t } = useTranslation()
+  const format = useFormat()
   const translate = t as unknown as Translate
   const query = useLibraryTitle(id)
   const ports = useCatalogPorts()
@@ -423,9 +425,7 @@ export function EditScreen({ id }: { id: number }) {
                       {fileIssue(video.path) && (
                         <p className="m-0 text-body-sm text-danger">{fileIssue(video.path)}</p>
                       )}
-                      <p className="m-0 text-body-sm text-ink-2">
-                        {t('library.bytes', { count: video.size })}
-                      </p>
+                      <p className="m-0 text-body-sm text-ink-2">{format.size(video.size)}</p>
                     </div>
                     <TextField
                       label={t('library.versionLabel')}
