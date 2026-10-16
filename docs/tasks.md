@@ -80,7 +80,7 @@ Depende de: 6 · Cubre: RF-30, RF-31, RF-43 a RF-45
 - [x] Descargas: archivo con Range y zip *store* (de GameExplorer), en la ficha y en No asignados (RF-44, RF-27)
 - [x] Info técnica (ffprobe) de un archivo de la biblioteca (RF-44)
 - [x] Ficha: lista de capítulos presentes y faltantes por temporada según TMDB, con miniatura, título y sinopsis (RF-43), y datos de TMDB de la ficha (backdrop, géneros, sinopsis, colección)
-- [~] «Actualizar datos» de TMDB desde la ficha (RF-44, §6); previo: localizar y arreglar un fallo intermitente visto una vez en la batería completa de Go (probablemente `internal/metadata/infrastructure/sqlite`; no se reprodujo en 4 pasadas)
+- [x] «Actualizar datos» de TMDB desde la ficha (RF-44, §6); previo: localizar y arreglar un fallo intermitente visto una vez en la batería completa de Go (probablemente `internal/metadata/infrastructure/sqlite`; no se reprodujo en 4 pasadas)
 
 ## Fase 8 — Integración con Jellyfin
 Depende de: 7 · Cubre: RF-50
