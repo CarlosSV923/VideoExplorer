@@ -232,6 +232,46 @@ func TestLinkingAFreeMovieRenamesItsFolderAndFilesAndTagsIt(t *testing.T) {
 	e.assertNothingJournaled()
 }
 
+// TestChoosingTheCurrentMatchKeepsEveryExistingName covers imported and canonical files. Selecting the same
+// TMDB match is not a naming change, so the edit plan must report changed=false even when RF-29 preserved an
+// [imdbid-] filename that differs from the canonical Jellyfin name (RF-44, RF-45).
+func TestChoosingTheCurrentMatchKeepsEveryExistingName(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		folder string
+		file   string
+		idTag  bool
+	}{
+		{
+			name:   "imported filename",
+			folder: ironFolder,
+			file:   ironFolder + "/Iron Man (2008) [imdbid-tt18412256].mkv",
+		},
+		{
+			name:   "canonical filename",
+			folder: ironFolder + " [tmdbid-1726]",
+			file:   ironFolder + " [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv",
+			idTag:  true,
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			e := newEditEnv(t, nil)
+			e.write(tc.file, "iron")
+			titleID := e.seedMovie(tc.folder, 1726, tc.idTag, e.video(domain.KindMovie, tc.file, domain.Place{}, ""))
+			req := movieChoices(e.rows(titleID), application.TitleChoice{Source: "tmdb", Kind: domain.KindMovie, TMDBID: 1726})
+
+			p := e.plan(titleID, req)
+			if !p.Valid || p.Videos[0].Changed || p.Videos[0].FinalPath != tc.file {
+				t.Fatalf("same match changed the imported name: valid=%v changed=%v final=%q errors=%+v", p.Valid, p.Videos[0].Changed, p.Videos[0].FinalPath, p.Errors)
+			}
+		})
+	}
+}
+
 // TestAStaleRevisionIsRefusedAsPlanChanged checks that a commit does not run on a title that changed since
 // the plan was made (RF-25: plan_changed).
 func TestAStaleRevisionIsRefusedAsPlanChanged(t *testing.T) {

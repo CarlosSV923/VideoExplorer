@@ -283,11 +283,60 @@ func (e *Edits) placeFiles(ctx context.Context, ev *editEval) error {
 			ev.addIssue(v.file.ID, ne.Field, "invalid", "")
 			continue
 		}
+		moves = ev.preserveUnaffectedNames(v, moves)
 		v.moves = moves
 	}
 	ev.planLayout()
 	ev.groupPlaces()
 	return nil
+}
+
+// preserveUnaffectedNames keeps the names that already exist on disk when an edit leaves the title and a
+// particular file's choices unchanged. This matters for imported files (RF-29): their names are deliberately
+// not normalized on import, so selecting the same match must not rewrite them just because the canonical name
+// would be different. A changed video still carries its subtitles along with the new video name (RF-44).
+func (ev *editEval) preserveUnaffectedNames(v *editVideo, moves []domain.Move) []domain.Move {
+	if !ev.sameIdentity() || !ev.videoChoiceUnchanged(v) || len(moves) == 0 {
+		return moves
+	}
+	out := append([]domain.Move(nil), moves...)
+	out[0].To = out[0].From
+	for i, s := range v.subs {
+		if i+1 >= len(out) || !subtitleChoiceUnchanged(s) {
+			continue
+		}
+		out[i+1].To = out[i+1].From
+	}
+	return out
+}
+
+// sameIdentity reports whether the edit resolves to this title, rather than linking or merging into another
+// title. The folder comparison also includes the current ID-tag state.
+func (ev *editEval) sameIdentity() bool {
+	return ev.id != nil && ev.id.merge == nil && ev.id.kind == ev.st.title.Kind &&
+		ev.id.tmdbID == ev.st.title.TMDBID && strings.EqualFold(ev.id.folder, ev.st.title.Folder)
+}
+
+func (ev *editEval) videoChoiceUnchanged(v *editVideo) bool {
+	c := v.choice
+	if c.Version != v.file.Version {
+		return false
+	}
+	if ev.id.kind == domain.KindMovie {
+		return c.Part == v.file.Place.Part
+	}
+	if c.Season == nil || c.Chapter == nil || *c.Season != v.file.Place.Season || *c.Chapter != v.file.Place.First {
+		return false
+	}
+	last := *c.Chapter
+	if c.LastChapter != nil {
+		last = *c.LastChapter
+	}
+	return last == v.file.Place.Last
+}
+
+func subtitleChoiceUnchanged(s *editSub) bool {
+	return s.chosen && s.choice.Language == s.file.Language && s.choice.Forced == s.file.Forced && s.choice.SDH == s.file.SDH
 }
 
 // chapterOf reads the chapter title of a series video: the title of TMDB for a linked title (spec §5, §6), or
