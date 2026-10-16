@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { defaultLanguage, isLanguage, type Language } from '.'
-import { formatDate, formatDuration, formatRelative, formatSize } from './format'
+import { formatDate, formatDateTime, formatDuration, formatRelative, formatSize } from './format'
 
 export function useLanguage(): Language {
   const { i18n } = useTranslation()
@@ -17,6 +17,8 @@ export function useFormat() {
       size: (bytes: number) => formatSize(bytes, language, t),
       date: (date: Date | string) =>
         formatDate(typeof date === 'string' ? new Date(date) : date, language),
+      dateTime: (date: Date | string) =>
+        formatDateTime(typeof date === 'string' ? new Date(date) : date, language),
       duration: (seconds: number) => formatDuration(seconds, language, t),
       relative: (date: Date | string, now: number) =>
         formatRelative(typeof date === 'string' ? new Date(date) : date, now, language),

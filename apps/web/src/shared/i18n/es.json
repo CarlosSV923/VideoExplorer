@@ -4,7 +4,7 @@
     "tagline": "Tu biblioteca de películas y series en el NAS"
   },
   "attribution": {
-    "tmdb": "This product uses the TMDB API but is not endorsed or certified by TMDB."
+    "tmdb": "Este producto usa la API de TMDB pero no est\u00e1 respaldado ni certificado por TMDB."
   },
   "common": {
     "loading": "Cargando…",
@@ -27,6 +27,8 @@
     "submit": "Entrar"
   },
   "errors": {
+    "routeInvalidTitle": "No se pudo abrir esta pantalla",
+    "routeInvalidBody": "La ruta no incluye los datos necesarios para mostrarla.",
     "loginUnauthorized": "La contraseña no es correcta.",
     "rateLimited": "Demasiados intentos. Espera un momento y vuelve a intentarlo.",
     "loginFailed": "No se pudo iniciar sesión.",
@@ -65,6 +67,9 @@
     "seeAll": "Ver todos",
     "collections": "Colecciones",
     "pending": "Pendientes",
+    "pendingUnassigned_one": "{{count}} en No asignados",
+    "pendingUnassigned_other": "{{count}} en No asignados",
+    "pendingUnlinkedBody": "Sin coincidencia \u00fanica en TMDB: {{titles}}",
     "pendingUnassigned": "Hay contenido en No asignados",
     "pendingIncomplete_one": "{{count}} serie incompleta",
     "pendingIncomplete_other": "{{count}} series incompletas",
@@ -77,6 +82,8 @@
     "emptyBody": "Sube y asigna un video para empezar.",
     "titleCount": "{{count}} títulos",
     "sort": "Ordenar",
+    "titleCount_one": "{{count}} t\u00edtulo",
+    "titleCount_other": "{{count}} t\u00edtulos",
     "sortAdded": "Agregado",
     "sortTitle": "Título",
     "sortYear": "Año",
@@ -90,6 +97,9 @@
     "refreshData": "Actualizar datos",
     "refreshFailed": "No se pudo actualizar; se conservan los datos anteriores.",
     "files": "Archivos",
+    "collectionCount": "{{present}} de {{total}} en tu biblioteca",
+    "inLibrary": "En tu biblioteca",
+    "notInLibrary": "No la tienes",
     "part": "Parte {{count}}",
     "bytes": "{{count}} bytes",
     "fileActions": "Acciones del archivo",
@@ -104,6 +114,8 @@
     "codec": "Códec",
     "seasons": "Temporadas",
     "specials": "Especiales",
+    "seasonProgress": "({{present}} de {{total}})",
+    "seasonEmpty": "Esta temporada no tiene cap\u00edtulos.",
     "season": "Temporada {{number}}",
     "episodeNumber": "Capítulo {{number}}",
     "untitledEpisode": "Capítulo sin título",
@@ -137,13 +149,17 @@
   },
   "unassigned": {
     "heading": "No asignados",
+    "subtitle_one": "{{count}} entrada visible",
+    "subtitle_other": "{{count}} entradas visibles",
     "subtitle": "{{count}} entradas visibles",
     "refresh": "Volver a leer",
     "assign": "Asignar",
+    "assignFor": "Asignar {{name}}",
     "trash": "A la papelera",
     "delete": "Borrar definitivamente",
     "remove": "Quitar",
     "password": "Contraseña",
+    "passwordFor": "Contraseña de {{name}}",
     "unlock": "Continuar",
     "entryActions": "Más acciones de {{name}}",
     "fileActions": "Acciones de {{name}}",

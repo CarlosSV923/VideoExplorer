@@ -21,7 +21,7 @@ export function SettingsScreen() {
   return (
     <LibraryLayout>
       <PageHeader
-        title={t('screens.generalSettings.title')}
+        title={t('library.settings')}
         actions={
           <nav aria-label={t('settings.sections')} className="flex gap-2">
             <a
@@ -58,7 +58,7 @@ export function SettingsScreen() {
                   {scan.running
                     ? t('settings.scan.running')
                     : scan.lastFinishedAt
-                      ? t('settings.scan.last', { date: format.date(scan.lastFinishedAt) })
+                      ? t('settings.scan.last', { date: format.dateTime(scan.lastFinishedAt) })
                       : t('settings.scan.never')}
                 </p>
               </div>

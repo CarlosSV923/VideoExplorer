@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next'
 
 import type { UnassignedEntry, UnassignedFile } from '../domain/types'
 import { ConfirmDialog, LinkButton, Menu, StatusChip } from '@/shared/ui'
-import { DownloadIcon } from '@/shared/ui/icons'
 
 export function UnassignedEntryCard({
   entry,
   formatSize,
+  downloadEntryUrl,
   downloadFileUrl,
   onTrash,
   onDelete,
@@ -16,6 +16,7 @@ export function UnassignedEntryCard({
 }: {
   entry: UnassignedEntry
   formatSize: (size: number) => string
+  downloadEntryUrl: () => string
   downloadFileUrl: (path: string) => string
   onTrash: () => void
   onDelete: () => void
@@ -119,19 +120,22 @@ export function UnassignedEntryCard({
 
       {!blocked && !hiddenOnly && (
         <div className="flex flex-wrap items-center gap-3">
-          <LinkButton href={`/no-asignados/${String(entry.id)}/asignar`} variant="primary">
+          <LinkButton
+            href={`/no-asignados/${String(entry.id)}/asignar`}
+            variant="primary"
+            aria-label={t('unassigned.assignFor', { name: entry.name })}
+          >
             {t('unassigned.assign')}
           </LinkButton>
-          <a
-            href={`/api/unassigned/${String(entry.id)}/download`}
-            className="inline-flex min-h-control-md items-center gap-2 rounded-pill border border-control px-4 text-body-sm font-bold no-underline"
-          >
-            <DownloadIcon size={17} />
-            {t('common.download')}
-          </a>
           <Menu
             label={t('unassigned.entryActions', { name: entry.name })}
             items={[
+              {
+                label: t('common.download'),
+                onSelect: () => {
+                  window.location.assign(downloadEntryUrl())
+                },
+              },
               { label: t('unassigned.trash'), onSelect: onTrash },
               {
                 label: t('unassigned.delete'),

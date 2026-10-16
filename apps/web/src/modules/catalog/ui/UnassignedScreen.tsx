@@ -1,28 +1,16 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import { useCatalogPorts } from '../application/ports'
-import { unassignedKey } from '../application/queries'
+import { unassignedKey, useUnassigned } from '../application/queries'
 import type { UploadJob } from '@/modules/ingestion/domain/types'
 import { useJobMutation } from '@/modules/ingestion/application/queries'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { isAppError } from '@/shared/kernel/errors'
+import { useFormat } from '@/shared/i18n/hooks'
 import { Banner, Button, EmptyState, PageHeader, PasswordField, ProgressBar } from '@/shared/ui'
 import { UnassignedEntryCard } from './UnassignedEntry'
-
-function formatBytes(bytes: number, locale: string): string {
-  if (bytes < 1024) return `${String(bytes)} B`
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let value = bytes
-  let unit = -1
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
-  }
-  const unitLabel: string = units[unit] ?? units[0] ?? ''
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unitLabel}`
-}
 
 function JobCard({ job, onRefresh }: { job: UploadJob; onRefresh: () => void }) {
   const { t } = useTranslation()
@@ -70,7 +58,7 @@ function JobCard({ job, onRefresh }: { job: UploadJob; onRefresh: () => void }) 
         >
           <div className="min-w-60 flex-1">
             <PasswordField
-              label={t('unassigned.password')}
+              label={t('unassigned.passwordFor', { name: job.fileName })}
               value={value}
               onChange={(event) => {
                 setValue(event.currentTarget.value)
@@ -100,10 +88,11 @@ function JobCard({ job, onRefresh }: { job: UploadJob; onRefresh: () => void }) 
 }
 
 export function UnassignedScreen() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
+  const format = useFormat()
   const ports = useCatalogPorts()
   const queryClient = useQueryClient()
-  const query = useQuery({ queryKey: unassignedKey, queryFn: () => ports.unassigned() })
+  const query = useUnassigned()
   const [error, setError] = useState<unknown>(null)
   const refresh = () => void queryClient.invalidateQueries({ queryKey: unassignedKey })
   const action = async (fn: () => Promise<void>) => {
@@ -134,11 +123,12 @@ export function UnassignedScreen() {
       </LibraryLayout>
     )
   const section = query.data
+  const visibleCount = section.entries.length + section.jobs.length
   return (
     <LibraryLayout>
       <PageHeader
         title={t('unassigned.heading')}
-        subtitle={t('unassigned.subtitle', { count: section.entries.length })}
+        subtitle={t('unassigned.subtitle', { count: visibleCount })}
         actions={<Button onClick={refresh}>{t('unassigned.refresh')}</Button>}
       />
       <div className="flex flex-col gap-5 py-8">
@@ -159,7 +149,8 @@ export function UnassignedScreen() {
             <UnassignedEntryCard
               key={entry.id}
               entry={entry}
-              formatSize={(size) => formatBytes(size, i18n.language)}
+              formatSize={format.size}
+              downloadEntryUrl={() => ports.downloadUnassignedEntryUrl(entry.id)}
               downloadFileUrl={(path) => ports.downloadUnassignedFileUrl(entry.id, path)}
               onTrash={() => void action(() => ports.trashUnassignedEntry(entry.id))}
               onDelete={() => void action(() => ports.deleteUnassignedEntry(entry.id))}

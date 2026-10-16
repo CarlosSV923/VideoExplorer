@@ -25,6 +25,18 @@ export function formatDate(date: Date, language: Language) {
     .replace(/\./g, '')
 }
 
+export function formatDateTime(date: Date, language: Language) {
+  return new Intl.DateTimeFormat(language, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+    .format(date)
+    .replace(/\./g, '')
+}
+
 export function formatDuration(seconds: number, language: Language, t: TFunction) {
   const totalMinutes = Math.max(0, Math.round(seconds / 60))
   const hours = Math.floor(totalMinutes / 60)

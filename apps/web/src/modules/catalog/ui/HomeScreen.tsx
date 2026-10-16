@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-import { useLibraryTitles } from '../application/queries'
+import { useLibraryTitles, useUnassigned } from '../application/queries'
 import { sortTitles } from '../application/search'
 import type { LibraryTitleSummary } from '../domain/types'
 import { LibraryLayout } from '@/app/LibraryLayout'
@@ -13,6 +13,7 @@ import { LoadingGrid, PosterFor } from './CatalogShared'
 export function HomeScreen() {
   const { t } = useTranslation()
   const query = useLibraryTitles()
+  const unassigned = useUnassigned()
   if (query.isPending)
     return (
       <LibraryLayout>
@@ -66,7 +67,12 @@ export function HomeScreen() {
       <h1 className="sr-only">{t('library.home')}</h1>
       {hero.length > 0 && <HeroCarousel titles={hero} />}
       <div className="flex flex-col gap-[var(--row-gap,36px)] py-8">
-        <PendingStrip titles={titles} />
+        <PendingStrip
+          titles={titles}
+          {...(unassigned.data
+            ? { unassignedCount: unassigned.data.entries.length + unassigned.data.jobs.length }
+            : {})}
+        />
         <PosterRow
           title={t('library.recent')}
           seeAll={
