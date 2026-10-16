@@ -67,6 +67,7 @@ type LibraryCollectionMetadata interface {
 	Collection(ctx context.Context, id int64) (CollectionMetadata, error)
 }
 
+// ErrCollectionNotFound means a collection is absent from the metadata cache.
 var ErrCollectionNotFound = errors.New("the collection is not available")
 
 // TitleDetail is a title with its videos, as the page of the title shows them (RF-43).
