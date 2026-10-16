@@ -1,0 +1,151 @@
+import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { useCatalogPorts } from '../application/ports'
+import { useLibraryTitle } from '../application/queries'
+import type { Kind } from '../application/search'
+import { LibraryLayout } from '@/app/LibraryLayout'
+import { Banner, Button, ConfirmDialog, EmptyState, Tabs } from '@/shared/ui'
+import { TitleHeader } from './TitleHeader'
+import { VersionCard } from './VersionCard'
+import { EpisodeList } from './EpisodeList'
+import { CollectionInline } from './CollectionInline'
+import { LoadingGrid } from './CatalogShared'
+import { useMetadataPorts } from '@/modules/metadata/application/ports'
+
+export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
+  const { t } = useTranslation()
+  const query = useLibraryTitle(id)
+  const metadata = useMetadataPorts()
+  const ports = useCatalogPorts()
+  const [confirm, setConfirm] = useState<'unassigned' | 'trash' | null>(null)
+  const [season, setSeason] = useState('0')
+  const refresh = useMutation({
+    mutationFn: () => metadata.refreshTitleMetadata(id),
+    onSuccess: () => undefined,
+  })
+  const move = useMutation({
+    mutationFn: () => ports.moveTitleToUnassigned(id, { kind: 'title' }),
+    onSuccess: () => {
+      setConfirm(null)
+    },
+  })
+  const trash = useMutation({
+    mutationFn: () => ports.trashTitleScope(id, { kind: 'title' }),
+    onSuccess: () => {
+      setConfirm(null)
+    },
+  })
+  if (query.isPending)
+    return (
+      <LibraryLayout>
+        <div className="py-12">
+          <LoadingGrid />
+        </div>
+      </LibraryLayout>
+    )
+  if (query.isError)
+    return (
+      <LibraryLayout>
+        <div className="py-12">
+          <EmptyState title={t('errors.loadTitle')} body={t('errors.loadBody')} />
+        </div>
+      </LibraryLayout>
+    )
+  const title = query.data
+  const selectedSeason =
+    title.seasons.find((value) => value.number === Number(season)) ?? title.seasons[0]
+  return (
+    <LibraryLayout>
+      <TitleHeader
+        title={title}
+        onRefresh={() => {
+          refresh.mutate()
+        }}
+        refreshing={refresh.isPending}
+      />
+      {refresh.isError && <Banner tone="danger">{t('library.refreshFailed')}</Banner>}
+      <div className="flex flex-col gap-8 py-8">
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setConfirm('unassigned')
+            }}
+          >
+            {t('library.moveUnassigned')}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setConfirm('trash')
+            }}
+          >
+            {t('library.trash')}
+          </Button>
+        </div>
+        {kind === 'movie' && (
+          <section>
+            <h2 className="text-heading font-display">{t('library.files')}</h2>
+            <div className="flex flex-col gap-3">
+              {title.videos.map((video) => (
+                <VersionCard key={video.id} titleId={id} video={video} kind="movie" />
+              ))}
+            </div>
+          </section>
+        )}
+        {kind === 'series' && title.seasons.length > 0 && (
+          <section>
+            <h2 className="text-heading font-display">{t('library.seasons')}</h2>
+            <Tabs
+              label={t('library.seasons')}
+              options={title.seasons.map((value) => ({
+                value: String(value.number),
+                label:
+                  value.number === 0
+                    ? t('library.specials')
+                    : t('library.season', { number: value.number }),
+              }))}
+              value={selectedSeason ? String(selectedSeason.number) : season}
+              onChange={setSeason}
+            />
+            {selectedSeason && <EpisodeList title={title} season={selectedSeason} />}
+          </section>
+        )}
+        {title.collection && <CollectionInline collection={title.collection} />}
+      </div>
+      {confirm === 'unassigned' && (
+        <ConfirmDialog
+          title={t('library.confirmMoveTitle')}
+          confirmLabel={t('library.moveUnassigned')}
+          onCancel={() => {
+            setConfirm(null)
+          }}
+          onConfirm={() => {
+            move.mutate()
+          }}
+          busy={move.isPending}
+        >
+          {t('library.confirmMoveBody')}
+        </ConfirmDialog>
+      )}
+      {confirm === 'trash' && (
+        <ConfirmDialog
+          tone="danger"
+          title={t('library.confirmTrashTitle')}
+          confirmLabel={t('library.trash')}
+          onCancel={() => {
+            setConfirm(null)
+          }}
+          onConfirm={() => {
+            trash.mutate()
+          }}
+          busy={trash.isPending}
+        >
+          {t('library.confirmTrashBody')}
+        </ConfirmDialog>
+      )}
+    </LibraryLayout>
+  )
+}
