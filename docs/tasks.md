@@ -89,8 +89,9 @@ Depende de: 7 · Cubre: RF-50
 
 ## Fase 9 — Diseño → código
 Depende de: 0 · Cubre: RF-40 a RF-43, RNF-05 a RNF-07, §9.7, §9.8
-- [~] **Mockups primero** (estética Netflix / Prime Video; lienzo [`/design`](https://claude.ai/artifact/A2ENfFRCjVUMMcjMMiZCqb), 19 pantallas, en revisión del usuario): Inicio con hero y filas, Películas, Series, ficha de película, ficha de serie con temporadas, colección, No asignados, Asignar (con duplicados), Subidas, Papelera, Ajustes, login, estados vacíos y de error, móvil y escritorio
-- [ ] `design:design-critique` y `design:accessibility-review` → `docs/design-review.md`
+- [x] **Mockups primero** (estética Netflix / Prime Video; lienzo [`/design`](https://claude.ai/artifact/A2ENfFRCjVUMMcjMMiZCqb), aprobado por el usuario el 2026-10-16): Inicio con hero y filas, Películas, Series, ficha de película, ficha de serie con temporadas, colección, No asignados, Asignar (con duplicados), Subidas, Papelera, Ajustes, login, estados vacíos y de error, móvil y escritorio
+- [x] `design:design-critique` y `design:accessibility-review` → [`design-review.md`](./design-review.md) (7 hallazgos de crítica y 12 de WCAG con su corrección)
+- [x] Lienzo corregido: 22 pantallas; nuevas Series (filtro «Solo incompletas»), Editar y reasignar (coincidencia, tipo, etiqueta de ID, versiones, subtítulos y vista previa) y Asignar una película en partes; modo demo y barra de gamepad en Estados; contraste de la colección, nombres accesibles de los pósters, `h1` de Inicio, atajos de una letra solo con foco en un video, acciones secundarias de No asignados en «Más acciones»
 - [ ] `design:design-handoff` → `docs/design-handoff.md`
 - [ ] Tokens, `shared/ui`, i18n ES/EN y capa de entrada (de GameExplorer, adaptadas)
 
