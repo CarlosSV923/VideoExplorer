@@ -11,8 +11,10 @@ Self-hosted web app (TrueNAS SCALE) to upload, extract, classify (movies and ser
 
 ## Workflow: orchestrator + builder
 - The **main session is the orchestrator**: it owns `docs/spec.md`, `docs/tasks.md`, `CLAUDE.md` and `.claude/`, asks the user every undefined point (one question at a time, with options and a recommendation) and designs the UI (mockups, design reviews, handoff).
-- The **`video-builder` subagent** (`.claude/agents/video-builder.md`, Haiku, effort high) writes all code, tests and tooling. It gets **one task per order**, commits locally (only its files, never pushes) and reports back. A PreToolUse hook (`.claude/hooks/protect-docs.mjs`) blocks it from writing the orchestrator's files.
-- If the builder hits something undefined it stops and reports; the orchestrator asks the user, documents the answer in the spec, and resumes the builder (SendMessage) with its context.
+- The **builder** writes all code, tests and tooling. It gets **one task per order**, commits locally (only its files, never pushes) and reports back. Two builders exist:
+  - **Codex** (default since 2026-10-16): `codex exec -m gpt-6-luna -c model_reasoning_effort=high -c approval_policy=never -s danger-full-access -o <report.md> "<task>"`, run in the background from the repo root; it follows `AGENTS.md` (same rules and report format as the Claude builder). The sandboxed modes cannot reach Docker or write `.git`. No hook protects the orchestrator's files: after every run, check that the diff touches nothing under `docs/`, `CLAUDE.md`, `AGENTS.md` or `.claude/`, and revert it if it does. Follow-ups: run `codex exec` again with the context in the prompt (`codex exec resume --last` also works).
+  - **`video-builder` subagent** (`.claude/agents/video-builder.md`, Haiku, effort high) as fallback. A PreToolUse hook (`.claude/hooks/protect-docs.mjs`) blocks it from writing the orchestrator's files.
+- If the builder hits something undefined it stops and reports; the orchestrator asks the user, documents the answer in the spec, and resumes the builder with its context.
 - Before marking a task `[x]`, the orchestrator reviews the builder's diff against the spec and runs `task check`. Pushes to GitHub only with the user's confirmation.
 - Before launching the builder on a phase, every point it needs must be defined in the spec.
 
