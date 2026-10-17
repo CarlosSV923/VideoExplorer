@@ -1,97 +1,68 @@
 # VideoExplorer
 
-[Español](README.es.md) · **Status: phase 1 in progress (API base)**
+[Español](README.es.md) · **Status: phases 0–9 complete; phase 10 in progress**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
-Self-hosted web app for a home NAS (TrueNAS SCALE) to **upload, extract, classify, rename and organize movies and TV series** so that Jellyfin recognizes them. The interface follows the Netflix and Prime Video style and works from any browser: desktop, tablet, touch screen or gamepad.
+VideoExplorer is a self-hosted web app for a home NAS (TrueNAS SCALE). It organizes movies and TV series so Jellyfin recognizes them, with a Netflix-style library UI. It manages files; it never plays video.
 
-> **VideoExplorer never plays video.** It manages the files; you watch them with Jellyfin.
+## What it does today
 
-## What it does
+- Browses a Netflix-style library of movies, series, seasons, episodes and collections.
+- Uploads one or more files with resumable [tus](https://tus.io/) uploads, including zip, 7z and rar archives.
+- Extracts archives with 7-Zip, filters videos and external subtitles, and sends discarded content to the trash instead of deleting it.
+- Moves uploaded or SMB-copied files through **Unassigned** and **Assign**, with title suggestions from TMDB or a free title.
+- Names folders, videos and subtitles using the Jellyfin convention, including optional `[tmdbid-ID]` tags, duplicate decisions, versions, parts and episode numbering.
+- Edits and reassigns library files, downloads files or titles, restores items from the trash, and permanently purges trash entries.
+- Provides settings for language, scans, TMDB and Jellyfin, including a notice to refresh Jellyfin after library changes when Jellyfin is configured.
+- Supports Spanish and English with mouse, keyboard, touch and gamepad input.
 
-The full requirements are in [`docs/spec.md`](docs/spec.md). In short:
+The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md) and [`docs/tasks.md`](docs/tasks.md). The design system and responsive behavior are in [`docs/design-handoff.md`](docs/design-handoff.md). The naming and classification vectors live in [`contracts/`](contracts/README.md).
 
-- **Upload** video, subtitle and archive files by dragging them anywhere in the window. Uploads are resumable and have no practical size limit.
-- **Extract** zip, 7z and rar archives with the official 7-Zip, verify them against their CRC and keep only the videos and external subtitles. Discarded content goes to the trash, not deleted.
-- **Assign** each file to a movie or a series, using TMDB data or a free name. Nothing enters the library without your confirmation.
-- **Name** everything in the format Jellyfin expects. Folder and file names and the optional ID tag (`[tmdbid-ID]`) follow the Jellyfin convention. Duplicates can be replaced, kept as versions or skipped; there is a preview before saving, and a failed operation is rolled back.
-- **Pick up** files copied over SMB into the Unassigned section, and import the library that is already on disk.
-- **Browse** movies, series and collections, search, edit, move to the trash with restore, and download files or whole titles.
-- **Refresh** Jellyfin for the affected folder, when it is configured.
-- Spanish and English, with mouse, keyboard, touch and gamepad.
+## Project status
 
-## What it does not do
-
-- It does not play content.
-- It does not download content from the internet (torrents, Usenet).
-- It does not ship any movie or series.
-- Plex is not supported in this first version (names, ID tags and refresh). It may be added in the future.
-- Out of scope for the MVP: absolute-numbered anime, episodes spread over several files, extra libraries (anime, documentaries, concerts), users and roles, and extras such as trailers. The full list is in spec §8.
-
-## Status
-
-The repository currently contains the API base: configuration, SQLite, the OpenAPI contract with generated code, the password sign-in with sessions, the startup diagnostics of `GET /api/health` (the library and data folders must be writable, and `7zz` and `ffprobe` must start), the embedded web app, the tooling and the CI. The features above are built phase by phase; the progress is in [`docs/tasks.md`](docs/tasks.md).
-
-Coming later: a demo without a backend, installation as a TrueNAS SCALE custom app, and screenshots.
-
-## Stack
-
-| | |
-|---|---|
-| Backend | Go, `net/http`, `log/slog`. SQLite (modernc, goose, sqlc). 7-Zip and ffprobe run as child processes |
-| Frontend | React, Vite, TypeScript (strict), i18next |
-| Contract | OpenAPI 3, spec-first ([`api/openapi.yaml`](api/openapi.yaml)). Go and TypeScript share golden test vectors in [`contracts/`](contracts/README.md) |
-| Quality | Go tests with the race detector, golangci-lint v2, Vitest and Testing Library, ESLint, Prettier, Redocly, govulncheck in CI |
-
-## Architecture
-
-The backend and the frontend follow Domain-Driven Design: each bounded context has pure `domain` packages and talks to the outside world through ports and adapters.
-
-| Context | Responsibility |
-|---|---|
-| `catalog` | Library, Unassigned section and trash. Every library change goes through a journaled operation engine |
-| `ingestion` | Uploads, extraction, filtering, filename analysis and probing |
-| `metadata` | TMDB client, behind an anti-corruption layer |
-| `mediaservers` | Jellyfin refresh |
-| `identity` | Single-password sign-in and sessions |
-| `platform` | Shared kernel: configuration, HTTP server, logging |
-
-Some principles hold across the code: files are streamed and never loaded into memory, paths are built on the server from IDs, and the TMDB and Jellyfin secrets never reach the browser. The layout is `apps/api` (Go), `apps/web` (React), `api/` (OpenAPI) and `contracts/` (golden vectors). The detailed design is in the spec.
-
-## Requirements
-
-- **Docker**. The Go tooling runs in containers, so Go does not need to be installed.
-- **Node.js 24** or later, and **pnpm** (the version is pinned in `package.json`; `corepack enable` installs it).
-- **[Task](https://taskfile.dev)** 3.
+Phases 0 through 9 are complete. Phase 10 (the frontend with HTTP adapters) is in progress: the library, upload, Unassigned, Assign, edit, trash, settings and responsive UI flows are implemented, while final real-browser validation and its follow-up fixes are tracked in [`docs/tasks.md`](docs/tasks.md). Phase 11 is the backend-less demo, followed by the TrueNAS production packaging in phase 12.
 
 ## Development
 
+Requirements: Docker, Node.js 24 or later, pnpm 12.9.1, and Task 3.
+
+Install dependencies and start the services:
+
 ```bash
-task install       # JS dependencies and Go modules
-task dev:api       # Go API in Docker, http://localhost:8080
-task dev:web       # Vite dev server, http://localhost:5173 (proxies /api)
-task test          # Go and web tests
-task lint          # OpenAPI, Go and web lint
-task check         # everything CI runs
+task install
+task dev:api       # Go API in Docker at http://localhost:8080
+task dev:web       # Vite frontend at http://localhost:5173
 ```
 
-Other tasks: `task gen` (regenerates the code from `api/openapi.yaml` and the SQL queries; CI fails when it is stale), `task fmt` (formatters), `task build` (the SPA embedded in the Linux binary; `task build:api` and `task build:web` build each part), `task tidy` (`go mod tidy`), `task demo-catalog` (regenerates the demo catalog from TMDB: structure only, with the project synopses in `apps/api/cmd/demo-catalog/synopses.json`; needs `TMDB_READ_TOKEN` or `TMDB_API_KEY` in `.env.local`). `task --list` shows them all. To check the API: `curl http://localhost:8080/api/health`.
+The API development service is defined in [`compose.dev.yaml`](compose.dev.yaml). It uses `./.dev/library` and `./.dev/data` as local development data and passes optional local configuration from `.env.local`. Do not commit secrets.
 
-`task dev:image` builds the development image (`deploy/dev/Dockerfile`): the Go toolchain plus the official 7-Zip (with RAR) and ffprobe, both at pinned versions with SHA-256 checks. Every Go task depends on it, so the first `task` that runs Go builds it. CI installs the same two binaries.
+Useful checks:
 
-`task dev:api` passes every variable of `.env.local` into the container (it is optional, but without `SESSION_SECRET` and a password the API does not start). `LIBRARY_PATH` and `DATA_PATH` are always `./.dev/library` and `./.dev/data` in development, whatever `.env.local` says; `task dev:api` creates both folders if they are missing.
+```bash
+task check         # OpenAPI, Go, web lint/tests, vulnerability scan and builds
+task gen           # Regenerate OpenAPI and SQL code
+task build:web     # Build the frontend
+```
 
-## Configuration
+See [`Taskfile.yml`](Taskfile.yml) for all available tasks. Go tooling runs in Docker so development matches CI and production Linux paths.
 
-Every environment variable is listed in [`.env.example`](.env.example), with its default when it has one. Copy it to `.env.local` to override values locally, and never commit real values.
+## Architecture
 
-Access uses one shared password. Set `APP_PASSWORD_HASH` to an argon2id hash, which `echo 'your password' | task hash-password` prints (or set `APP_PASSWORD` in plain text instead), and `SESSION_SECRET` (at least 32 bytes) to sign the session cookie. In `.env.local`, wrap the hash in single quotes (`APP_PASSWORD_HASH='$argon2id$…'`): Compose reads an unquoted `$` as a variable and would drop part of the hash. Every API operation except `GET /api/health` and `POST /api/auth/login` requires a session; without one the API answers `401` as an RFC 9457 problem.
+The backend and frontend use Domain-Driven Design with pure domain packages and ports/adapters. The main areas are:
 
-## Attribution and legal
+| Area | Responsibility |
+|---|---|
+| `apps/api` | Go API, SQLite, operations, extraction and file organization |
+| `apps/web` | React, Vite, TypeScript, i18n and responsive UI |
+| `api` | OpenAPI source of truth |
+| `contracts` | Shared golden vectors |
+| `docs` | Requirements, task status and design handoff |
 
-This product uses the TMDB API but is not endorsed or certified by TMDB.
+Files are streamed and are not buffered as video data in memory. Paths are built server-side from IDs, and TMDB and Jellyfin secrets never reach the browser. Plex is out of scope for this version.
 
-VideoExplorer does not include, download or distribute movies or series. Use it only with files you have the right to keep.
+## Legal
+
+VideoExplorer does not include, download or distribute movies or series. Use it only with files you have the right to keep. TMDB is used for metadata; VideoExplorer is not endorsed or certified by TMDB.
 
 Licensed under the [MIT License](LICENSE).
