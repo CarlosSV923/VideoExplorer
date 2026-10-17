@@ -62,7 +62,7 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
   return (
     <section
       aria-label={t('library.heroLabel')}
-      className="relative -mx-[var(--page-x,16px)] min-h-[440px] overflow-hidden"
+      className="relative -mx-[var(--page-x,16px)] h-[440px] overflow-hidden md:h-[600px]"
       onMouseEnter={() => {
         setPaused(true)
       }}
@@ -80,29 +80,29 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
         <img src={current.backdrop} alt="" className="absolute inset-0 size-full object-cover" />
       )}
       <div className="absolute inset-0 bg-scrim" />
-      <div className="relative flex min-h-[440px] max-w-3xl flex-col justify-end gap-4 px-[var(--page-x,16px)] py-12">
+      <div className="relative flex h-full max-w-3xl flex-col justify-end gap-2 px-[var(--page-x,16px)] py-6 md:gap-4 md:py-12">
         <span className="text-label font-bold uppercase tracking-label text-accent">
           {t('library.featured')}
         </span>
-        <h2 className="m-0 max-w-3xl text-display-hero font-display uppercase">
+        <h2 className="m-0 flex h-[110px] w-[min(300px,70vw)] max-w-full shrink-0 items-end overflow-hidden text-display-hero font-display uppercase md:h-40 md:w-[min(520px,70vw)]">
           {detail?.logo ? (
             <img
               src={detail.logo}
               alt={detail.title}
-              className="max-h-24 max-w-[min(70vw,480px)] object-contain object-left"
+              className="size-full object-contain object-left-bottom"
             />
           ) : (
             (detail?.title ?? current.title)
           )}
         </h2>
-        <p className="m-0 flex flex-wrap gap-3 text-body-sm text-ink-2">
+        <p className="m-0 h-[42px] max-h-[42px] shrink-0 overflow-hidden text-body-sm text-ink-2">
           {detail?.year ?? current.year}
           {detail?.genres.length ? ` · ${detail.genres.join(' · ')}` : ''}
         </p>
-        {detail?.overview && (
-          <p className="m-0 max-w-2xl text-body-lg text-ink-1">{detail.overview}</p>
-        )}
-        <div className="flex flex-wrap gap-3">
+        <p className="m-0 h-[81px] max-h-[81px] max-w-2xl shrink-0 overflow-hidden text-body-lg text-ink-1 line-clamp-3">
+          {detail?.overview ?? ''}
+        </p>
+        <div className="flex h-12 shrink-0 flex-wrap gap-3">
           <LinkButton
             href={`/${current.kind === 'movie' ? 'peliculas' : 'series'}/${String(current.id)}`}
             variant="primary"
@@ -119,7 +119,7 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
           </LinkButton>
         </div>
         <div
-          className="flex items-center gap-2"
+          className="flex h-11 shrink-0 items-center gap-2"
           role="group"
           aria-label={t('library.heroIndicators')}
         >
