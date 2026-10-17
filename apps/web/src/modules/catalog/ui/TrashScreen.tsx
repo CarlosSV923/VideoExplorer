@@ -19,6 +19,7 @@ import {
   PageHeader,
   RestoreIcon,
   StatusChip,
+  TextField,
   TrashIcon,
 } from '@/shared/ui'
 
@@ -42,9 +43,7 @@ function RestoreDialog({
     (file) =>
       file.allowed.length === 0 ||
       (decisions.has(file.file) &&
-        (decisions.get(file.file) !== 'keep_both' ||
-          !file.versionIncomplete ||
-          Boolean(versions.get(file.file)?.trim()))),
+        (decisions.get(file.file) !== 'keep_both' || Boolean(versions.get(file.file)?.trim()))),
   )
   return (
     <Dialog
@@ -114,17 +113,15 @@ function RestoreDialog({
                 )}
               </select>
             )}
-            {decisions.get(file.file) === 'keep_both' && file.versionIncomplete && (
-              <input
-                aria-label={t('trash.versionFor', { file: file.file })}
-                value={versions.get(file.file)}
+            {decisions.get(file.file) === 'keep_both' && (
+              <TextField
+                label={t('trash.versionFor', { file: file.file })}
+                value={versions.get(file.file) ?? ''}
+                {...(file.versionIncomplete ? { error: t('assign.duplicate.incomplete') } : {})}
                 onChange={(event) => {
-                  setVersions((current) =>
-                    new Map(current).set(file.file, event.currentTarget.value),
-                  )
+                  const value = event.currentTarget.value
+                  setVersions((current) => new Map(current).set(file.file, value))
                 }}
-                className="min-h-control-md rounded-md border border-control bg-surface px-3 font-mono"
-                placeholder={t('trash.version')}
               />
             )}
           </article>

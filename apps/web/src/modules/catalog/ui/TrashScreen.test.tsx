@@ -111,6 +111,11 @@ describe('TrashScreen', () => {
     const decision = within(dialog).getByRole('combobox')
     expect(decision).toHaveValue('')
     fireEvent.change(decision, { target: { value: 'keep_both' } })
+    const version = within(dialog).getByRole('textbox', {
+      name: 'Etiqueta de versión para film.mkv',
+    })
+    expect(version).toHaveValue('1080p')
+    fireEvent.change(version, { target: { value: '1080p Latino' } })
     fireEvent.click(
       within(screen.getByRole('dialog', { name: 'Plan de restauración' })).getByRole('button', {
         name: 'Restaurar',
@@ -118,9 +123,26 @@ describe('TrashScreen', () => {
     )
     await waitFor(() => {
       expect(restoreTrashEntry).toHaveBeenCalledWith(4, {
-        decisions: [{ file: 'film.mkv', decision: 'keep_both', version: '1080p' }],
+        decisions: [{ file: 'film.mkv', decision: 'keep_both', version: '1080p Latino' }],
       })
     })
+  })
+
+  it('requires a non-empty version label when keeping both restored videos', async () => {
+    renderTrash()
+    fireEvent.click(await screen.findByRole('button', { name: 'Restaurar film.mkv, film.es.srt' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Plan de restauración' })
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'keep_both' } })
+    const version = within(dialog).getByRole('textbox', {
+      name: 'Etiqueta de versión para film.mkv',
+    })
+    fireEvent.change(version, { target: { value: ' ' } })
+
+    expect(within(dialog).getByRole('button', { name: 'Restaurar' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(version).toHaveValue(' ')
   })
 
   it('asks before emptying the trash', async () => {
