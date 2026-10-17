@@ -6,7 +6,8 @@ import { IngestionContext, type IngestionPorts } from '../application/ports'
 import type { UploadJob } from '../domain/types'
 import { createI18n } from '@/shared/i18n'
 import { InputProvider } from '@/shared/input'
-import { UploadButton, UploadUiProvider } from './UploadCenter'
+import { Header } from '@/app/LibraryLayout'
+import { UploadUiProvider } from './UploadCenter'
 
 const job = (status: UploadJob['status']): UploadJob => ({
   id: 'job-1',
@@ -45,7 +46,7 @@ function renderCenter(ports: Partial<IngestionPorts> = {}) {
         <QueryClientProvider client={client}>
           <IngestionContext value={full}>
             <UploadUiProvider>
-              <UploadButton />
+              <Header />
             </UploadUiProvider>
           </IngestionContext>
         </QueryClientProvider>
@@ -75,7 +76,7 @@ describe('UploadCenter', () => {
     })
     try {
       renderCenter()
-      fireEvent.click(screen.getByRole('button', { name: 'Subir' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Subidas' }))
       expect(screen.getByRole(role, { name: 'Subidas' })).toBeInTheDocument()
       expect(
         role === 'dialog'
@@ -86,6 +87,28 @@ describe('UploadCenter', () => {
       if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia)
       else Reflect.deleteProperty(window, 'matchMedia')
     }
+  })
+
+  it('keeps Subir separate from the uploads panel and offers it in the empty state', async () => {
+    renderCenter()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Subir' }))
+    expect(screen.queryByRole('complementary', { name: 'Subidas' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Subidas' }))
+    expect(await screen.findByText('No hay subidas')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Subir' })).toHaveLength(2)
+  })
+
+  it('announces the active count on Subidas', async () => {
+    renderCenter({
+      jobs: vi
+        .fn()
+        .mockResolvedValue([job('uploading'), { ...job('needs_password'), id: 'job-2' }]),
+    })
+
+    expect(await screen.findByRole('button', { name: 'Subidas, 2 activas' })).toBeInTheDocument()
+    expect(screen.getByText('Subidas · 2 activas')).toBeInTheDocument()
   })
 
   it('asks once for the relation and sends partsTotal for each multipart volume', async () => {

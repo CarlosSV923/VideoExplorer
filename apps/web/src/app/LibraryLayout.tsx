@@ -2,7 +2,7 @@ import { useJobs } from '@/modules/ingestion/application/queries'
 import { isJobActiveOrWaiting } from '@/modules/ingestion/application/uploadLogic'
 import { Brand } from '@/shared/ui/Brand'
 import { SearchField } from '@/shared/ui'
-import { SearchIcon, UploadIcon } from '@/shared/ui/icons'
+import { RefreshIcon, SearchIcon, UploadIcon } from '@/shared/ui/icons'
 import { useLanguage } from '@/shared/i18n/hooks'
 import { useUploadUi } from '@/modules/ingestion/ui/UploadUiContext'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +14,10 @@ export function Header() {
   const jobs = useJobs()
   const { openPicker, openPanel, busy } = useUploadUi()
   const active = (jobs.data ?? []).filter(isJobActiveOrWaiting).length + (busy ? 1 : 0)
+  const uploadsLabel =
+    active > 0 ? t('library.uploadsButton', { count: active }) : t('library.uploads')
+  const uploadsAriaLabel =
+    active > 0 ? t('library.uploadsAriaLabel', { count: active }) : t('library.uploads')
   const links = [
     ['/peliculas', t('library.movies')],
     ['/series', t('library.seriesPlural')],
@@ -53,21 +57,29 @@ export function Header() {
         </a>
         <button
           type="button"
-          aria-label={t('library.upload')}
+          aria-label={uploadsAriaLabel}
           className="relative inline-flex min-h-control-sm items-center gap-2 rounded-pill border border-control px-3 text-body-sm font-bold"
-          onClick={() => {
-            openPicker()
-            openPanel()
-          }}
+          onClick={openPanel}
         >
-          <UploadIcon />
-          <span className="hidden lg:inline">{t('library.upload')}</span>
+          <RefreshIcon className="text-accent" />
+          <span className="hidden md:inline">{uploadsLabel}</span>
           {active > 0 && (
             <span
-              aria-label={t('library.uploadsActive', { count: active })}
-              className="size-2 rounded-full bg-accent"
-            />
+              aria-hidden="true"
+              className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-caption font-bold text-bg md:hidden"
+            >
+              {active}
+            </span>
           )}
+        </button>
+        <button
+          type="button"
+          aria-label={t('library.upload')}
+          className="inline-flex min-h-control-sm items-center gap-2 rounded-pill bg-accent px-3 text-body-sm font-bold text-bg"
+          onClick={openPicker}
+        >
+          <UploadIcon />
+          <span className="hidden md:inline">{t('library.upload')}</span>
         </button>
         <a
           href="/ajustes/general"

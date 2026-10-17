@@ -303,6 +303,7 @@ function UploadList({ onOpenPanel }: { onOpenPanel: () => void }) {
         icon={<UploadIcon size={36} />}
         title={t('uploads.emptyTitle')}
         body={t('uploads.emptyBody')}
+        action={<UploadButton />}
       />
     )
   return (
@@ -492,16 +493,9 @@ export function UploadUiProvider({ children }: { children: ReactNode }) {
 
 export function UploadButton() {
   const { t } = useTranslation()
-  const { openPicker, openPanel } = useUploadUi()
+  const { openPicker } = useUploadUi()
   return (
-    <Button
-      icon={<UploadIcon />}
-      variant="outline-accent"
-      onClick={() => {
-        openPicker()
-        openPanel()
-      }}
-    >
+    <Button icon={<UploadIcon />} variant="primary" onClick={openPicker}>
       {t('library.upload')}
     </Button>
   )
