@@ -185,7 +185,7 @@ Capa única en `shared/input` (la de GameExplorer, adaptada): las pantallas se s
 | `/no-asignados` y `/no-asignados/:id/asignar` | No asignados y Asignar |
 | `/ajustes/general`, `/ajustes/papelera` | Ajustes |
 
-Subidas es un panel (escritorio) o una hoja (móvil) sobre la pantalla actual, sin ruta; la pregunta de relación es un diálogo. El indicador de Subidas está en la cabecera de **todas** las pantallas mientras haya trabajos activos o esperando al usuario (RF-10).
+Subidas es un panel (escritorio) o una hoja (móvil) sobre la pantalla actual, sin ruta; la pregunta de relación es un diálogo. La cabecera de **todas** las pantallas tiene siempre el botón «Subidas» (abre el panel o la hoja), separado de «Subir» (abre el selector de archivos); mientras haya trabajos activos o esperando al usuario muestra su número (RF-10). En móvil es un botón de icono con el número como insignia, junto al de subir.
 
 ## 6. Contenido y casos límite
 
