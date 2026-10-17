@@ -17,6 +17,10 @@ export const liveQueryOptions = {
 const invalidationBatches = new WeakMap<QueryClient, Set<string>>()
 const invalidationQueued = new WeakSet<QueryClient>()
 
+function invalidateSafely(queryClient: QueryClient, queryKey: readonly unknown[]) {
+  void queryClient.invalidateQueries({ queryKey }).catch(() => undefined)
+}
+
 export function scheduleCatalogInvalidation(
   queryClient: QueryClient,
   queryKeys: readonly (readonly unknown[])[],
@@ -32,15 +36,15 @@ export function scheduleCatalogInvalidation(
     invalidationBatches.delete(queryClient)
     for (const key of pending ?? []) {
       const queryKey = JSON.parse(key) as readonly unknown[]
-      void queryClient.invalidateQueries({ queryKey })
+      invalidateSafely(queryClient, queryKey)
     }
   })
 }
 
 export function invalidateCatalogQueries(queryClient: QueryClient) {
-  void queryClient.invalidateQueries({ queryKey: ['library'] })
-  void queryClient.invalidateQueries({ queryKey: unassignedKey })
-  void queryClient.invalidateQueries({ queryKey: trashKey })
+  invalidateSafely(queryClient, ['library'])
+  invalidateSafely(queryClient, unassignedKey)
+  invalidateSafely(queryClient, trashKey)
 }
 
 export function useLibraryTitles() {
@@ -97,7 +101,7 @@ export function useCommitTitleEdit(titleId: number) {
       ports.commitTitleEdit(titleId, request),
     onSuccess: (result) => {
       invalidateCatalogQueries(queryClient)
-      void queryClient.invalidateQueries({ queryKey: libraryTitleKey(result.titleId) })
+      invalidateSafely(queryClient, libraryTitleKey(result.titleId))
     },
   })
 }
@@ -126,7 +130,9 @@ export function useEmptyTrash() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => ports.emptyTrash(),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: trashKey }),
+    onSuccess: () => {
+      invalidateSafely(queryClient, trashKey)
+    },
   })
 }
 
@@ -135,7 +141,9 @@ export function useDeleteTrashEntry() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => ports.deleteTrashEntry(id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: trashKey }),
+    onSuccess: () => {
+      invalidateSafely(queryClient, trashKey)
+    },
   })
 }
 
@@ -155,6 +163,8 @@ export function useRestoreTrashEntry() {
       id: number
       request: Parameters<typeof ports.restoreTrashEntry>[1]
     }) => ports.restoreTrashEntry(id, request),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: trashKey }),
+    onSuccess: () => {
+      invalidateCatalogQueries(queryClient)
+    },
   })
 }

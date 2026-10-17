@@ -1,6 +1,11 @@
 import { QueryClient } from '@tanstack/react-query'
 
-import { liveQueryOptions, scheduleCatalogInvalidation, unassignedKey } from './queries'
+import {
+  invalidateCatalogQueries,
+  liveQueryOptions,
+  scheduleCatalogInvalidation,
+  unassignedKey,
+} from './queries'
 
 describe('consultas de catalogo', () => {
   it('no sondea vistas actualizadas por eventos en vivo', () => {
@@ -22,5 +27,18 @@ describe('consultas de catalogo', () => {
     await Promise.resolve()
     expect(invalidate).toHaveBeenCalledTimes(1)
     expect(invalidate).toHaveBeenCalledWith({ queryKey: unassignedKey })
+  })
+
+  it('absorbe errores de refetch al invalidar el catálogo', async () => {
+    const client = new QueryClient()
+    const invalidate = vi
+      .spyOn(client, 'invalidateQueries')
+      .mockRejectedValue(new Error('notFound'))
+
+    expect(() => {
+      invalidateCatalogQueries(client)
+    }).not.toThrow()
+    await Promise.resolve()
+    expect(invalidate).toHaveBeenCalledTimes(3)
   })
 })

@@ -94,7 +94,9 @@ export function UnassignedScreen() {
   const queryClient = useQueryClient()
   const query = useUnassigned()
   const [error, setError] = useState<unknown>(null)
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: unassignedKey })
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: unassignedKey }).catch(() => undefined)
+  }
   const action = async (fn: () => Promise<void>) => {
     setError(null)
     try {

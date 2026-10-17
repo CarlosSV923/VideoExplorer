@@ -21,7 +21,7 @@ export function useRefreshTitleMetadata(titleId: number) {
     mutationFn: () => ports.refreshTitleMetadata(titleId),
     onSuccess: (title) => {
       queryClient.setQueryData(['library', 'titles', title.id], title)
-      void queryClient.invalidateQueries({ queryKey: ['library', 'titles'] })
+      void queryClient.invalidateQueries({ queryKey: ['library', 'titles'] }).catch(() => undefined)
     },
   })
 }

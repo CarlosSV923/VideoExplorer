@@ -325,20 +325,34 @@ function UploadList({ onOpenPanel }: { onOpenPanel: () => void }) {
 
 function UploadPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation()
+  const [mobile, setMobile] = useState(() =>
+    typeof window === 'undefined' || typeof window.matchMedia !== 'function'
+      ? false
+      : window.matchMedia('(max-width: 767px)').matches,
+  )
   const contents = <UploadList onOpenPanel={onClose} />
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined
+    const media = window.matchMedia('(max-width: 767px)')
+    const onChange = () => {
+      setMobile(media.matches)
+    }
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => {
+      media.removeEventListener('change', onChange)
+    }
+  }, [])
+  if (mobile)
+    return (
+      <Sheet title={t('uploads.title')} open={open} onClose={onClose}>
+        {contents}
+      </Sheet>
+    )
   return (
-    <>
-      <div className="hidden md:block">
-        <SidePanel title={t('uploads.title')} open={open} onClose={onClose}>
-          {contents}
-        </SidePanel>
-      </div>
-      <div className="md:hidden">
-        <Sheet title={t('uploads.title')} open={open} onClose={onClose}>
-          {contents}
-        </Sheet>
-      </div>
-    </>
+    <SidePanel title={t('uploads.title')} open={open} onClose={onClose}>
+      {contents}
+    </SidePanel>
   )
 }
 
@@ -394,7 +408,10 @@ export function UploadUiProvider({ children }: { children: ReactNode }) {
     const onDrop = (event: DragEvent) => {
       event.preventDefault()
       setDragging(false)
-      if (event.dataTransfer) void filesFromDrop(event.dataTransfer).then(receive)
+      if (event.dataTransfer)
+        void filesFromDrop(event.dataTransfer)
+          .then(receive)
+          .catch(() => undefined)
     }
     window.addEventListener('dragover', onDragOver)
     window.addEventListener('dragleave', onDragLeave)

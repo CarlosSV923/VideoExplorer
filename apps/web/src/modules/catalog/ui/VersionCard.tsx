@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCatalogPorts } from '../application/ports'
+import { useInvalidateCatalog } from '../application/queries'
 import type { LibraryTitle } from '../domain/types'
 import { Button, ConfirmDialog, Menu, StatusChip } from '@/shared/ui'
 import { MoreIcon } from '@/shared/ui/icons'
@@ -20,6 +21,7 @@ export function VersionCard({
 }) {
   const { t } = useTranslation()
   const ports = useCatalogPorts()
+  const invalidateCatalog = useInvalidateCatalog()
   const [technical, setTechnical] = useState(false)
   const [confirm, setConfirm] = useState<'move' | 'trash' | null>(null)
   const format = useFormat()
@@ -27,12 +29,14 @@ export function VersionCard({
     mutationFn: () => ports.moveTitleToUnassigned(titleId, { kind: 'file', fileId: video.id }),
     onSuccess: () => {
       setConfirm(null)
+      invalidateCatalog()
     },
   })
   const trash = useMutation({
     mutationFn: () => ports.trashTitleScope(titleId, { kind: 'file', fileId: video.id }),
     onSuccess: () => {
       setConfirm(null)
+      invalidateCatalog()
     },
   })
   const technicalQuery = useQueries({
@@ -44,19 +48,24 @@ export function VersionCard({
       },
     ],
   })[0]
+  const fileName = video.path.split('/').at(-1) ?? video.path
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="m-0 text-subheading font-display">{video.path.split('/').at(-1)}</h3>
-          <p className="m-0 mt-1 font-mono-file text-mono text-ink-2">{video.path}</p>
+    <article className="flex w-full min-w-0 flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 max-w-full flex-1">
+          <h3 className="m-0 break-words text-subheading font-display">
+            {video.path.split('/').at(-1)}
+          </h3>
+          <p className="m-0 mt-1 break-all [overflow-wrap:anywhere] font-mono-file text-mono text-ink-2">
+            {video.path}
+          </p>
           <p className="m-0 mt-1 text-body-sm text-ink-2">
             {video.part ? t('library.part', { count: video.part }) : ''}
             {video.version ? ` · ${video.version}` : ''} · {format.size(video.size)}
           </p>
         </div>
         <Menu
-          label={t('library.fileActions')}
+          label={t('library.fileActionsFor', { name: fileName })}
           items={[
             {
               label: t('library.download'),

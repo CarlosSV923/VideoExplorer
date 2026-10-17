@@ -48,9 +48,9 @@ export function UnassignedEntryCard({
   }
 
   return (
-    <article className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
+    <article className="flex w-full min-w-0 flex-col gap-5 rounded-xl border border-line bg-surface p-5">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 max-w-full flex-1">
           <h2 className="m-0 break-words text-subheading font-display">{entry.name}</h2>
           <p className="m-0 mt-1 text-body-sm text-ink-2">
             {t(`unassigned.origin.${entry.origin}`)} · {t(`unassigned.relation.${entry.relation}`)}{' '}
@@ -70,10 +70,10 @@ export function UnassignedEntryCard({
           {entry.files.map((file) => (
             <div
               key={file.path}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-2 px-3 py-2"
+              className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-2 px-3 py-2"
             >
-              <div className="min-w-0">
-                <p className="m-0 break-all font-mono-file text-mono text-ink-1">
+              <div className="min-w-0 max-w-full flex-1">
+                <p className="m-0 break-all [overflow-wrap:anywhere] font-mono-file text-mono text-ink-1">
                   {file.path || entry.name}
                 </p>
                 <p className="m-0 text-caption text-ink-2">{formatSize(file.size)}</p>

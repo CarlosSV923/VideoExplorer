@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react'
 
 import { useAction } from '../input'
 import { cx } from './cx'
@@ -117,7 +125,9 @@ export function Menu({
   const id = useId()
   const button = useRef<HTMLButtonElement>(null)
   const box = useRef<HTMLDivElement>(null)
+  const menu = useRef<HTMLUListElement>(null)
   const [open, setOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   useAction(
     'back',
     () => {
@@ -130,7 +140,7 @@ export function Menu({
   )
   useEffect(() => {
     if (!open) return
-    box.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
     const closeOnOutside = (event: PointerEvent) => {
       if (!box.current?.contains(event.target as Node)) {
         setOpen(false)
@@ -140,6 +150,19 @@ export function Menu({
     return () => {
       window.removeEventListener('pointerdown', closeOnOutside)
     }
+  }, [open])
+  useLayoutEffect(() => {
+    if (!open || !button.current || !menu.current) {
+      setMenuPosition(null)
+      return
+    }
+    const trigger = button.current.getBoundingClientRect()
+    const width = menu.current.getBoundingClientRect().width
+    const margin = 8
+    setMenuPosition({
+      left: Math.max(margin, Math.min(trigger.right - width, window.innerWidth - width - margin)),
+      top: trigger.bottom + 8,
+    })
   }, [open])
   const onKeyDown = (event: KeyboardEvent) => {
     if (!open) return
@@ -180,10 +203,16 @@ export function Menu({
       </button>
       {open && (
         <ul
+          ref={menu}
           id={id}
           role="menu"
           aria-label={label}
-          className="absolute top-full right-0 z-30 mt-2 min-w-60 rounded-lg border border-control bg-surface-2 p-1.5 shadow-xl"
+          style={
+            menuPosition
+              ? { position: 'fixed', left: menuPosition.left, top: menuPosition.top }
+              : undefined
+          }
+          className="z-30 min-w-60 rounded-lg border border-control bg-surface-2 p-1.5 shadow-xl"
         >
           {items.map((item) => (
             <li key={item.label} role="none">

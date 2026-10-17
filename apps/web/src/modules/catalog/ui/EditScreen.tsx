@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { titleChoiceFromHit } from '../application/assignment'
 import { useCatalogPorts } from '../application/ports'
-import { useCommitTitleEdit, useLibraryTitle } from '../application/queries'
+import { useCommitTitleEdit, useInvalidateCatalog, useLibraryTitle } from '../application/queries'
 import type {
   EditPlan,
   EditRequest,
@@ -102,6 +102,7 @@ export function EditScreen({ id }: { id: number }) {
   const [planMode, setPlanMode] = useState<'edit' | 'id-tag'>('edit')
   const [planError, setPlanError] = useState<unknown>(null)
   const commit = useCommitTitleEdit(id)
+  const invalidateCatalog = useInvalidateCatalog()
   const search = useTitleSearch(term)
   const hits = search.data ? [...search.data.library, ...search.data.tmdb] : []
   const title = query.data
@@ -181,6 +182,7 @@ export function EditScreen({ id }: { id: number }) {
       void ports
         .commitTitleIDTag(id, { ...idTagRequest(), revision: planned.revision })
         .then(() => {
+          invalidateCatalog()
           window.location.href = `/${kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}`
         })
         .catch(setPlanError)
@@ -417,11 +419,13 @@ export function EditScreen({ id }: { id: number }) {
               return (
                 <article
                   key={video.id}
-                  className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4"
+                  className="flex w-full min-w-0 flex-col gap-4 rounded-lg border border-line bg-surface p-4"
                 >
-                  <div className="flex flex-wrap items-end gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 break-all font-mono-file text-mono">{video.path}</p>
+                  <div className="flex min-w-0 flex-wrap items-end gap-4">
+                    <div className="min-w-0 max-w-full flex-1">
+                      <p className="m-0 break-all [overflow-wrap:anywhere] font-mono-file text-mono">
+                        {video.path}
+                      </p>
                       {fileIssue(video.path) && (
                         <p className="m-0 text-body-sm text-danger">{fileIssue(video.path)}</p>
                       )}

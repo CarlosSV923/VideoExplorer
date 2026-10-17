@@ -6,7 +6,7 @@ import { IngestionContext, type IngestionPorts } from '../application/ports'
 import type { UploadJob } from '../domain/types'
 import { createI18n } from '@/shared/i18n'
 import { InputProvider } from '@/shared/input'
-import { UploadUiProvider } from './UploadCenter'
+import { UploadButton, UploadUiProvider } from './UploadCenter'
 
 const job = (status: UploadJob['status']): UploadJob => ({
   id: 'job-1',
@@ -45,7 +45,7 @@ function renderCenter(ports: Partial<IngestionPorts> = {}) {
         <QueryClientProvider client={client}>
           <IngestionContext value={full}>
             <UploadUiProvider>
-              <button type="button">Abrir selector</button>
+              <UploadButton />
             </UploadUiProvider>
           </IngestionContext>
         </QueryClientProvider>
@@ -55,6 +55,39 @@ function renderCenter(ports: Partial<IngestionPorts> = {}) {
 }
 
 describe('UploadCenter', () => {
+  it.each([
+    ['escritorio', false, 'complementary'],
+    ['móvil', true, 'dialog'],
+  ] as const)('monta solo la variante de %s según el ancho', (_, mobile, role) => {
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia')
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: mobile,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+    try {
+      renderCenter()
+      fireEvent.click(screen.getByRole('button', { name: 'Subir' }))
+      expect(screen.getByRole(role, { name: 'Subidas' })).toBeInTheDocument()
+      expect(
+        role === 'dialog'
+          ? screen.queryByRole('complementary', { name: 'Subidas' })
+          : screen.queryByRole('dialog', { name: 'Subidas' }),
+      ).not.toBeInTheDocument()
+    } finally {
+      if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia)
+      else Reflect.deleteProperty(window, 'matchMedia')
+    }
+  })
+
   it('asks once for the relation and sends partsTotal for each multipart volume', async () => {
     const upload = vi
       .fn<NonNullable<IngestionPorts['upload']>>()

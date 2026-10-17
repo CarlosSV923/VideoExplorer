@@ -101,7 +101,7 @@ export function AssignVideoCard({
       ref={card}
       tabIndex={0}
       data-video-card="true"
-      className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5 outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+      className="flex w-full min-w-0 flex-col gap-4 rounded-lg border border-line bg-surface p-5 outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
       onFocus={onFocus}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return
@@ -119,9 +119,9 @@ export function AssignVideoCard({
         }
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="m-0 break-all font-mono-file text-mono text-ink-1">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 max-w-full flex-1">
+          <p className="m-0 break-all [overflow-wrap:anywhere] font-mono-file text-mono text-ink-1">
             {suggestion.file || t('assign.video.loose')}
           </p>
           <p className="m-0 mt-1 text-caption text-ink-2">

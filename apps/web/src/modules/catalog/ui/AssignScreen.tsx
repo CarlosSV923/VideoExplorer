@@ -49,7 +49,9 @@ export function AssignScreen({ id }: { id: number }) {
 
   const goToUnassigned = useCallback(() => {
     try {
-      void navigate({ to: '/no-asignados' as never })
+      void navigate({ to: '/no-asignados' as never }).catch(() => {
+        window.history.pushState({}, '', '/no-asignados')
+      })
     } catch {
       window.history.pushState({}, '', '/no-asignados')
     }
@@ -63,9 +65,11 @@ export function AssignScreen({ id }: { id: number }) {
     const release = (options?: { keepalive?: boolean }) => {
       if (!acquired || released) return
       released = true
-      void (options
-        ? ports.releaseAssignLock(id, acquired, options)
-        : ports.releaseAssignLock(id, acquired))
+      void (
+        options
+          ? ports.releaseAssignLock(id, acquired, options)
+          : ports.releaseAssignLock(id, acquired)
+      ).catch(() => undefined)
     }
     const onPageHide = () => {
       pageHidden = true

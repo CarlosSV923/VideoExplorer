@@ -81,7 +81,7 @@ export function useCancelUpload() {
   return useMutation({
     mutationFn: (jobId: string) => ports.cancelUpload(jobId),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: jobsKey })
+      void queryClient.invalidateQueries({ queryKey: jobsKey }).catch(() => undefined)
     },
   })
 }

@@ -46,7 +46,7 @@ function RouteError() {
         title={t('errors.loadTitle')}
         body={t('errors.loadBody')}
         action={
-          <Button variant="primary" onClick={() => void router.invalidate()}>
+          <Button variant="primary" onClick={() => void router.invalidate().catch(() => undefined)}>
             {t('common.retry')}
           </Button>
         }

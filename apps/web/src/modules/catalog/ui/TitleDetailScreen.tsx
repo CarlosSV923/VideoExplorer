@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCatalogPorts } from '../application/ports'
-import { useLibraryTitle } from '../application/queries'
+import { useInvalidateCatalog, useLibraryTitle } from '../application/queries'
 import type { Kind } from '../application/search'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { Banner, Button, ConfirmDialog, EmptyState, Tabs } from '@/shared/ui'
@@ -19,6 +19,7 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
   const query = useLibraryTitle(id)
   const metadata = useMetadataPorts()
   const ports = useCatalogPorts()
+  const invalidateCatalog = useInvalidateCatalog()
   const [confirm, setConfirm] = useState<'unassigned' | 'trash' | null>(null)
   const [season, setSeason] = useState<number | null>(null)
   const refresh = useMutation({
@@ -29,12 +30,14 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
     mutationFn: () => ports.moveTitleToUnassigned(id, { kind: 'title' }),
     onSuccess: () => {
       setConfirm(null)
+      invalidateCatalog()
     },
   })
   const trash = useMutation({
     mutationFn: () => ports.trashTitleScope(id, { kind: 'title' }),
     onSuccess: () => {
       setConfirm(null)
+      invalidateCatalog()
     },
   })
   if (query.isPending)

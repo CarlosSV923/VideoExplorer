@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
@@ -10,6 +10,7 @@ import {
   ConfirmDialog,
   Dialog,
   HelpBar,
+  Menu,
   Poster,
   ProgressBar,
   SearchField,
@@ -143,5 +144,29 @@ describe('UI primitives', () => {
     expect(screen.getByRole('img', { name: 'Botón A' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ayuda' })).not.toBeInTheDocument()
     Reflect.deleteProperty(navigator, 'getGamepads')
+  })
+
+  it('keeps an open menu inside a narrow viewport', () => {
+    const width = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+    const rects = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        if (this instanceof HTMLButtonElement) return new DOMRect(0, 100, 40, 40)
+        if (this instanceof HTMLUListElement) return new DOMRect(0, 0, 240, 120)
+        return new DOMRect()
+      })
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 })
+    try {
+      wrap(
+        <Menu label="Acciones" items={[{ label: 'Descargar', onSelect: () => undefined }]}>
+          Más
+        </Menu>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Acciones' }))
+      expect(screen.getByRole('menu')).toHaveStyle({ position: 'fixed', left: '8px' })
+    } finally {
+      rects.mockRestore()
+      if (width) Object.defineProperty(window, 'innerWidth', width)
+    }
   })
 })

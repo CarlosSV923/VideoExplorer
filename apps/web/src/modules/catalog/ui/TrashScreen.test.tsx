@@ -102,6 +102,15 @@ describe('TrashScreen', () => {
     await waitFor(() =>
       expect(screen.getByRole('dialog', { name: 'Plan de restauración' })).toBeInTheDocument(),
     )
+    const dialog = screen.getByRole('dialog')
+    const restore = within(dialog).getByRole('button', { name: 'Restaurar' })
+    expect(restore).toHaveAttribute('aria-disabled', 'true')
+    expect(restore).toHaveAccessibleDescription(
+      'Decide todos los lugares ocupados para poder restaurar.',
+    )
+    const decision = within(dialog).getByRole('combobox')
+    expect(decision).toHaveValue('')
+    fireEvent.change(decision, { target: { value: 'keep_both' } })
     fireEvent.click(
       within(screen.getByRole('dialog', { name: 'Plan de restauración' })).getByRole('button', {
         name: 'Restaurar',

@@ -200,7 +200,9 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     expect(screen.getAllByText('Falta')).toHaveLength(2)
     expect(screen.getByText('Próximamente')).toBeInTheDocument()
     expect(screen.getAllByText('S01E01.mkv')).toHaveLength(2)
-    expect(screen.getAllByRole('button', { name: 'Acciones del archivo' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Acciones del archivo S01E01.mkv' })).toHaveLength(
+      1,
+    )
   })
 
   it('dims only the poster for collection members outside the library', async () => {

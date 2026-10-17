@@ -34,18 +34,17 @@ function RestoreDialog({
   ) => void
 }) {
   const { t } = useTranslation()
-  const [decisions, setDecisions] = useState(
-    () =>
-      new Map(plan.files.map((file) => [file.file, file.proposal ?? file.allowed[0] ?? 'cancel'])),
-  )
+  const [decisions, setDecisions] = useState(() => new Map<string, TrashRestoreDecision>())
   const [versions, setVersions] = useState(
     () => new Map(plan.files.map((file) => [file.file, file.versionProposal ?? ''])),
   )
   const complete = plan.files.every(
     (file) =>
-      decisions.get(file.file) !== 'keep_both' ||
-      !file.versionIncomplete ||
-      Boolean(versions.get(file.file)?.trim()),
+      file.allowed.length === 0 ||
+      (decisions.has(file.file) &&
+        (decisions.get(file.file) !== 'keep_both' ||
+          !file.versionIncomplete ||
+          Boolean(versions.get(file.file)?.trim()))),
   )
   return (
     <Dialog
@@ -58,14 +57,16 @@ function RestoreDialog({
           <Button
             variant="primary"
             disabled={!complete}
+            {...(!complete ? { disabledReason: t('trash.restoreDisabled') } : {})}
             onClick={() => {
               onRestore(
-                plan.files.map((file) => {
-                  const decision = decisions.get(file.file) ?? 'cancel'
+                plan.files.flatMap((file) => {
+                  const decision = decisions.get(file.file)
+                  if (!decision) return []
                   const version = versions.get(file.file)?.trim()
                   return decision === 'keep_both' && version
-                    ? { file: file.file, decision, version }
-                    : { file: file.file, decision }
+                    ? [{ file: file.file, decision, version }]
+                    : [{ file: file.file, decision }]
                 }),
               )
             }}
@@ -91,27 +92,28 @@ function RestoreDialog({
             {file.duplicates.length > 0 && (
               <StatusChip tone="warning">{t('trash.conflict')}</StatusChip>
             )}
-            <select
-              aria-label={t('trash.decisionFor', { file: file.file })}
-              value={decisions.get(file.file)}
-              onChange={(event) => {
-                setDecisions((current) =>
-                  new Map(current).set(
-                    file.file,
-                    event.currentTarget.value as TrashRestoreDecision,
-                  ),
-                )
-              }}
-              className="min-h-control-md rounded-md border border-control bg-surface px-3"
-            >
-              <option value="cancel">{t('trash.cancel')}</option>
-              {file.allowed.includes('replace') && (
-                <option value="replace">{t('trash.replace')}</option>
-              )}
-              {file.allowed.includes('keep_both') && (
-                <option value="keep_both">{t('trash.keepBoth')}</option>
-              )}
-            </select>
+            {file.allowed.length > 0 && (
+              <select
+                aria-label={t('trash.decisionFor', { file: file.file })}
+                value={decisions.get(file.file) ?? ''}
+                onChange={(event) => {
+                  const decision = event.currentTarget.value as TrashRestoreDecision
+                  setDecisions((current) => new Map(current).set(file.file, decision))
+                }}
+                className="min-h-control-md rounded-md border border-control bg-surface px-3"
+              >
+                <option value="">{t('trash.chooseDecision')}</option>
+                {file.allowed.includes('replace') && (
+                  <option value="replace">{t('trash.replace')}</option>
+                )}
+                {file.allowed.includes('keep_both') && (
+                  <option value="keep_both">{t('trash.keepBoth')}</option>
+                )}
+                {file.allowed.includes('cancel') && (
+                  <option value="cancel">{t('trash.cancel')}</option>
+                )}
+              </select>
+            )}
             {decisions.get(file.file) === 'keep_both' && file.versionIncomplete && (
               <input
                 aria-label={t('trash.versionFor', { file: file.file })}

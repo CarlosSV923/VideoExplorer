@@ -68,7 +68,7 @@ export function TitlePicker({
       </span>
       <Button
         variant="secondary"
-        className="justify-start text-left"
+        className="w-full min-w-0 justify-start text-left"
         onClick={() => {
           setOpen(true)
           setTerm(displayTitle ?? initialTerm)

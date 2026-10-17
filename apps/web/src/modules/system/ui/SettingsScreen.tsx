@@ -140,7 +140,9 @@ export function SettingsScreen() {
           <Button
             onClick={() => {
               logout.mutate(undefined, {
-                onSuccess: () => void navigate({ to: '/entrar', search: {} }),
+                onSuccess: () => {
+                  void navigate({ to: '/entrar', search: {} }).catch(() => undefined)
+                },
               })
             }}
             loading={logout.isPending}
