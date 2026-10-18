@@ -9,13 +9,33 @@ import type {
 
 const multipartPatterns = [/^(.*)\.part(\d+)\.rar$/i, /^(.*)\.(7z|zip)\.(\d{3})$/i]
 
-/** Returns a stable group key for formats supported by the server. */
-export function multipartGroup(fileName: string): string | undefined {
+function multipartVolume(fileName: string): { group: string; number: number } | undefined {
+  const baseName = fileName.split(/[\\/]/).at(-1) ?? fileName
   for (const pattern of multipartPatterns) {
-    const match = pattern.exec(fileName)
-    if (match?.[1]) return match[1].toLowerCase()
+    const match = pattern.exec(baseName)
+    const number = match?.[3] ?? match?.[2]
+    if (match?.[1] && number) return { group: match[1].toLowerCase(), number: Number(number) }
   }
   return undefined
+}
+
+/** Returns a stable group key for formats supported by the server. */
+export function multipartGroup(fileName: string): string | undefined {
+  return multipartVolume(fileName)?.group
+}
+
+/** Shows a set-level password prompt only on its first numbered volume. */
+export function isFirstMultipartVolume(fileName: string, siblings: readonly string[]): boolean {
+  const current = multipartVolume(fileName)
+  if (!current) return true
+  const first = siblings
+    .map((name) => ({ name, volume: multipartVolume(name) }))
+    .filter(
+      (item): item is { name: string; volume: { group: string; number: number } } =>
+        item.volume?.group === current.group,
+    )
+    .sort((a, b) => a.volume.number - b.volume.number || a.name.localeCompare(b.name))[0]
+  return first?.name === fileName
 }
 
 /** Counts volumes in each multiparte set among the files selected by the user. */

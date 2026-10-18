@@ -7,6 +7,7 @@ import { UploadQueue } from '../application/uploadQueue'
 import {
   multipartGroup,
   multipartPartsTotal,
+  isFirstMultipartVolume,
   buildUploadRows,
   canCancelJob,
   canRetryJob,
@@ -119,11 +120,13 @@ function UploadRelationDialog({
 function UploadRowCard({
   row,
   job,
+  showPassword,
   onResume,
   onOpenPanel,
 }: {
   row: UploadRow
   job?: UploadJob
+  showPassword: boolean
   onResume: (job: UploadJob, file: File) => boolean
   onOpenPanel: () => void
 }) {
@@ -193,7 +196,7 @@ function UploadRowCard({
           )}
         </>
       )}
-      {row.phase === 'needs_password' && job && (
+      {row.phase === 'needs_password' && job && showPassword && (
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(event) => {
@@ -212,6 +215,11 @@ function UploadRowCard({
               setSecret(event.currentTarget.value)
             }}
           />
+          {multipartGroup(job.fileName) && (
+            <p className="m-0 basis-full text-caption text-ink-2">
+              {t('uploads.multipartPasswordHint')}
+            </p>
+          )}
           <Button type="submit" variant="primary" loading={password.isPending} disabled={!secret}>
             {t('uploads.continue')}
           </Button>
@@ -305,7 +313,7 @@ function UploadList({ onOpenPanel, demo }: { onOpenPanel: () => void; demo: bool
         body={t('uploads.emptyBody')}
         action={
           <div className="flex flex-col gap-3">
-            {demo && <TryExamplesButton className="md:hidden" />}
+            {demo && <TryExamplesButton className="inline-flex md:hidden" />}
             <UploadButton />
           </div>
         }
@@ -320,6 +328,15 @@ function UploadList({ onOpenPanel, demo }: { onOpenPanel: () => void; demo: bool
             key={row.key}
             row={row}
             {...(job ? { job } : {})}
+            showPassword={
+              !job ||
+              isFirstMultipartVolume(
+                job.fileName,
+                (jobs.data ?? [])
+                  .filter((item) => item.batch.id === job.batch.id)
+                  .map((item) => item.fileName),
+              )
+            }
             onResume={(item, file) => queue.resume(item, file)}
             onOpenPanel={onOpenPanel}
           />
@@ -348,7 +365,7 @@ function UploadPanel({
     <div className="flex flex-col gap-3">
       {demo && (
         <>
-          <TryExamplesButton className="md:hidden" />
+          <TryExamplesButton className="inline-flex md:hidden" />
           <p className="m-0 rounded-md bg-info-surface p-3 text-body-sm text-info-ink">
             {t('uploads.demoPassword')}
           </p>
@@ -564,13 +581,13 @@ export function UploadButton() {
   )
 }
 
-export function TryExamplesButton({ className = '' }: { className?: string }) {
+export function TryExamplesButton({ className }: { className: string }) {
   const { t } = useTranslation()
   const { openExamples } = useUploadUi()
   return (
     <button
       type="button"
-      className={`inline-flex min-h-control-sm items-center justify-center rounded-pill border border-control px-3 text-center text-caption font-bold md:text-body-sm ${className}`}
+      className={`min-h-control-sm items-center justify-center rounded-pill border border-control px-3 text-center text-caption font-bold md:text-body-sm ${className}`}
       onClick={openExamples}
     >
       {t('uploads.tryExamples')}

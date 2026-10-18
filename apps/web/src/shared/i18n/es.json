@@ -390,6 +390,7 @@
     "resume": "Elegir el mismo archivo",
     "resumeMismatch": "El archivo debe tener el mismo nombre y tamaño.",
     "password": "Contraseña",
+    "multipartPasswordHint": "Esta contraseña se aplica a todos los volúmenes del conjunto.",
     "continue": "Continuar",
     "cancel": "Cancelar subida",
     "dismiss": "Quitar",

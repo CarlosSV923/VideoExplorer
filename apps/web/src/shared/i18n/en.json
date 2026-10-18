@@ -390,6 +390,7 @@
     "resume": "Choose the same file",
     "resumeMismatch": "The file must have the same name and size.",
     "password": "Password",
+    "multipartPasswordHint": "This password applies to every volume in the set.",
     "continue": "Continue",
     "cancel": "Cancel upload",
     "dismiss": "Remove",

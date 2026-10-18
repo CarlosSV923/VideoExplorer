@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nextProvider } from 'react-i18next'
 
@@ -8,6 +8,8 @@ import { createI18n } from '@/shared/i18n'
 import { InputProvider } from '@/shared/input'
 import { Header } from '@/app/LibraryLayout'
 import { UploadUiProvider } from './UploadCenter'
+
+vi.mock('@/app/config', () => ({ dataSource: 'demo' }))
 
 const job = (status: UploadJob['status']): UploadJob => ({
   id: 'job-1',
@@ -22,7 +24,7 @@ const job = (status: UploadJob['status']): UploadJob => ({
   updatedAt: '2026-01-01T00:00:00Z',
 })
 
-function renderCenter(ports: Partial<IngestionPorts> = {}) {
+function renderCenter(ports: Partial<IngestionPorts> = {}, demo = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const full = {
     createBatch: vi.fn().mockResolvedValue({
@@ -45,7 +47,7 @@ function renderCenter(ports: Partial<IngestionPorts> = {}) {
       <InputProvider>
         <QueryClientProvider client={client}>
           <IngestionContext value={full}>
-            <UploadUiProvider>
+            <UploadUiProvider demo={demo}>
               <Header />
             </UploadUiProvider>
           </IngestionContext>
@@ -98,6 +100,46 @@ describe('UploadCenter', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Subidas' }))
     expect(await screen.findByText('No hay subidas')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Subir' })).toHaveLength(2)
+  })
+
+  it('keeps the examples button out of the mobile header and at the top of the uploads sheet', async () => {
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia')
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+    try {
+      renderCenter({}, true)
+      const header = document.querySelector('header')
+      if (!header) throw new Error('Falta la cabecera')
+      const headerExamples = within(header).getByRole('button', {
+        name: 'Probar con archivos de ejemplo',
+      })
+      expect(headerExamples).toHaveClass('hidden', 'md:inline-flex')
+      fireEvent.click(screen.getByRole('button', { name: 'Subidas' }))
+      const sheet = await screen.findByRole('dialog', { name: 'Subidas' })
+      const examples = within(sheet).getAllByRole('button', {
+        name: 'Probar con archivos de ejemplo',
+      })
+      const emptyTitle = await within(sheet).findByText('No hay subidas')
+      const firstExample = examples.at(0)
+      if (!firstExample) throw new Error('Falta el botón de ejemplos en la hoja')
+      expect(
+        firstExample.compareDocumentPosition(emptyTitle) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    } finally {
+      if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia)
+      else Reflect.deleteProperty(window, 'matchMedia')
+    }
   })
 
   it('announces the active count on Subidas', async () => {
@@ -154,5 +196,25 @@ describe('UploadCenter', () => {
     await waitFor(() => {
       expect(submitPassword).toHaveBeenCalledWith('job-1', 'cc')
     })
+  })
+
+  it('shows one set-level password field for a multipart archive', async () => {
+    const first = {
+      ...job('needs_password'),
+      fileName: 'Inception.2010.part1.rar',
+      batch: { ...job('needs_password').batch, id: 'batch-multipart' },
+    }
+    const second = {
+      ...job('needs_password'),
+      id: 'job-2',
+      fileName: 'Inception.2010.part2.rar',
+      batch: first.batch,
+    }
+    renderCenter({ jobs: vi.fn().mockResolvedValue([first, second]) })
+    fireEvent.click(await screen.findByRole('button', { name: /Subidas/ }))
+    expect(
+      await screen.findByText('Esta contraseña se aplica a todos los volúmenes del conjunto.'),
+    ).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Contraseña')).toHaveLength(1)
   })
 })

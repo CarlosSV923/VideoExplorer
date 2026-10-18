@@ -1,4 +1,10 @@
-import { buildUploadRows, canCancelJob, canRetryJob, multipartPartsTotal } from './uploadLogic'
+import {
+  buildUploadRows,
+  canCancelJob,
+  canRetryJob,
+  isFirstMultipartVolume,
+  multipartPartsTotal,
+} from './uploadLogic'
 import type { LocalUpload, UploadJob } from '../domain/types'
 
 const job = (status: UploadJob['status'], error?: UploadJob['error']): UploadJob => ({
@@ -51,6 +57,16 @@ describe('upload application logic', () => {
     expect(totals.get('movie')).toBe(2)
     expect(totals.get('season')).toBe(2)
     expect(totals.has('legacy')).toBe(false)
+  })
+
+  it.each([
+    ['movie.part1.rar', ['movie.part2.rar', 'movie.part1.rar'], true],
+    ['movie.part2.rar', ['movie.part2.rar', 'movie.part1.rar'], false],
+    ['season.7z.001', ['season.7z.002', 'season.7z.001'], true],
+    ['Season/season.zip.002', ['Season/season.zip.010', 'Season/season.zip.002'], true],
+    ['secret.7z', ['secret.7z'], true],
+  ])('selects one password prompt for %s', (fileName, siblings, expected) => {
+    expect(isFirstMultipartVolume(fileName, siblings)).toBe(expected)
   })
 
   it('labels a stalled server upload as interrupted and keeps extraction progress', () => {

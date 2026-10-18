@@ -4,6 +4,7 @@ import { I18nextProvider } from 'react-i18next'
 import { describe, expect, it, vi } from 'vitest'
 
 import { IngestionContext, type IngestionPorts } from '@/modules/ingestion/application/ports'
+import type { UploadJob } from '@/modules/ingestion/domain/types'
 import { MetadataContext, type MetadataPorts } from '@/modules/metadata/application/ports'
 import { createI18n } from '@/shared/i18n'
 import { InputProvider } from '@/shared/input'
@@ -98,6 +99,7 @@ function renderScreen(
   screenName: 'unassigned' | 'assign',
   catalog: Partial<CatalogPorts> = {},
   metadataOverrides: Partial<MetadataPorts> = {},
+  ingestionOverrides: Partial<IngestionPorts> = {},
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const ports = {
@@ -142,7 +144,10 @@ function renderScreen(
     imageUrl: vi.fn(),
     ...metadataOverrides,
   } as unknown as MetadataPorts
-  const ingestion = { jobs: vi.fn().mockResolvedValue([]) } as unknown as IngestionPorts
+  const ingestion = {
+    jobs: vi.fn().mockResolvedValue([]),
+    ...ingestionOverrides,
+  } as unknown as IngestionPorts
   const view = render(
     <I18nextProvider i18n={createI18n('es')}>
       <QueryClientProvider client={queryClient}>
@@ -162,6 +167,37 @@ function renderScreen(
 }
 
 describe('No asignados', () => {
+  it('shows one password prompt for the first volume of a backend multipart job', async () => {
+    const batch = { id: 'multipart', name: 'Inception', relation: 'parts' as const, createdAt: '' }
+    const job = (id: string, fileName: string): UploadJob => ({
+      id,
+      batch,
+      fileName,
+      relativePath: '',
+      size: 10,
+      received: 10,
+      progress: 0,
+      status: 'needs_password',
+      createdAt: '',
+      updatedAt: '',
+    })
+    const jobs = [
+      job('part-1', 'Inception.2010.part1.rar'),
+      job('part-2', 'Inception.2010.part2.rar'),
+    ]
+    const { ports } = renderScreen(
+      'unassigned',
+      { unassigned: vi.fn().mockResolvedValue({ ...section, jobs }) },
+      {},
+      { submitPassword: vi.fn().mockResolvedValue(jobs[0]) },
+    )
+    expect(
+      await screen.findByText('Esta contraseña se aplica a todos los volúmenes del conjunto.'),
+    ).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Contraseña de Inception.2010.part1.rar')).toHaveLength(1)
+    expect(mockCalls(ports, 'unassigned')).toHaveLength(1)
+  })
+
   it('renders ready, copying and hidden-only entries and confirms permanent deletion', async () => {
     const { ports } = renderScreen('unassigned')
     await waitFor(() => {

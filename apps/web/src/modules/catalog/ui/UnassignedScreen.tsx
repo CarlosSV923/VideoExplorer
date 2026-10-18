@@ -6,13 +6,22 @@ import { useCatalogPorts } from '../application/ports'
 import { unassignedKey, useUnassigned } from '../application/queries'
 import type { UploadJob } from '@/modules/ingestion/domain/types'
 import { useJobMutation } from '@/modules/ingestion/application/queries'
+import { isFirstMultipartVolume, multipartGroup } from '@/modules/ingestion/application/uploadLogic'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { isAppError } from '@/shared/kernel/errors'
 import { useFormat } from '@/shared/i18n/hooks'
 import { Banner, Button, EmptyState, PageHeader, PasswordField, ProgressBar } from '@/shared/ui'
 import { UnassignedEntryCard } from './UnassignedEntry'
 
-function JobCard({ job, onRefresh }: { job: UploadJob; onRefresh: () => void }) {
+function JobCard({
+  job,
+  jobs,
+  onRefresh,
+}: {
+  job: UploadJob
+  jobs: readonly UploadJob[]
+  onRefresh: () => void
+}) {
   const { t } = useTranslation()
   const password = useJobMutation('submitPassword', job.id)
   const dismiss = useJobMutation('dismissJob', job.id)
@@ -48,28 +57,37 @@ function JobCard({ job, onRefresh }: { job: UploadJob; onRefresh: () => void }) 
           </Button>
         )}
       </div>
-      {job.status === 'needs_password' && (
-        <form
-          className="mt-4 flex flex-wrap items-end gap-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            password.mutate(value, { onSuccess: onRefresh })
-          }}
-        >
-          <div className="min-w-60 flex-1">
-            <PasswordField
-              label={t('unassigned.passwordFor', { name: job.fileName })}
-              value={value}
-              onChange={(event) => {
-                setValue(event.currentTarget.value)
-              }}
-            />
-          </div>
-          <Button variant="primary" type="submit" loading={password.isPending}>
-            {t('unassigned.unlock')}
-          </Button>
-        </form>
-      )}
+      {job.status === 'needs_password' &&
+        isFirstMultipartVolume(
+          job.fileName,
+          jobs.filter((item) => item.batch.id === job.batch.id).map((item) => item.fileName),
+        ) && (
+          <form
+            className="mt-4 flex flex-wrap items-end gap-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              password.mutate(value, { onSuccess: onRefresh })
+            }}
+          >
+            <div className="min-w-60 flex-1">
+              <PasswordField
+                label={t('unassigned.passwordFor', { name: job.fileName })}
+                value={value}
+                onChange={(event) => {
+                  setValue(event.currentTarget.value)
+                }}
+              />
+              {multipartGroup(job.fileName) && (
+                <p className="m-0 mt-2 text-caption text-ink-2">
+                  {t('uploads.multipartPasswordHint')}
+                </p>
+              )}
+            </div>
+            <Button variant="primary" type="submit" loading={password.isPending}>
+              {t('unassigned.unlock')}
+            </Button>
+          </form>
+        )}
       {['uploading', 'extracting', 'filtering', 'waiting_parts'].includes(job.status) && (
         <div className="mt-4 flex flex-col gap-2">
           <ProgressBar
@@ -142,7 +160,7 @@ export function UnassignedScreen() {
           </Banner>
         ) : null}
         {section.jobs.map((job) => (
-          <JobCard key={job.id} job={job} onRefresh={refresh} />
+          <JobCard key={job.id} job={job} jobs={section.jobs} onRefresh={refresh} />
         ))}
         {section.entries.length === 0 && section.jobs.length === 0 ? (
           <EmptyState title={t('unassigned.empty.title')} body={t('unassigned.empty.body')} />
