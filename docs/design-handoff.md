@@ -37,7 +37,7 @@ Se definen en `apps/web/src/shared/ui/tokens.css` como `@theme` de Tailwind v4 (
 | `progress-upload` | `ink-1` | Barra de subida (siempre con texto del estado al lado, WCAG 1.4.1) |
 | `progress-extract` | `info` | Barra de descompresión |
 
-**Pósters y backdrops sin imagen** (títulos libres, demo, imagen que no carga): degradado `linear-gradient(165deg, <tono> 0%, <tono oscuro> 100%)` generado de forma estable a partir del id del título, con el título en mayúsculas encima. El título dentro del póster es decorativo (`aria-hidden`).
+**Pósters y backdrops sin imagen** (títulos libres o imagen que no carga; la demo usa las imágenes de TMDB, RF-71): degradado `linear-gradient(165deg, <tono> 0%, <tono oscuro> 100%)` generado de forma estable a partir del id del título, con el título en mayúsculas encima. El título dentro del póster es decorativo (`aria-hidden`).
 
 ### Tipografía
 Familias: **Outfit** 400/500/600/700/800 para la interfaz y **JetBrains Mono** 400/500 para nombres de archivo, rutas, etiquetas de ID y atajos. Se sirven desde la app (`@fontsource`), nunca desde Google, para que el navegador no contacte a terceros.
