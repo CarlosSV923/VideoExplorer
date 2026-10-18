@@ -13,6 +13,7 @@ import {
   Menu,
   Poster,
   ProgressBar,
+  PosterRow,
   SearchField,
   TextField,
 } from '.'
@@ -55,6 +56,28 @@ describe('UI primitives', () => {
   it('includes poster metadata and chips in its accessible name', () => {
     wrap(<Poster href="#dark" title="Dark" meta="2017" accessibleChips={['Serie', 'Faltan 4']} />)
     expect(screen.getByRole('link', { name: 'Dark, 2017, Serie, Faltan 4' })).toBeInTheDocument()
+  })
+
+  it('keeps poster row widths fixed as the number of titles grows', () => {
+    const posters = (count: number) =>
+      Array.from({ length: count }, (_, index) => (
+        <Poster key={index} href={`#title-${String(index)}`} title={`Title ${String(index)}`} />
+      ))
+    const { rerender } = wrap(<PosterRow title="Titles">{posters(1)}</PosterRow>)
+    const onePosterClass = screen.getByRole('link', { name: 'Title 0' }).className
+    expect(onePosterClass).toContain('w-poster-w')
+    expect(onePosterClass).toContain('shrink-0')
+    expect(onePosterClass).toContain('snap-start')
+
+    rerender(
+      <I18nextProvider i18n={createI18n('es')}>
+        <InputProvider>
+          <PosterRow title="Titles">{posters(20)}</PosterRow>
+        </InputProvider>
+      </I18nextProvider>,
+    )
+    expect(screen.getAllByRole('link')).toHaveLength(20)
+    expect(screen.getByRole('link', { name: 'Title 0' })).toHaveClass(...onePosterClass.split(' '))
   })
 
   it('exposes progress and dialog focus semantics', async () => {

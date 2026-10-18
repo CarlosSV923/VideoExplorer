@@ -170,6 +170,11 @@
       --row-gap: 26px;
     }
   }
+  @media (max-width: 767px) {
+    :root {
+      --spacing-poster-w: 120px;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

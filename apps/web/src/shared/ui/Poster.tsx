@@ -14,6 +14,7 @@ export interface PosterProps {
   href?: string
   dimmed?: boolean
   seed?: string
+  fluid?: boolean
 }
 
 function generatedBackground(seed: string) {
@@ -33,6 +34,7 @@ export function Poster({
   href,
   dimmed = false,
   seed = title,
+  fluid = false,
 }: PosterProps) {
   const content = (
     <>
@@ -58,14 +60,16 @@ export function Poster({
           </span>
         )}
         {chips.length > 0 && (
-          <span className="absolute top-2 right-2 flex max-w-[calc(100%-16px)] flex-wrap justify-end gap-1">
+          <span className="absolute top-2 right-2 flex max-w-[calc(100%-16px)] flex-wrap justify-end gap-1 [&>span>span]:max-w-full [&>span>span]:whitespace-normal [&>span>span]:break-words">
             {chips.map((chip, index) => (
               <span key={index}>{chip}</span>
             ))}
           </span>
         )}
       </div>
-      <span className="mt-2 block line-clamp-3 text-body-sm font-semibold text-ink-1">{title}</span>
+      <span className="mt-2 block line-clamp-3 break-normal text-body-sm font-semibold text-ink-1">
+        {title}
+      </span>
       {meta && <span className="block text-caption text-ink-2">{meta}</span>}
     </>
   )
@@ -74,12 +78,18 @@ export function Poster({
     <a
       href={href}
       aria-label={accessibleName}
-      className="group block min-w-0 w-poster-w no-underline transition duration-120 ease-out hover:-translate-y-1 focus-visible:-translate-y-1"
+      className={cx(
+        'group block min-w-0 shrink-0 snap-start no-underline transition duration-120 ease-out hover:-translate-y-1 focus-visible:-translate-y-1',
+        fluid ? 'w-full' : 'w-poster-w',
+      )}
     >
       {content}
     </a>
   ) : (
-    <article aria-label={accessibleName} className="block min-w-0 w-poster-w">
+    <article
+      aria-label={accessibleName}
+      className={cx('block min-w-0 shrink-0', fluid ? 'w-full' : 'w-poster-w')}
+    >
       {content}
     </article>
   )
@@ -124,7 +134,7 @@ export function PosterRow({
         </IconButton>
         <div
           ref={row}
-          className="flex min-w-0 gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory px-12 pb-2"
+          className="flex min-w-0 gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-12 pb-2 md:gap-4"
         >
           {children}
         </div>

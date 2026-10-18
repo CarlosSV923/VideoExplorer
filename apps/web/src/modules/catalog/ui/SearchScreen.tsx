@@ -31,9 +31,9 @@ export function SearchScreen({ queryText }: { queryText: string }) {
       {query.isPending ? (
         <LoadingGrid />
       ) : results.length ? (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-x-4 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]">
           {results.map((title) => (
-            <PosterFor key={title.id} title={title} />
+            <PosterFor key={title.id} title={title} fluid />
           ))}
         </div>
       ) : (

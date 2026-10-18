@@ -26,7 +26,7 @@ export function CollectionCard({
     <a
       href={`/colecciones/${String(id)}`}
       aria-label={`${name}, ${t('library.collectionCount', { present: inLibrary, total })}`}
-      className="block min-w-[280px] flex-[0_0_360px] rounded-lg no-underline transition duration-120 ease-out hover:-translate-y-1 focus-visible:-translate-y-1 sm:min-w-0"
+      className="block min-w-[280px] flex-[0_0_360px] shrink-0 rounded-lg no-underline transition duration-120 ease-out hover:-translate-y-1 focus-visible:-translate-y-1 sm:min-w-0"
       style={{ backgroundImage: background }}
     >
       <span className="flex aspect-video flex-col justify-end gap-1 rounded-lg p-5">

@@ -21,7 +21,7 @@ export function CollectionInline({
         </div>
         <a href={`/colecciones/${String(collection.id)}`}>{t('library.viewCollection')}</a>
       </div>
-      <div className="mt-3 flex gap-4 overflow-x-auto">
+      <div className="mt-3 flex gap-3 overflow-x-auto md:gap-4">
         {collection.movies.map((movie) => (
           <Poster
             key={movie.id}

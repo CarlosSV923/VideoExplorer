@@ -9,7 +9,7 @@ export function LoadingGrid() {
   return (
     <div
       aria-hidden="true"
-      className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6"
+      className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]"
     >
       {Array.from({ length: 6 }, (_, i) => (
         <div key={i} className="aspect-[2/3] animate-pulse rounded-md bg-surface" />
@@ -18,7 +18,15 @@ export function LoadingGrid() {
   )
 }
 
-export function PosterFor({ title, href }: { title: LibraryTitleSummary; href?: string }) {
+export function PosterFor({
+  title,
+  href,
+  fluid = false,
+}: {
+  title: LibraryTitleSummary
+  href?: string
+  fluid?: boolean
+}) {
   const { t } = useTranslation()
   const chips = [
     title.missingEpisodes !== undefined && title.missingEpisodes > 0 ? (
@@ -40,6 +48,7 @@ export function PosterFor({ title, href }: { title: LibraryTitleSummary; href?: 
       chips={chips}
       accessibleChips={chips.map(() => '')}
       seed={String(title.id)}
+      fluid={fluid}
       {...(title.poster ? { image: title.poster } : {})}
       href={href ?? `/${title.kind === 'movie' ? 'peliculas' : 'series'}/${String(title.id)}`}
     />

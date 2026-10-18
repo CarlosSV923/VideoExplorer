@@ -35,7 +35,7 @@ export function CollectionScreen({ id }: { id: number }) {
           total: collection.movies.length,
         })}
       />
-      <div className="grid grid-cols-2 gap-x-4 gap-y-8 py-8 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-x-4 gap-y-8 py-8 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]">
         {collection.movies.map((movie) => (
           <Poster
             key={movie.id}
@@ -47,6 +47,7 @@ export function CollectionScreen({ id }: { id: number }) {
               .filter(Boolean)
               .join(' · ')}
             dimmed={!movie.inLibrary}
+            fluid
             {...(movie.poster ? { image: movie.poster } : {})}
             {...(movie.libraryTitleId
               ? { href: `/peliculas/${String(movie.libraryTitleId)}` }
