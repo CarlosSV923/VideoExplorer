@@ -6,13 +6,14 @@ import { RefreshIcon, SearchIcon, UploadIcon } from '@/shared/ui/icons'
 import { useLanguage } from '@/shared/i18n/hooks'
 import { useUploadUi } from '@/modules/ingestion/ui/UploadUiContext'
 import { useTranslation } from 'react-i18next'
+import { dataSource } from './config'
 import type { ReactNode } from 'react'
 
 export function Header() {
   const { t } = useTranslation()
   const language = useLanguage()
   const jobs = useJobs()
-  const { openPicker, openPanel, busy } = useUploadUi()
+  const { openPicker, openExamples, openPanel, busy } = useUploadUi()
   const active = (jobs.data ?? []).filter(isJobActiveOrWaiting).length + (busy ? 1 : 0)
   const uploadsLabel =
     active > 0 ? t('library.uploadsButton', { count: active }) : t('library.uploads')
@@ -81,6 +82,15 @@ export function Header() {
           <UploadIcon />
           <span className="hidden md:inline">{t('library.upload')}</span>
         </button>
+        {dataSource === 'demo' && (
+          <button
+            type="button"
+            className="inline-flex min-h-control-sm rounded-pill border border-control px-2 text-caption font-bold md:px-3 md:text-body-sm"
+            onClick={openExamples}
+          >
+            {t('uploads.tryExamples')}
+          </button>
+        )}
         <a
           href="/ajustes/general"
           aria-label={t('library.settings')}

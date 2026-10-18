@@ -74,7 +74,7 @@ export function App({
       <InputProvider>
         <QueryClientProvider client={environment.queryClient}>
           <Ports services={selectedServices}>
-            <UploadUiProvider>
+            <UploadUiProvider demo={dataSource === 'demo'}>
               <RouterProvider router={environment.router} />
             </UploadUiProvider>
           </Ports>

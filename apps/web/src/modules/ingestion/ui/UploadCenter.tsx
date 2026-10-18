@@ -324,14 +324,31 @@ function UploadList({ onOpenPanel }: { onOpenPanel: () => void }) {
   )
 }
 
-function UploadPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+function UploadPanel({
+  open,
+  onClose,
+  demo,
+}: {
+  open: boolean
+  onClose: () => void
+  demo: boolean
+}) {
   const { t } = useTranslation()
   const [mobile, setMobile] = useState(() =>
     typeof window === 'undefined' || typeof window.matchMedia !== 'function'
       ? false
       : window.matchMedia('(max-width: 767px)').matches,
   )
-  const contents = <UploadList onOpenPanel={onClose} />
+  const contents = (
+    <div className="flex flex-col gap-3">
+      {demo && (
+        <p className="m-0 rounded-md bg-info-surface p-3 text-body-sm text-info-ink">
+          {t('uploads.demoPassword')}
+        </p>
+      )}
+      <UploadList onOpenPanel={onClose} />
+    </div>
+  )
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined
     const media = window.matchMedia('(max-width: 767px)')
@@ -357,7 +374,13 @@ function UploadPanel({ open, onClose }: { open: boolean; onClose: () => void }) 
   )
 }
 
-export function UploadUiProvider({ children }: { children: ReactNode }) {
+export function UploadUiProvider({
+  children,
+  demo = false,
+}: {
+  children: ReactNode
+  demo?: boolean
+}) {
   const { t } = useTranslation()
   const ports = useIngestionPorts()
   const [queue] = useState(() => new UploadQueue(ports))
@@ -368,11 +391,17 @@ export function UploadUiProvider({ children }: { children: ReactNode }) {
   const localUploads = useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot)
   const busy = localUploads.some((item) => item.state === 'queued' || item.state === 'uploading')
 
-  const start = async (files: File[], relation: 'parts' | 'episodes' | 'none') => {
+  const start = async (
+    files: File[],
+    relation: 'parts' | 'episodes' | 'none',
+    batchName?: string,
+  ) => {
     if (!files.length) return
     const totals = multipartPartsTotal(files)
     const name = fileGroupName(files)
-    const batch = await ports.createBatch(name ? { relation, name } : { relation })
+    const batch = await ports.createBatch(
+      batchName ? { relation, name: batchName } : name ? { relation, name } : { relation },
+    )
     queue.add(
       files.map((file) => {
         const group = multipartGroup(file.name)
@@ -439,6 +468,22 @@ export function UploadUiProvider({ children }: { children: ReactNode }) {
       <UploadUiContext
         value={{
           openPicker: () => input.current?.click(),
+          openExamples: () => {
+            setPending(
+              ['Dark.S02E05.1080p.mkv', 'Dark.S02E06.1080p.mkv'].map((name) => new File([], name)),
+            )
+            void start(
+              ['Inception.2010.part1.rar', 'Inception.2010.part2.rar'].map(
+                (name) => new File([], name),
+              ),
+              'parts',
+              'sample:Inception',
+            )
+            const sample = new File([], 'video.mkv')
+            Object.defineProperty(sample, 'webkitRelativePath', { value: 'Sample/video.mkv' })
+            void start([sample], 'none')
+            setPanelOpen(true)
+          },
           openPanel: () => {
             setPanelOpen(true)
           },
@@ -482,6 +527,7 @@ export function UploadUiProvider({ children }: { children: ReactNode }) {
         )}
         <UploadPanel
           open={panelOpen}
+          demo={demo}
           onClose={() => {
             setPanelOpen(false)
           }}

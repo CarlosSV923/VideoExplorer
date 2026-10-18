@@ -21,6 +21,7 @@ import { isAppError } from '@/shared/kernel/errors'
 import { Button, EmptyState } from '@/shared/ui'
 import { useEffect } from 'react'
 import { SystemHealthBanner } from '@/modules/system/ui/SystemHealthBanner'
+import { dataSource } from './config'
 
 import { MarkerScreen, type ScreenKey } from './MarkerScreen'
 import type { Services } from './services'
@@ -94,6 +95,7 @@ const loginRoute = createRoute({
 })
 
 function AppShell() {
+  const { t } = useTranslation()
   const ports = useIngestionPorts()
   const queryClient = useQueryClient()
   useEffect(() => {
@@ -109,6 +111,14 @@ function AppShell() {
   }, [ports, queryClient])
   return (
     <>
+      {dataSource === 'demo' && (
+        <div
+          role="status"
+          className="sticky top-16 z-20 border-b border-info bg-info-surface px-[var(--page-x,16px)] py-2 text-center text-body-sm text-info-ink"
+        >
+          {t('demo.banner')}
+        </div>
+      )}
       <SystemHealthBanner />
       <Outlet />
     </>

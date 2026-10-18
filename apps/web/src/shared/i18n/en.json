@@ -6,6 +6,7 @@
   "attribution": {
     "tmdb": "This product uses the TMDB API but is not endorsed or certified by TMDB."
   },
+  "demo": { "banner": "Demo mode: changes only last for this browser session." },
   "common": {
     "loading": "Loading…",
     "cancel": "Cancel",
@@ -374,6 +375,8 @@
   },
   "uploads": {
     "title": "Uploads",
+    "tryExamples": "Try sample files",
+    "demoPassword": "Password for the sample archives: demo",
     "dropHere": "Drop files or folders here",
     "emptyTitle": "No uploads",
     "emptyBody": "Files you upload will appear here with their progress.",

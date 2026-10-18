@@ -4,8 +4,9 @@
     "tagline": "Tu biblioteca de películas y series en el NAS"
   },
   "attribution": {
-    "tmdb": "Este producto usa la API de TMDB pero no est\u00e1 respaldado ni certificado por TMDB."
+    "tmdb": "This product uses the TMDB API but is not endorsed or certified by TMDB."
   },
+  "demo": { "banner": "Modo demo: los cambios solo viven en esta sesión del navegador." },
   "common": {
     "loading": "Cargando…",
     "cancel": "Cancelar",
@@ -374,6 +375,8 @@
   },
   "uploads": {
     "title": "Subidas",
+    "tryExamples": "Probar con archivos de ejemplo",
+    "demoPassword": "Contraseña de los comprimidos de ejemplo: demo",
     "dropHere": "Suelta los archivos o carpetas aquí",
     "emptyTitle": "No hay subidas",
     "emptyBody": "Los archivos que subas aparecerán aquí con su progreso.",
