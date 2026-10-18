@@ -46,8 +46,11 @@ func TestAnOriginalThatDoesNotReachTheTrashKeepsItsJobFailedAndItsFiles(t *testi
 			id := r.upload(t, "Extras.zip", tt.archive(t))
 			r.waitFor(t, id, "failed with trash_failed", trashFailed)
 
-			// The settlement of the batch runs right after the failure: the checks give it a moment.
-			time.Sleep(200 * time.Millisecond)
+			// Wait for the settlement triggered by the failed extraction before checking that it
+			// did not retry the failed trash move on its own.
+			if err := r.svc.WaitSettled(t.Context()); err != nil {
+				t.Fatalf("WaitSettled: %v", err)
+			}
 			if !r.staged(id) {
 				t.Error("the original left staging although its move to the trash failed")
 			}

@@ -38,7 +38,7 @@ func (c *virtualClock) Advance(d time.Duration) {
 	c.t = c.t.Add(d)
 }
 
-// splitSet packs one fictitious video with 7zz into volumes of 256 KiB (RF-03):
+// splitSet packs one fictitious video with 7zz into volumes of 64 KiB (RF-03):
 // the names of the volumes in order, their contents, and the video itself. The
 // archive is stored, not compressed, so the volumes are big enough to be several.
 func splitSet(t *testing.T, password string) (names []string, data [][]byte, video []byte) {
@@ -49,7 +49,7 @@ func splitSet(t *testing.T, password string) (names []string, data [][]byte, vid
 	if err := os.MkdirAll(filepath.Join(src, "Movie"), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	video = make([]byte, 1<<20)
+	video = make([]byte, 256<<10)
 	if _, err := rand.Read(video); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func splitSet(t *testing.T, password string) (names []string, data [][]byte, vid
 		t.Fatal(err)
 	}
 	out := t.TempDir()
-	args := []string{"a", "-bso0", "-bsp0", "-t7z", "-mx0", "-v256k"}
+	args := []string{"a", "-bso0", "-bsp0", "-t7z", "-mx0", "-v64k"}
 	if password != "" {
 		args = append(args, "-p"+password, "-mhe=on")
 	}
