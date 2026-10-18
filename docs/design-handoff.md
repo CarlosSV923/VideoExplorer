@@ -200,7 +200,7 @@ Subidas es un panel (escritorio) o una hoja (móvil) sobre la pantalla actual, s
 - **Entrada de No asignados sin archivos visibles** (solo carpetas ocultas o del sistema): se lista con «Sin archivos visibles» y la explicación, sin acciones (pendiente de decidir en la Fase 10).
 - **Carga:** esqueletos con la forma del contenido (pósters, filas de capítulos) después de 300 ms.
 - **Errores del backend:** el `detail` viene en inglés y no se muestra; la UI traduce por código (`error` de los trabajos, `code` de salud y de Jellyfin) o por estado HTTP.
-- **Modo demo (RF-72):** banner fijo `info` arriba, sin login, y «Probar con archivos de ejemplo» junto a «Subir».
+- **Modo demo (RF-72):** banner fijo `info` arriba («Modo demo: los cambios se pierden al recargar la página.»; el estado vive en memoria, como en GameExplorer), sin login, y «Probar con archivos de ejemplo» junto a «Subir» en escritorio. En < 768 px no va en la cabecera: está arriba del panel/hoja de Subidas y en el estado vacío de Subir.
 
 ## 7. Idiomas (i18n)
 
