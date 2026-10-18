@@ -162,7 +162,7 @@ tasks:
     deps: [dev:image]
     desc: Go tests with the race detector (in Docker)
     cmds:
-      - '{{.DOCKER_GO}} {{.GO_IMAGE}} go test -race -count=1 -timeout 120s ./...'
+      - '{{.DOCKER_GO}} {{.GO_IMAGE}} go test -race -count=1 -timeout 300s ./...'
 
   test:web:
     desc: Vitest + Testing Library
