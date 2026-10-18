@@ -27,7 +27,6 @@ describe('VideoExplorer demo adapters', () => {
         'Mufasa.The.Lion.King.2024.2160p.mkv',
         'Get.Out.2017.1080p',
         'The.Dark.Knight.2008.1080p.mkv',
-        'x7k2',
         'Entrada vacía',
       ]),
     )
@@ -104,6 +103,11 @@ describe('VideoExplorer demo adapters', () => {
       await vi.runAllTimersAsync()
       const needsPassword = (await services.ingestion.jobs()).find((job) => job.id === first())
       expect(needsPassword?.status).toBe('needs_password')
+      expect(
+        (await services.ingestion.jobs())
+          .filter((job) => job.batch.id === batch.id)
+          .map((job) => job.status),
+      ).toEqual(['needs_password', 'needs_password'])
       if (!needsPassword) throw new Error('Expected sample archive job')
       await services.ingestion.submitPassword(needsPassword.id, 'demo')
       await vi.runAllTimersAsync()
@@ -142,6 +146,19 @@ describe('VideoExplorer demo adapters', () => {
           expect.objectContaining({ reason: 'filtered', relativePath: 'Sample/video.mkv' }),
         ]),
       )
+      const samba = (await services.ingestion.jobs()).find(
+        (job) => job.id === 'demo-samba-job-x7k2',
+      )
+      expect(samba?.status).toBe('needs_password')
+      await services.ingestion.submitPassword('demo-samba-job-x7k2', 'demo')
+      await vi.runAllTimersAsync()
+      expect((await services.ingestion.jobs()).find((job) => job.id === samba?.id)?.status).toBe(
+        'done',
+      )
+      expect((await services.catalog.unassigned()).entries).toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: 'x7k2', origin: 'upload' })]),
+      )
+      expect((await services.catalog.unassigned()).jobs).toHaveLength(0)
     } finally {
       vi.useRealTimers()
     }
@@ -163,6 +180,7 @@ describe('VideoExplorer demo adapters', () => {
           action: 'place' as const,
           title: { source: 'library' as const, kind: 'movie' as const, libraryTitleId: titleId },
           part: 0,
+          duplicate: 'keep_both' as const,
         },
       ],
       subtitles: [],
@@ -170,8 +188,16 @@ describe('VideoExplorer demo adapters', () => {
     const assignment = request.videos[0]
     if (!assignment) throw new Error('Expected an assignment choice')
     const plan = await services.catalog.planAssign(4, lock.token, request)
-    expect(plan.valid).toBe(false)
+    expect(plan.valid).toBe(true)
     expect(plan.videos[0]?.duplicates).toHaveLength(1)
+    expect(plan.videos[0]?.duplicates[0]?.version).toBe('2160p')
+    expect(plan.videos[0]?.versionIncomplete).toBe(false)
+    expect(plan.videos[0]?.duplicates[0]?.rel).toContain('The Dark Knight (2008) [tmdbid-155]')
+    const unknownAudioPlan = await services.catalog.planAssign(4, lock.token, {
+      ...request,
+      videos: [{ ...assignment, file: `${file}.und`, duplicate: 'keep_both' }],
+    })
+    expect(unknownAudioPlan.videos[0]?.versionIncomplete).toBe(true)
     const saved = await services.catalog.commitAssign(4, lock.token, {
       ...request,
       videos: [{ ...assignment, duplicate: 'replace' }],

@@ -6,7 +6,7 @@
   "attribution": {
     "tmdb": "This product uses the TMDB API but is not endorsed or certified by TMDB."
   },
-  "demo": { "banner": "Demo mode: changes only last for this browser session." },
+  "demo": { "banner": "Demo mode: changes are lost when the page reloads." },
   "common": {
     "loading": "Loading…",
     "cancel": "Cancel",

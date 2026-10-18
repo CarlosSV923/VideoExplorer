@@ -16,7 +16,7 @@ function JobCard({ job, onRefresh }: { job: UploadJob; onRefresh: () => void }) 
   const { t } = useTranslation()
   const password = useJobMutation('submitPassword', job.id)
   const dismiss = useJobMutation('dismissJob', job.id)
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(job.id === 'demo-samba-job-x7k2' ? 'demo' : '')
   const failed = job.status === 'failed'
   const progress =
     job.status === 'extracting' ? job.progress : (job.received / Math.max(1, job.size)) * 100

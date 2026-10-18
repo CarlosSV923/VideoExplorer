@@ -144,6 +144,7 @@ describe('UploadCenter', () => {
     await waitFor(() => {
       expect(screen.getAllByLabelText('Contraseña').length).toBeGreaterThan(0)
     })
+    expect(await screen.findByText('Sin relación')).toBeInTheDocument()
     const password = screen.getAllByLabelText('Contraseña')[0]
     const continueButton = screen.getAllByRole('button', { name: 'Continuar' })[0]
     if (!password || !continueButton)

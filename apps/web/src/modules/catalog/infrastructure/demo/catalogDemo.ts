@@ -2,6 +2,7 @@
 import catalog from '@/modules/metadata/infrastructure/demo/catalog.json'
 import type { CatalogPorts } from '@/modules/catalog/application/ports'
 import type { AssignSuggestions, TitleHit } from '@/modules/catalog/domain/types'
+import type { UploadJob } from '@/modules/ingestion/domain/types'
 import type {
   LibrarySeason,
   LibraryTitle,
@@ -70,7 +71,7 @@ function makeTitle(source: DemoTitle): LibraryTitle {
       const video = hasFile
         ? {
             id: videoId++,
-            path: `${name}/Season ${String(season.number).padStart(2, '0')}/${name} - S${String(season.number).padStart(2, '0')}E${String(episode.number).padStart(2, '0')}.mkv`,
+            path: `${name} (${String(source.year)}) [tmdbid-${String(source.tmdbId)}]/Season ${String(season.number).padStart(2, '0')}/${name} - S${String(season.number).padStart(2, '0')}E${String(episode.number).padStart(2, '0')}.mkv`,
             size: 1_000_000_000,
             version: '',
             part: 0,
@@ -100,9 +101,9 @@ function makeTitle(source: DemoTitle): LibraryTitle {
     : [
         {
           id: videoId++,
-          path: `${source.discTitle}${source.type === 'movie' ? ` (${String(source.year)})` : ''}.mkv`,
+          path: `${source.discTitle} (${String(source.year)}) [tmdbid-${String(source.tmdbId)}]/${source.discTitle} (${String(source.year)}) [tmdbid-${String(source.tmdbId)}]${source.tmdbId === 155 ? ' - 2160p' : ''}.mkv`,
           size: 1_500_000_000,
-          version: '',
+          version: source.tmdbId === 155 ? '2160p' : '',
           part: 0,
           subtitles: [],
         },
@@ -112,13 +113,22 @@ function makeTitle(source: DemoTitle): LibraryTitle {
     videos.push({
       ...firstVideo,
       id: videoId++,
-      path: 'Dune (2021) - 1080p Latino.mkv',
+      path: 'Dune (2021) [tmdbid-438631]/Dune (2021) [tmdbid-438631] - 1080p Latino.mkv',
       size: 900_000_000,
       version: '1080p Latino',
     })
   if (source.tmdbId === 597 && firstVideo) {
-    videos[0] = { ...firstVideo, part: 1, path: 'Titanic (1997) - Part 1.mkv' }
-    videos.push({ ...firstVideo, id: videoId++, part: 2, path: 'Titanic (1997) - Part 2.mkv' })
+    videos[0] = {
+      ...firstVideo,
+      part: 1,
+      path: 'Titanic (1997) [tmdbid-597]/Titanic (1997) [tmdbid-597] - Part 1.mkv',
+    }
+    videos.push({
+      ...firstVideo,
+      id: videoId++,
+      part: 2,
+      path: 'Titanic (1997) [tmdbid-597]/Titanic (1997) [tmdbid-597] - Part 2.mkv',
+    })
   }
   const collectionMovies = source.collection
     ? catalog.titles.filter(
@@ -169,9 +179,34 @@ export interface DemoCatalogAdapter extends CatalogPorts {
   addUploadEntry(name: string, paths: string[], size: number): void
   addFilteredExample(name: string, size: number): void
   addConsumedArchive(name: string, size: number): void
+  finishSambaArchiveJob(id: string): void
+}
+
+export const demoSambaArchiveJob: UploadJob = {
+  id: 'demo-samba-job-x7k2',
+  batch: { id: 'demo-samba-batch-x7k2', name: 'x7k2', relation: 'none', createdAt: created },
+  fileName: 'x7k2.part1.rar',
+  relativePath: '',
+  size: 80_000_000,
+  received: 80_000_000,
+  progress: 0,
+  status: 'needs_password',
+  createdAt: created,
+  updatedAt: created,
 }
 
 export function createCatalogDemo(): DemoCatalogAdapter {
+  Object.assign(demoSambaArchiveJob, {
+    batch: { id: 'demo-samba-batch-x7k2', name: 'x7k2', relation: 'none', createdAt: created },
+    fileName: 'x7k2.part1.rar',
+    relativePath: '',
+    size: 80_000_000,
+    received: 80_000_000,
+    progress: 0,
+    status: 'needs_password',
+    createdAt: created,
+    updatedAt: created,
+  })
   ids.clear()
   nextId = 1000
   for (const item of titles) if (!ids.has(item.tmdbId)) ids.set(item.tmdbId, nextId++)
@@ -182,7 +217,6 @@ export function createCatalogDemo(): DemoCatalogAdapter {
     ['Mufasa.The.Lion.King.2024.2160p.mkv', ['Mufasa.The.Lion.King.2024.2160p.mkv']],
     ['Get.Out.2017.1080p', ['Get.Out.2017.1080p.mkv', 'Get.Out.2017.en.srt']],
     ['The.Dark.Knight.2008.1080p.mkv', ['The.Dark.Knight.2008.1080p.mkv']],
-    ['x7k2', ['x7k2.part1.rar', 'x7k2.part2.rar']],
     ['Copia de Samba', ['Copia.mkv']],
     ['Entrada vacía', []],
   ] as const
@@ -197,7 +231,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
       size: 1_000_000_000,
       files: files.map((path) => ({ path, size: 500_000_000, copying: index === 5 })),
     })),
-    jobs: [],
+    jobs: [demoSambaArchiveJob],
   }
   const trash: TrashList = {
     entries: [
@@ -342,9 +376,9 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         ...(decision ? { decision } : {}),
         ...(hasDuplicate && decision === 'keep_both'
           ? {
-              version: video.version ?? '',
+              version: video.version ?? '1080p',
               versionProposal: '1080p',
-              versionIncomplete: !video.version,
+              versionIncomplete: /(?:^|[._ -])und(?:$|[._ -])/i.test(video.file) && !video.version,
             }
           : {}),
         ...(video.action === 'place' && video.title && (!hasDuplicate || decision)
@@ -408,6 +442,9 @@ export function createCatalogDemo(): DemoCatalogAdapter {
   })
   const missing = () => Promise.reject(new Error('Not found'))
   return {
+    finishSambaArchiveJob: (id) => {
+      unassigned.jobs = unassigned.jobs.filter((job) => job.id !== id)
+    },
     addFilteredExample: (name, size) => {
       trash.entries.push({
         id: Math.max(0, ...trash.entries.map((entry) => entry.id)) + 1,

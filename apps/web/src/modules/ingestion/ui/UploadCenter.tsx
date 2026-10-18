@@ -270,7 +270,7 @@ function UploadRowCard({
           </Button>
         )}
       </div>
-      {job && job.batch.relation !== 'none' && (
+      {job && (
         <span className="text-caption text-ink-2">
           {t(`uploads.relation.${job.batch.relation}` as never)}
         </span>
@@ -279,7 +279,7 @@ function UploadRowCard({
   )
 }
 
-function UploadList({ onOpenPanel }: { onOpenPanel: () => void }) {
+function UploadList({ onOpenPanel, demo }: { onOpenPanel: () => void; demo: boolean }) {
   const { t } = useTranslation()
   const jobs = useJobs()
   const queue = useUploadQueue()
@@ -303,7 +303,12 @@ function UploadList({ onOpenPanel }: { onOpenPanel: () => void }) {
         icon={<UploadIcon size={36} />}
         title={t('uploads.emptyTitle')}
         body={t('uploads.emptyBody')}
-        action={<UploadButton />}
+        action={
+          <div className="flex flex-col gap-3">
+            {demo && <TryExamplesButton className="md:hidden" />}
+            <UploadButton />
+          </div>
+        }
       />
     )
   return (
@@ -342,11 +347,14 @@ function UploadPanel({
   const contents = (
     <div className="flex flex-col gap-3">
       {demo && (
-        <p className="m-0 rounded-md bg-info-surface p-3 text-body-sm text-info-ink">
-          {t('uploads.demoPassword')}
-        </p>
+        <>
+          <TryExamplesButton className="md:hidden" />
+          <p className="m-0 rounded-md bg-info-surface p-3 text-body-sm text-info-ink">
+            {t('uploads.demoPassword')}
+          </p>
+        </>
       )}
-      <UploadList onOpenPanel={onClose} />
+      <UploadList onOpenPanel={onClose} demo={demo} />
     </div>
   )
   useEffect(() => {
@@ -469,18 +477,27 @@ export function UploadUiProvider({
         value={{
           openPicker: () => input.current?.click(),
           openExamples: () => {
-            setPending(
-              ['Dark.S02E05.1080p.mkv', 'Dark.S02E06.1080p.mkv'].map((name) => new File([], name)),
-            )
+            const sizedFile = (name: string, size: number) => {
+              const file = new File([], name)
+              Object.defineProperty(file, 'size', { value: size })
+              return file
+            }
+            setPending([
+              sizedFile('Dark.S02E05.1080p.mkv', 1_500_000_000),
+              sizedFile('Dark.S02E06.1080p.mkv', 1_480_000_000),
+            ])
             void start(
-              ['Inception.2010.part1.rar', 'Inception.2010.part2.rar'].map(
-                (name) => new File([], name),
-              ),
+              [
+                sizedFile('Inception.2010.part1.rar', 50_000_000),
+                sizedFile('Inception.2010.part2.rar', 45_000_000),
+              ],
               'parts',
               'sample:Inception',
             )
-            const sample = new File([], 'video.mkv')
-            Object.defineProperty(sample, 'webkitRelativePath', { value: 'Sample/video.mkv' })
+            const sample = sizedFile('Sample-sample.mkv', 40_000_000)
+            Object.defineProperty(sample, 'webkitRelativePath', {
+              value: 'Sample/Sample-sample.mkv',
+            })
             void start([sample], 'none')
             setPanelOpen(true)
           },
@@ -544,5 +561,19 @@ export function UploadButton() {
     <Button icon={<UploadIcon />} variant="primary" onClick={openPicker}>
       {t('library.upload')}
     </Button>
+  )
+}
+
+export function TryExamplesButton({ className = '' }: { className?: string }) {
+  const { t } = useTranslation()
+  const { openExamples } = useUploadUi()
+  return (
+    <button
+      type="button"
+      className={`inline-flex min-h-control-sm items-center justify-center rounded-pill border border-control px-3 text-center text-caption font-bold md:text-body-sm ${className}`}
+      onClick={openExamples}
+    >
+      {t('uploads.tryExamples')}
+    </button>
   )
 }
