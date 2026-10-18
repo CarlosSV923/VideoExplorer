@@ -43,9 +43,9 @@ describe('TMDB attribution logos (RNF-10)', () => {
     )
   })
 
-  it('shows the Spanish attribution in Spanish', () => {
+  it('keeps the required English attribution in Spanish', () => {
     expect(es.attribution.tmdb).toBe(
-      'Este producto usa la API de TMDB pero no está respaldado ni certificado por TMDB.',
+      'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     )
   })
 })

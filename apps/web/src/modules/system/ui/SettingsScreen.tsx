@@ -8,6 +8,7 @@ import { LanguageToggle } from '@/shared/i18n/LanguageToggle'
 import { useFormat } from '@/shared/i18n/hooks'
 import { Button, PageHeader, StatusChip } from '@/shared/ui'
 import { LibraryLayout } from '@/app/LibraryLayout'
+import { tmdbLogos } from '@/shared/assets/tmdb'
 
 export function SettingsScreen() {
   const { t } = useTranslation()
@@ -130,6 +131,7 @@ export function SettingsScreen() {
         </section>
         <section className="flex flex-col gap-2 rounded-lg border border-line p-5">
           <h2 className="m-0 text-heading">{t('settings.tmdb')}</h2>
+          <img src={tmdbLogos.long} alt="TMDB" className="h-8 w-fit" />
           <p className="m-0 text-body-sm text-ink-2">{t('attribution.tmdb')}</p>
         </section>
         <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line p-5">
