@@ -651,7 +651,15 @@ export function createCatalogDemo(): DemoCatalogAdapter {
       removeTitleVideos(title, selected)
       if (!title.videos.length) library.splice(library.indexOf(title), 1)
     },
-    unassigned: async () => unassigned,
+    unassigned: async () => {
+      return {
+        entries: unassigned.entries.map((entry) => ({
+          ...entry,
+          files: entry.files.map((file) => ({ ...file })),
+        })),
+        jobs: unassigned.jobs.map((job) => ({ ...job, batch: { ...job.batch } })),
+      }
+    },
     takeAssignLock: async (entryId) => {
       if (locks.has(entryId)) throw new Error('Assignment already active')
       const token = `demo-lock-${String(entryId)}`

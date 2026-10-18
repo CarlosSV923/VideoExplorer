@@ -21,11 +21,26 @@ const test = base.extend<DemoFixtures>({
 
 async function chooseDuplicate(page: Page) {
   const desktopPreview = page.getByRole('button', { name: 'Previsualizar', exact: true })
-  if (await desktopPreview.isVisible()) await desktopPreview.click()
-  else await page.getByRole('button', { name: 'Así quedará', exact: true }).click()
+  const mobile = (page.viewportSize()?.width ?? 1024) < 768
+  if (mobile) {
+    await page.getByRole('button', { name: 'Así quedará', exact: true }).click()
+    const previewSheet = page.getByRole('dialog')
+    await expect(previewSheet.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled()
+    await previewSheet.getByRole('button', { name: 'Cerrar' }).click()
+  } else {
+    await desktopPreview.click()
+  }
   await expect(page.getByRole('group', { name: 'Decisión del duplicado' })).toBeVisible()
   await page.getByRole('button', { name: 'Reemplazar', exact: true }).click()
-  if (await desktopPreview.isVisible()) await desktopPreview.click()
+  await desktopPreview.click()
+}
+
+async function navigateWithinApp(page: Page, path: string) {
+  await page.evaluate((target) => {
+    window.history.pushState({}, '', target)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+  await expect(page).toHaveURL(path)
 }
 
 test('home, movie and series details show seeded content and seasons', async ({ page }) => {
@@ -91,16 +106,15 @@ test('demo examples ask for a relation, unlock multipart archives, and reach Una
       .getByText('En No asignados'),
   ).toBeVisible()
 
-  await page.goto('/no-asignados')
+  await page.getByLabel('Subidas').getByRole('button', { name: 'Cerrar' }).click()
+  await navigateWithinApp(page, '/no-asignados')
   await expect(page).toHaveURL('/no-asignados')
   await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Volver a leer' }).click()
+  await expect(page.locator('article').filter({ hasText: 'Inception.2010' })).toBeVisible()
 })
 
-test('assigns the seeded Dark Knight duplicate through save', async ({ page }, testInfo) => {
-  test.skip(
-    testInfo.project.name === 'mobile-touch',
-    'The mobile preview currently cannot create an assignment plan.',
-  )
+test('assigns the seeded Dark Knight duplicate through save', async ({ page }) => {
   await page.goto('/no-asignados/4/asignar')
   await expect(page.getByRole('heading', { name: /Asignar/ })).toBeVisible()
   await chooseDuplicate(page)
@@ -120,6 +134,12 @@ test('restores a trash item and shows TMDB attribution in settings', async ({ pa
   await dialog.getByRole('combobox').selectOption('replace')
   await dialog.getByRole('button', { name: 'Restaurar', exact: true }).click()
   await expect(dialog).toBeHidden()
+
+  await navigateWithinApp(page, '/no-asignados')
+  await page.getByRole('button', { name: 'Volver a leer' }).click()
+  await expect(
+    page.locator('article').filter({ hasText: 'Inception.2010.part1.rar' }),
+  ).toBeVisible()
 
   await page.goto('/ajustes/general')
   await expect(

@@ -324,6 +324,7 @@ export function AssignScreen({ id }: { id: number }) {
           className="flex-1"
           onClick={() => {
             setPreviewOpen(true)
+            preview()
           }}
         >
           {t('assign.preview.open')}

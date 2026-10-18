@@ -72,6 +72,25 @@ describe('VideoExplorer demo adapters', () => {
     }
   })
 
+  it('returns fresh Unassigned snapshots after restoring an upload from trash', async () => {
+    const services = createDemoServices()
+    const before = await services.catalog.unassigned()
+
+    await services.catalog.restoreTrashEntry(2, { decisions: [] })
+
+    const after = await services.catalog.unassigned()
+    expect(after).not.toBe(before)
+    expect(after.entries).not.toBe(before.entries)
+    expect(after.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Inception.2010.part1.rar',
+          origin: 'upload',
+        }),
+      ]),
+    )
+  })
+
   it('joins sample parts, asks for the documented sample password, and filters the Sample folder', async () => {
     vi.useFakeTimers()
     try {

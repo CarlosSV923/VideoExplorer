@@ -10,6 +10,7 @@ import {
 describe('consultas de catalogo', () => {
   it('no sondea vistas actualizadas por eventos en vivo', () => {
     expect(liveQueryOptions).toEqual({
+      staleTime: 0,
       refetchInterval: false,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,

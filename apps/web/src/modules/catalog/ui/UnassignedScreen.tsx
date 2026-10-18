@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import { useCatalogPorts } from '../application/ports'
-import { unassignedKey, useUnassigned } from '../application/queries'
+import { useUnassigned } from '../application/queries'
 import type { UploadJob } from '@/modules/ingestion/domain/types'
 import { useJobMutation } from '@/modules/ingestion/application/queries'
 import { isFirstMultipartVolume, multipartGroup } from '@/modules/ingestion/application/uploadLogic'
@@ -109,11 +108,10 @@ export function UnassignedScreen() {
   const { t } = useTranslation()
   const format = useFormat()
   const ports = useCatalogPorts()
-  const queryClient = useQueryClient()
   const query = useUnassigned()
   const [error, setError] = useState<unknown>(null)
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: unassignedKey }).catch(() => undefined)
+    void query.refetch().catch(() => undefined)
   }
   const action = async (fn: () => Promise<void>) => {
     setError(null)

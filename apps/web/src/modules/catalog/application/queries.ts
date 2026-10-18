@@ -9,6 +9,7 @@ export const unassignedKey = ['unassigned'] as const
 export const trashKey = ['trash'] as const
 export const scansKey = ['scans'] as const
 export const liveQueryOptions = {
+  staleTime: 0,
   refetchInterval: false,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,

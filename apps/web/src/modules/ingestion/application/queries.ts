@@ -34,14 +34,14 @@ export function watchJobsInCache(
   queryClient: QueryClient,
   ports: IngestionPorts,
   options?: {
-    onStatusChange?: (job: UploadJob, previous: UploadJob) => void
+    onStatusChange?: (job: UploadJob, previous?: UploadJob) => void
   },
 ): () => void {
   return ports.watchJobs({
     onJob: (job) => {
       const previous = queryClient.getQueryData<UploadJob>(jobKey(job.id))
       applyJobEvent(queryClient, job)
-      if (previous && previous.status !== job.status) options?.onStatusChange?.(job, previous)
+      if (previous?.status !== job.status) options?.onStatusChange?.(job, previous)
     },
   })
 }

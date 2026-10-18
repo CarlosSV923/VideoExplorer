@@ -57,4 +57,24 @@ describe('job event cache updates', () => {
       expect.objectContaining({ status: 'extracting' }),
     )
   })
+
+  it('notifies catalog invalidation for a terminal first event without a cached job', () => {
+    const client = new QueryClient()
+    const onStatusChange = vi.fn()
+    let onJob: ((next: UploadJob) => void) | undefined
+    const ports = {
+      watchJobs: vi.fn((handlers: { onJob: (next: UploadJob) => void }) => {
+        onJob = handlers.onJob
+        return () => undefined
+      }),
+    } as unknown as IngestionPorts
+
+    watchJobsInCache(client, ports, { onStatusChange })
+    onJob?.(job('2026-01-01T00:00:03Z', 'done'))
+
+    expect(onStatusChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'done' }),
+      undefined,
+    )
+  })
 })
