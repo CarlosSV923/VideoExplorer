@@ -10,6 +10,7 @@
   "scripts": {
     "dev:web": "pnpm --filter @videoexplorer/web dev",
     "build:web": "pnpm --filter @videoexplorer/web build",
+    "e2e:web": "pnpm --filter @videoexplorer/web e2e",
     "gen:web": "pnpm --filter @videoexplorer/web gen:api",
     "lint:web": "pnpm --filter @videoexplorer/web lint",
     "typecheck:web": "pnpm --filter @videoexplorer/web typecheck",

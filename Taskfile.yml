@@ -16,6 +16,8 @@ vars:
   REDOCLY_IMAGE: redocly/cli:2.62.1
   # Official sqlc image, same version as the CI check of the generated code.
   SQLC_IMAGE: sqlc/sqlc:1.31.1
+  # Same version as @playwright/test in apps/web.
+  PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble
   # Latest stable govulncheck; the same version runs in CI.
   GOVULNCHECK_VERSION: v1.8.0
   DOCKER_GO: >-
@@ -180,6 +182,21 @@ tasks:
     desc: Build the SPA (apps/web/dist)
     cmds:
       - pnpm build:web
+
+  build:demo:
+    desc: Build the SPA with the backend-less demo adapters
+    env:
+      VITE_DATA_SOURCE: demo
+    cmds:
+      - pnpm build:web
+
+  e2e:
+    desc: End-to-end tests of the demo build (Playwright in Docker; desktop and touch mobile)
+    cmds:
+      - >-
+        docker run --rm --ipc=host -e CI=1 -v "{{.ROOT_DIR}}:/src" -v /src/node_modules -v /src/apps/web/node_modules
+        -w /src {{.PLAYWRIGHT_IMAGE}}
+        sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @videoexplorer/web exec playwright install chromium && pnpm e2e:web"
 
   embed:web:
     internal: true

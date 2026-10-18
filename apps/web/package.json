@@ -11,6 +11,7 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test -c playwright.config.ts",
     "gen:api": "openapi-typescript ../../api/openapi.yaml -o src/shared/api/schema.d.ts"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

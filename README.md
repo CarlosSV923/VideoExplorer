@@ -19,6 +19,10 @@ VideoExplorer is a self-hosted web app for a home NAS (TrueNAS SCALE). It organi
 
 The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md) and [`docs/tasks.md`](docs/tasks.md). The design system and responsive behavior are in [`docs/design-handoff.md`](docs/design-handoff.md). The naming and classification vectors live in [`contracts/`](contracts/README.md).
 
+## Online demo
+
+**Live demo:** link pending publication. The demo runs without a backend; its in-memory changes reset when the page reloads. TMDB images load from `image.tmdb.org`.
+
 ## Project status
 
 Phases 0 through 9 are complete. Phase 10 (the frontend with HTTP adapters) is in progress: the library, upload, Unassigned, Assign, edit, trash, settings and responsive UI flows are implemented, while final real-browser validation and its follow-up fixes are tracked in [`docs/tasks.md`](docs/tasks.md). Phase 11 is the backend-less demo, followed by the TrueNAS production packaging in phase 12.
@@ -43,6 +47,8 @@ Useful checks:
 task check         # OpenAPI, Go, web lint/tests, vulnerability scan and builds
 task gen           # Regenerate OpenAPI and SQL code
 task build:web     # Build the frontend
+task build:demo    # Build with the demo adapters
+task e2e           # Run Playwright E2E in Docker (desktop and touch mobile)
 ```
 
 See [`Taskfile.yml`](Taskfile.yml) for all available tasks. Go tooling runs in Docker so development matches CI and production Linux paths.

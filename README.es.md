@@ -19,6 +19,10 @@ VideoExplorer es una app web autoalojada para un NAS doméstico (TrueNAS SCALE).
 
 Los requisitos detallados y el trabajo actual están en [`docs/spec.md`](docs/spec.md) y [`docs/tasks.md`](docs/tasks.md). El sistema de diseño y el comportamiento adaptable están en [`docs/design-handoff.md`](docs/design-handoff.md). Los vectores de nombres y clasificación están en [`contracts/`](contracts/README.md).
 
+## Demo en línea
+
+**Demo:** enlace pendiente de publicación. Funciona sin backend; los cambios en memoria se pierden al recargar. Las imágenes de TMDB se cargan desde `image.tmdb.org`.
+
 ## Estado del proyecto
 
 Las fases 0 a 9 están cerradas. La fase 10 (frontend con adaptadores HTTP) está en curso: están implementados los flujos de biblioteca, subida, No asignados, Asignar, edición, papelera, ajustes y la interfaz adaptable; la validación final en navegador real y sus correcciones se siguen en [`docs/tasks.md`](docs/tasks.md). La fase 11 será la demo sin backend y después llegará el empaquetado de producción para TrueNAS en la fase 12.
@@ -43,6 +47,8 @@ Comprobaciones útiles:
 task check         # OpenAPI, lint/tests de Go y web, vulnerabilidades y builds
 task gen           # Regenera el código de OpenAPI y SQL
 task build:web     # Construye el frontend
+task build:demo    # Construye con los adaptadores de demo
+task e2e           # Ejecuta Playwright en Docker (escritorio y móvil táctil)
 ```
 
 Consulta [`Taskfile.yml`](Taskfile.yml) para ver todas las tareas. Las herramientas de Go corren en Docker para coincidir con la CI y con las rutas Linux de producción.

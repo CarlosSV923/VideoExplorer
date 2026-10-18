@@ -99,3 +99,34 @@ jobs:
       - run: pnpm test:web
       - name: Build
         run: pnpm build:web
+      - name: Build (demo mode)
+        run: pnpm build:web
+        env:
+          VITE_DATA_SOURCE: demo
+
+  e2e:
+    name: E2E (demo)
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @videoexplorer/web exec playwright install chromium
+      - name: Build demo and run desktop and mobile E2E
+        run: pnpm e2e:web
+        env:
+          HOME: /root
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-traces
+          path: apps/web/test-results
+          retention-days: 7

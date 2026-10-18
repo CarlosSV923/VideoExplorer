@@ -1,0 +1,144 @@
+import { expect, test as base, type Page } from '@playwright/test'
+
+type DemoFixtures = { externalHosts: string[] }
+
+const test = base.extend<DemoFixtures>({
+  externalHosts: async ({ page }, continueTest) => {
+    const hosts: string[] = []
+    const localOrigin = new URL('http://127.0.0.1:4173').origin
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (url.origin !== localOrigin) hosts.push(url.hostname)
+    })
+    await page.route('**/*', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.origin === localOrigin) await route.continue()
+      else await route.abort()
+    })
+    await continueTest(hosts)
+  },
+})
+
+async function chooseDuplicate(page: Page) {
+  const desktopPreview = page.getByRole('button', { name: 'Previsualizar', exact: true })
+  if (await desktopPreview.isVisible()) await desktopPreview.click()
+  else await page.getByRole('button', { name: 'Así quedará', exact: true }).click()
+  await expect(page.getByRole('group', { name: 'Decisión del duplicado' })).toBeVisible()
+  await page.getByRole('button', { name: 'Reemplazar', exact: true }).click()
+  if (await desktopPreview.isVisible()) await desktopPreview.click()
+}
+
+test('home, movie and series details show seeded content and seasons', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('status')).toContainText('Modo demo')
+  await expect(page.getByRole('heading', { level: 1, name: 'Inicio' })).toBeAttached()
+  await expect(page.getByRole('heading', { name: 'Agregados recientemente' })).toBeVisible()
+
+  await page.locator('a[href^="/peliculas/"]').first().click()
+  await expect(page).toHaveURL(/\/peliculas\/\d+$/)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+  await page.goto('/')
+  await page.locator('a[href^="/series/"]').first().click()
+  await expect(page).toHaveURL(/\/series\/\d+$/)
+  await expect(page.getByText('Temporadas', { exact: true })).toBeVisible()
+})
+
+test('search finds a seeded movie', async ({ page }) => {
+  await page.goto('/buscar?q=dark')
+  await expect(page.getByRole('heading', { name: 'Buscar en la biblioteca' })).toBeVisible()
+  await expect(
+    page.getByText('Batman: El caballero de la noche', { exact: true }).first(),
+  ).toBeVisible()
+})
+
+test('demo examples ask for a relation, unlock multipart archives, and reach Unassigned', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const tryExamples = page.getByRole('button', { name: 'Probar con archivos de ejemplo' })
+  if (await tryExamples.isVisible()) await tryExamples.click()
+  else {
+    await page.getByRole('button', { name: /Subidas/ }).click()
+    await page
+      .getByRole('dialog', { name: 'Subidas' })
+      .getByRole('button', { name: 'Probar con archivos de ejemplo' })
+      .click()
+  }
+  const relation = page.getByRole('dialog', { name: '¿Cómo se relacionan estos archivos?' })
+  await expect(relation).toBeVisible()
+  await relation.getByRole('button', { name: 'Capítulos de una misma serie' }).click()
+
+  const firstPartPassword = page
+    .locator('article')
+    .filter({ hasText: 'Inception.2010.part1.rar' })
+    .getByRole('textbox', { name: 'Contraseña' })
+  await expect(firstPartPassword).toBeVisible()
+  await expect(
+    page.getByText('Esta contraseña se aplica a todos los volúmenes del conjunto.').first(),
+  ).toBeVisible()
+  await firstPartPassword.fill('demo')
+  await page
+    .locator('article')
+    .filter({ hasText: 'Inception.2010.part1.rar' })
+    .getByRole('button', { name: 'Continuar' })
+    .click()
+
+  await expect(
+    page
+      .locator('article')
+      .filter({ hasText: 'Dark.S02E05.1080p.mkv' })
+      .getByText('En No asignados'),
+  ).toBeVisible()
+
+  await page.goto('/no-asignados')
+  await expect(page).toHaveURL('/no-asignados')
+  await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
+})
+
+test('assigns the seeded Dark Knight duplicate through save', async ({ page }, testInfo) => {
+  test.skip(
+    testInfo.project.name === 'mobile-touch',
+    'The mobile preview currently cannot create an assignment plan.',
+  )
+  await page.goto('/no-asignados/4/asignar')
+  await expect(page.getByRole('heading', { name: /Asignar/ })).toBeVisible()
+  await chooseDuplicate(page)
+
+  const save = page.getByRole('button', { name: 'Guardar', exact: true }).last()
+  await expect(save).toBeEnabled()
+  await save.click()
+  await expect(page).toHaveURL('/no-asignados')
+})
+
+test('restores a trash item and shows TMDB attribution in settings', async ({ page }) => {
+  await page.goto('/ajustes/papelera')
+  const entry = page.locator('article').filter({ hasText: 'Inception.2010.part1.rar' })
+  await entry.getByRole('button', { name: /Restaurar/ }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: 'Plan de restauración' })).toBeVisible()
+  await dialog.getByRole('combobox').selectOption('replace')
+  await dialog.getByRole('button', { name: 'Restaurar', exact: true }).click()
+  await expect(dialog).toBeHidden()
+
+  await page.goto('/ajustes/general')
+  await expect(
+    page.getByText('This product uses the TMDB API but is not endorsed or certified by TMDB.'),
+  ).toBeVisible()
+})
+
+test('reloads a deep route and uses only TMDB images, with placeholders when blocked', async ({
+  page,
+  externalHosts,
+}) => {
+  await page.goto('/ajustes/papelera')
+  await expect(page.getByRole('heading', { name: 'Papelera', exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Papelera', exact: true })).toBeVisible()
+
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Agregados recientemente' })).toBeVisible()
+  await expect(page.locator('.bg-surface-missing span[aria-hidden="true"]').first()).toBeVisible()
+  expect(externalHosts.length).toBeGreaterThan(0)
+  expect(new Set(externalHosts)).toEqual(new Set(['image.tmdb.org']))
+})
