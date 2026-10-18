@@ -110,7 +110,7 @@ Nota para la Fase 12: el build de la web avisa de un bloque de más de 500 kB; d
 ## Fase 11 — Demo
 Depende de: 10 · Cubre: RF-70 a RF-72
 - [x] Adaptadores `demo/`, biblioteca sembrada (lee `apps/web/src/modules/metadata/infrastructure/demo/catalog.json`; decide qué títulos están en la biblioteca y qué capítulos tiene cada serie), archivos de ejemplo, placeholders generados, atribución de TMDB en Ajustes: adaptadores en memoria para todos los puertos, semilla según RF-71a, subidas simuladas con la máquina de estados del backend (multiparte junto, contraseña `demo` una vez por conjunto, comprimidos propios sin contraseña), ejemplos, banner; probado en el navegador. Después (decisión del usuario, RF-71): imágenes reales cargadas desde `image.tmdb.org` con el catálogo regenerado (solo rutas) y placeholder si fallan; pósters de ancho fijo en filas y cuadrículas
-- [ ] Despliegue en Vercel; Playwright E2E sobre la demo; en CI, build en modo demo y job E2E
+- [~] Despliegue en Vercel; Playwright E2E sobre la demo; en CI, build en modo demo y job E2E
 
 ## Fase 12 — Producción en TrueNAS
 Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
