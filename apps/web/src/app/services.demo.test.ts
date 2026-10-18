@@ -208,13 +208,12 @@ describe('VideoExplorer demo adapters', () => {
     )
   })
 
-  it('uses local generated artwork and makes no network request in demo mode', async () => {
+  it('loads demo artwork only from the TMDB image CDN and makes no API requests', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     try {
       const services = createDemoServices()
-      const image = services.metadata.imageUrl('poster', 'sample.svg')
-      expect(image.startsWith('data:image/svg+xml,')).toBe(true)
-      expect(image).toContain('sample')
+      const image = services.metadata.imageUrl('poster', '8587.svg')
+      expect(image).toMatch(/^https:\/\/image\.tmdb\.org\/t\/p\/w500\//)
       await services.catalog.libraryTitles()
       await services.system.health()
       await services.mediaServers.settings()

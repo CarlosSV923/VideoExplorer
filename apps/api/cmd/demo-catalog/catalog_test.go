@@ -168,9 +168,10 @@ func TestCheckNoTMDBTexts(t *testing.T) {
 	}{
 		{name: "clean catalog", json: `{"titles":[{"title":{"es":"a","en":"b"},"synopsis":{"es":"c","en":"d"}}]}`},
 		{name: "overview is a TMDB text", json: `{"titles":[{"overview":"x"}]}`, wantErr: true},
-		{name: "poster path is an image", json: `{"titles":[{"posterPath":"/x.jpg"}]}`, wantErr: true},
-		{name: "nested backdrop path", json: `{"titles":[{"seasons":[{"backdrop_path":"/y.jpg"}]}]}`, wantErr: true},
+		{name: "poster route is allowed", json: `{"titles":[{"posterPath":"/x.jpg"}]}`},
+		{name: "nested backdrop path is allowed", json: `{"titles":[{"seasons":[{"backdropPath":"/y.jpg"}]}]}`},
 		{name: "logo in a list", json: `{"titles":[{"logos":[]}]}`, wantErr: true},
+		{name: "unknown path is rejected", json: `{"titles":[{"profilePath":"/x.jpg"}]}`, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -211,6 +212,7 @@ func TestValidateRejectsBrokenCatalogs(t *testing.T) {
 		{"synopsis longer than the limit", func(c *catalog) {
 			c.Titles[0].Synopsis.ES = strings.Repeat("a", maxSynopsisRunes+1)
 		}, "longer than"},
+		{"malformed image path", func(c *catalog) { c.Titles[0].PosterPath = "https://evil.example/x.jpg" }, "invalid TMDB image path"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

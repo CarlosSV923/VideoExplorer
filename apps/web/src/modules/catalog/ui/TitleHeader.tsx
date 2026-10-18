@@ -5,6 +5,7 @@ import { Button, Chip, LinkButton } from '@/shared/ui'
 import { EditIcon, RefreshIcon } from '@/shared/ui/icons'
 import { kindLabel } from './CatalogLabels'
 import { useFormat } from '@/shared/i18n/hooks'
+import { demoImage } from '@/modules/metadata/infrastructure/demo/metadataDemo'
 
 export function TitleHeader({
   title,
@@ -21,7 +22,14 @@ export function TitleHeader({
     <section className="relative -mx-[var(--page-x,16px)] overflow-hidden border-b border-line">
       <div className="relative min-h-[360px] p-6 pt-12 md:p-12">
         {title.backdrop && (
-          <img src={title.backdrop} alt="" className="absolute inset-0 size-full object-cover" />
+          <img
+            src={title.backdrop}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+            onError={(event) => {
+              event.currentTarget.src = demoImage(title.title, 'backdrop')
+            }}
+          />
         )}
         <div className="absolute inset-0 bg-scrim" />
         <div className="relative flex max-w-4xl flex-col gap-4 md:flex-row md:items-end">
@@ -31,6 +39,9 @@ export function TitleHeader({
                 src={title.poster}
                 alt=""
                 className="aspect-[2/3] w-full rounded-md object-cover"
+                onError={(event) => {
+                  event.currentTarget.src = demoImage(title.title, 'poster')
+                }}
               />
             ) : (
               <div className="aspect-[2/3] rounded-md bg-surface-missing" />

@@ -13,6 +13,7 @@ import {
   PlayIcon,
 } from '@/shared/ui/icons'
 import { IconButton, LinkButton } from '@/shared/ui'
+import { demoImage } from '@/modules/metadata/infrastructure/demo/metadataDemo'
 
 function useReducedMotion() {
   const [reduced, setReduced] = useState(
@@ -77,7 +78,14 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
       }}
     >
       {current.backdrop && (
-        <img src={current.backdrop} alt="" className="absolute inset-0 size-full object-cover" />
+        <img
+          src={current.backdrop}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+          onError={(event) => {
+            event.currentTarget.src = demoImage(current.title, 'backdrop')
+          }}
+        />
       )}
       <div className="absolute inset-0 bg-scrim" />
       <div className="relative flex h-full max-w-3xl flex-col justify-end gap-2 px-[var(--page-x,16px)] py-6 md:gap-4 md:py-12">
@@ -90,6 +98,9 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
               src={detail.logo}
               alt={detail.title}
               className="size-full object-contain object-left-bottom"
+              onError={(event) => {
+                event.currentTarget.src = demoImage(current.title, 'logo')
+              }}
             />
           ) : (
             (detail?.title ?? current.title)

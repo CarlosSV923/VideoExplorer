@@ -145,6 +145,11 @@ func movieTitle(ctx context.Context, es, en *application.Service, id int64, want
 		DiscTitle:        domain.DiscTitle(m.OriginalTitle, m.EnglishTitle),
 		Runtime:          m.Runtime,
 		Genres:           genresOf(m.Genres, em.Genres),
+		PosterPath:       m.Images.Poster,
+		BackdropPath:     m.Images.Backdrop,
+	}
+	if logo, ok := domain.PickLogo(m.Images.Logos, spanishLanguage); ok {
+		t.LogoPath = logo.Path
 	}
 	if m.Collection != nil {
 		c, err := collectionOf(ctx, es, en, m.Collection.ID)
@@ -185,6 +190,11 @@ func seriesTitle(ctx context.Context, p application.Provider, es, en *applicatio
 		DiscTitle:        domain.DiscTitle(s.OriginalTitle, s.EnglishTitle),
 		Genres:           genresOf(s.Genres, enS.Genres),
 		Seasons:          seasons,
+		PosterPath:       s.Images.Poster,
+		BackdropPath:     s.Images.Backdrop,
+	}
+	if logo, ok := domain.PickLogo(s.Images.Logos, spanishLanguage); ok {
+		t.LogoPath = logo.Path
 	}
 	return titleInfo{title: t, overview: localized{ES: s.Overview, EN: enS.Overview}}, nil
 }
@@ -227,6 +237,7 @@ func seasonsOf(ctx context.Context, p application.Provider, es, en *application.
 				Title:     localized{ES: e.Title, EN: enTitles[e.Number]},
 				DiscTitle: domain.ChapterTitle([]domain.ChapterNames{{Original: originals[e.Number], English: enTitles[e.Number]}}),
 				AirDate:   airDate(e.AirDate),
+				StillPath: e.StillPath,
 			})
 		}
 		out = append(out, catalogSeason{Number: n, Episodes: chapters})
@@ -263,7 +274,7 @@ func collectionOf(ctx context.Context, es, en *application.Service, id int64) (c
 	if err != nil {
 		return catalogCollection{}, fmt.Errorf("collection %d (en): %w", id, err)
 	}
-	return catalogCollection{ID: id, Name: localized{ES: ec.Name, EN: nc.Name}}, nil
+	return catalogCollection{ID: id, Name: localized{ES: ec.Name, EN: nc.Name}, PosterPath: ec.PosterPath}, nil
 }
 
 // genresOf pairs each genre of the Spanish list with its English name.

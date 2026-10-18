@@ -11,10 +11,8 @@ import (
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/metadata/domain"
 )
 
-// catalog is the file the demo reads. It holds structure only: titles, years,
-// genres, collections, seasons and chapters from TMDB, and the synopses the
-// project wrote. It never holds TMDB texts (other than titles) nor image paths
-// (spec RF-71). Field names are the JSON the demo adapters read.
+// catalog holds TMDB structure and image paths, plus the project's own
+// synopses. Image bytes and TMDB overviews never enter the file (RF-71).
 type catalog struct {
 	Source string         `json:"source"`
 	Titles []catalogTitle `json:"titles"`
@@ -28,6 +26,9 @@ type catalogTitle struct {
 	OriginalLanguage string             `json:"originalLanguage"`
 	Title            localized          `json:"title"`
 	DiscTitle        string             `json:"discTitle"`
+	PosterPath       string             `json:"posterPath,omitempty"`
+	BackdropPath     string             `json:"backdropPath,omitempty"`
+	LogoPath         string             `json:"logoPath,omitempty"`
 	Synopsis         localized          `json:"synopsis"`
 	Runtime          int                `json:"runtime,omitempty"`
 	Genres           []catalogGenre     `json:"genres"`
@@ -47,8 +48,9 @@ type catalogGenre struct {
 }
 
 type catalogCollection struct {
-	ID   int64     `json:"id"`
-	Name localized `json:"name"`
+	ID         int64     `json:"id"`
+	Name       localized `json:"name"`
+	PosterPath string    `json:"posterPath,omitempty"`
 }
 
 type catalogSeason struct {
@@ -61,6 +63,7 @@ type catalogEpisode struct {
 	Title     localized `json:"title"`
 	DiscTitle string    `json:"discTitle"` // the <título cap.> of spec §5 for this chapter
 	AirDate   string    `json:"airDate,omitempty"`
+	StillPath string    `json:"stillPath,omitempty"`
 }
 
 const (
@@ -71,9 +74,13 @@ const (
 	maxSynopsisRunes = 400
 )
 
-// forbiddenKey matches the keys TMDB uses for overviews and image paths. The
-// catalog must not carry any of them (spec RF-71, RNF-10).
-var forbiddenKey = regexp.MustCompile(`(?i)overview|path|image|poster|backdrop|logo|still`)
+// forbiddenKey catches TMDB text and binary image fields. Image path fields
+// are separately allowlisted for RF-71.
+var (
+	forbiddenKey   = regexp.MustCompile(`(?i)overview|image|poster|backdrop|logo|still`)
+	imagePathKey   = regexp.MustCompile(`(?i)(posterPath|backdropPath|logoPath|stillPath)`)
+	validImagePath = regexp.MustCompile(`^/[A-Za-z0-9_-]+\.(jpg|jpeg|png)$`)
+)
 
 // validate checks the rules of the demo catalog. The same checks run in the
 // generator before it writes the file and in the test over the committed file.
@@ -140,6 +147,14 @@ func validateTitle(t catalogTitle) []error {
 	if c := t.Collection; c != nil && (c.ID <= 0 || !filled(c.Name)) {
 		add("collection %d needs an id and a name in es and en", c.ID)
 	}
+	for _, path := range []string{t.PosterPath, t.BackdropPath, t.LogoPath} {
+		if path != "" && !validImagePath.MatchString(path) {
+			add("invalid TMDB image path %q", path)
+		}
+	}
+	if t.Collection != nil && t.Collection.PosterPath != "" && !validImagePath.MatchString(t.Collection.PosterPath) {
+		add("invalid collection poster path %q", t.Collection.PosterPath)
+	}
 	switch t.Type {
 	case typeMovie:
 		if len(t.Seasons) > 0 {
@@ -180,6 +195,9 @@ func validateSeasons(key string, seasons []catalogSeason) []error {
 					errs = append(errs, fmt.Errorf("%s: airDate %q is not YYYY-MM-DD", where, e.AirDate))
 				}
 			}
+			if e.StillPath != "" && !validImagePath.MatchString(e.StillPath) {
+				errs = append(errs, fmt.Errorf("%s: invalid TMDB still path %q", where, e.StillPath))
+			}
 		}
 	}
 	return errs
@@ -204,7 +222,7 @@ func checkNoTMDBTexts(raw []byte) error {
 		switch x := v.(type) {
 		case map[string]any:
 			for k, child := range x {
-				if forbiddenKey.MatchString(k) {
+				if (forbiddenKey.MatchString(k) && !imagePathKey.MatchString(k)) || (strings.Contains(strings.ToLower(k), "path") && !imagePathKey.MatchString(k)) {
 					found = append(found, k)
 				}
 				walk(child)

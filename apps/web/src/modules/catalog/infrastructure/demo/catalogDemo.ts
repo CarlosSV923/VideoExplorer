@@ -92,7 +92,7 @@ function makeTitle(source: DemoTitle): LibraryTitle {
             : ('missing' as const),
         files: video ? [video] : [],
         ...(episode.airDate ? { airDate: episode.airDate } : {}),
-        thumbnail: demoImage(`${name}${String(episode.number)}`, 'thumb'),
+        thumbnail: demoImage(`${name}${String(episode.number)}`, 'still', episode.stillPath),
       }
     }),
   }))
@@ -147,8 +147,9 @@ function makeTitle(source: DemoTitle): LibraryTitle {
     overview: source.synopsis.es,
     runtime: source.runtime ?? 0,
     genres: source.genres.map((genre) => genre.name.es),
-    poster: demoImage(name, 'poster'),
-    backdrop: demoImage(name, 'backdrop'),
+    poster: demoImage(name, 'poster', source.posterPath),
+    backdrop: demoImage(name, 'backdrop', source.backdropPath),
+    ...(source.logoPath ? { logo: demoImage(name, 'logo', source.logoPath) } : {}),
     ...(source.collection
       ? {
           collection: {
@@ -162,7 +163,7 @@ function makeTitle(source: DemoTitle): LibraryTitle {
                 title: movie.title.es,
                 originalTitle: movie.originalTitle,
                 year: movie.year,
-                poster: demoImage(movie.title.es, 'poster'),
+                poster: demoImage(movie.title.es, 'poster', movie.posterPath),
                 inLibrary: libraryTitleId !== undefined,
                 ...(libraryTitleId === undefined ? {} : { libraryTitleId }),
               }
@@ -523,8 +524,12 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         id,
         name: source.name.es,
         overview: '',
-        poster: demoImage(source.name.es, 'poster'),
-        backdrop: demoImage(source.name.es, 'backdrop'),
+        poster: demoImage(source.name.es, 'poster', source.posterPath),
+        backdrop: demoImage(
+          source.name.es,
+          'backdrop',
+          members.find((item) => item.backdropPath)?.backdropPath,
+        ),
         movies: members.map((movie) => {
           const libraryTitleId = ids.get(movie.tmdbId)
           return {
@@ -532,7 +537,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
             title: movie.title.es,
             originalTitle: movie.originalTitle,
             year: movie.year,
-            poster: demoImage(movie.title.es, 'poster'),
+            poster: demoImage(movie.title.es, 'poster', movie.posterPath),
             inLibrary: libraryTitleId !== undefined,
             ...(libraryTitleId === undefined ? {} : { libraryTitleId }),
           }

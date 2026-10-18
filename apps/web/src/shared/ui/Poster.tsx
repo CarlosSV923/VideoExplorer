@@ -50,6 +50,18 @@ export function Poster({
             src={image}
             alt=""
             className={cx('size-full object-cover', dimmed && 'brightness-55')}
+            onError={(event) => {
+              if (event.currentTarget.dataset.fallback) return
+              event.currentTarget.dataset.fallback = 'true'
+              const fallback = document.createElement('span')
+              fallback.setAttribute('aria-hidden', 'true')
+              fallback.className =
+                'absolute inset-3 flex items-end text-body-sm font-display uppercase leading-tight text-ink-1'
+              fallback.textContent = title
+              event.currentTarget.replaceWith(fallback)
+              const parent = fallback.parentElement
+              if (parent) parent.style.background = generatedBackground(seed).background
+            }}
           />
         ) : (
           <span

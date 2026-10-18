@@ -4,7 +4,16 @@ import type { MetadataPorts } from '@/modules/metadata/application/ports'
 import type { ImageKind } from '@/modules/metadata/domain/types'
 import type { CatalogPorts } from '@/modules/catalog/application/ports'
 
-export function demoImage(title: string, kind: ImageKind | 'backdrop' | 'thumb'): string {
+export function demoImage(
+  title: string,
+  kind: ImageKind | 'backdrop' | 'thumb',
+  path?: string,
+): string {
+  if (path) {
+    const size =
+      kind === 'poster' ? 'w500' : kind === 'backdrop' ? 'w1280' : kind === 'logo' ? 'w500' : 'w300'
+    return `https://image.tmdb.org/t/p/${size}${path}`
+  }
   let hue = 0
   for (const char of title) hue = (hue * 31 + (char.codePointAt(0) ?? 0)) % 360
   const width = kind === 'poster' ? 500 : kind === 'backdrop' ? 1280 : 300
@@ -61,7 +70,16 @@ export function createMetadataDemo(catalogPorts?: CatalogPorts): MetadataPorts {
       const id = Number(file.replace(/\.svg$/, ''))
       const title =
         catalog.titles.find((item) => item.tmdbId === id)?.title.es ?? file.replace(/\.svg$/, '')
-      return demoImage(title, kind)
+      const item = catalog.titles.find((candidate) => candidate.tmdbId === id)
+      const path =
+        kind === 'poster'
+          ? item?.posterPath
+          : kind === 'backdrop'
+            ? item?.backdropPath
+            : kind === 'logo'
+              ? item?.logoPath
+              : undefined
+      return demoImage(title, kind, path)
     },
   }
 }

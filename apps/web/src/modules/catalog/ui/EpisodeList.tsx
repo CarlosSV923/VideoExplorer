@@ -5,6 +5,7 @@ import { StatusChip } from '@/shared/ui'
 import { formatDate } from '@/shared/i18n/format'
 import { useLanguage } from '@/shared/i18n/hooks'
 import { VersionCard } from './VersionCard'
+import { demoImage } from '@/modules/metadata/infrastructure/demo/metadataDemo'
 
 export function EpisodeList({
   title,
@@ -30,6 +31,12 @@ export function EpisodeList({
                 src={episode.thumbnail}
                 alt=""
                 className="aspect-video w-full rounded-md object-cover"
+                onError={(event) => {
+                  event.currentTarget.src = demoImage(
+                    `${title.title}${String(episode.number)}`,
+                    'still',
+                  )
+                }}
               />
             ) : (
               <div className="aspect-video rounded-md bg-surface-2" />
