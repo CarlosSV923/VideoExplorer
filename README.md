@@ -21,11 +21,11 @@ The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md)
 
 ## Online demo
 
-**Live demo:** link pending publication. The demo runs without a backend; its in-memory changes reset when the page reloads. TMDB images load from `image.tmdb.org`.
+**Live demo:** [video-explorer-sepia.vercel.app](https://video-explorer-sepia.vercel.app). The demo runs without a backend; its in-memory changes reset when the page reloads. TMDB images load from `image.tmdb.org`.
 
 ## Project status
 
-Phases 0 through 9 are complete. Phase 10 (the frontend with HTTP adapters) is in progress: the library, upload, Unassigned, Assign, edit, trash, settings and responsive UI flows are implemented, while final real-browser validation and its follow-up fixes are tracked in [`docs/tasks.md`](docs/tasks.md). Phase 11 is the backend-less demo, followed by the TrueNAS production packaging in phase 12.
+Phases 0 through 11 are complete: the API, the full web UI (library, uploads, Unassigned, Assign, edit, trash, settings), tested against real files, and the backend-less demo published on Vercel with end-to-end tests. Phase 12, the TrueNAS production packaging, is next; progress is tracked in [`docs/tasks.md`](docs/tasks.md).
 
 ## Development
 

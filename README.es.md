@@ -21,11 +21,11 @@ Los requisitos detallados y el trabajo actual están en [`docs/spec.md`](docs/sp
 
 ## Demo en línea
 
-**Demo:** enlace pendiente de publicación. Funciona sin backend; los cambios en memoria se pierden al recargar. Las imágenes de TMDB se cargan desde `image.tmdb.org`.
+**Demo:** [video-explorer-sepia.vercel.app](https://video-explorer-sepia.vercel.app). Funciona sin backend; los cambios en memoria se pierden al recargar. Las imágenes de TMDB se cargan desde `image.tmdb.org`.
 
 ## Estado del proyecto
 
-Las fases 0 a 9 están cerradas. La fase 10 (frontend con adaptadores HTTP) está en curso: están implementados los flujos de biblioteca, subida, No asignados, Asignar, edición, papelera, ajustes y la interfaz adaptable; la validación final en navegador real y sus correcciones se siguen en [`docs/tasks.md`](docs/tasks.md). La fase 11 será la demo sin backend y después llegará el empaquetado de producción para TrueNAS en la fase 12.
+Las fases 0 a 11 están cerradas: la API, la interfaz web completa (biblioteca, subidas, No asignados, Asignar, edición, papelera, ajustes), probada con archivos reales, y la demo sin backend publicada en Vercel con pruebas de punta a punta. Sigue la fase 12, el empaquetado de producción para TrueNAS; el avance se sigue en [`docs/tasks.md`](docs/tasks.md).
 
 ## Desarrollo
 
