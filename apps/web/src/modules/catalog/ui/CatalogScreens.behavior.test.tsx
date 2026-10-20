@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nextProvider } from 'react-i18next'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { IngestionContext, type IngestionPorts } from '@/modules/ingestion/application/ports'
 import { MetadataContext, type MetadataPorts } from '@/modules/metadata/application/ports'
@@ -96,6 +96,7 @@ function renderCatalog(
   options: {
     id?: number
     search?: { orden?: string; genero?: string; incompletas?: string; q?: string }
+    random?: () => number
   } = {},
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -131,22 +132,34 @@ function renderCatalog(
     imageUrl: vi.fn((kind: string, file: string) => `/api/images/${kind}/${file}`),
   } as unknown as MetadataPorts
   const ingestion = { jobs: vi.fn().mockResolvedValue([]) } as unknown as IngestionPorts
-  const result = render(
+  const renderTree = () => (
     <I18nextProvider i18n={createI18n('es')}>
       <QueryClientProvider client={queryClient}>
         <InputProvider>
           <CatalogContext value={catalog}>
             <MetadataContext value={metadata}>
               <IngestionContext value={ingestion}>
-                <CatalogScreen screen={screenName} id={options.id ?? 1} search={options.search} />
+                <CatalogScreen
+                  screen={screenName}
+                  id={options.id ?? 1}
+                  search={options.search}
+                  random={options.random}
+                />
               </IngestionContext>
             </MetadataContext>
           </CatalogContext>
         </InputProvider>
       </QueryClientProvider>
-    </I18nextProvider>,
+    </I18nextProvider>
   )
-  return { ...result, catalog }
+  const result = render(renderTree())
+  return {
+    ...result,
+    catalog,
+    rerenderCatalog: () => {
+      result.rerender(renderTree())
+    },
+  }
 }
 
 function mockCalls(catalog: CatalogPorts, name: keyof CatalogPorts) {
@@ -157,6 +170,17 @@ function mockCalls(catalog: CatalogPorts, name: keyof CatalogPorts) {
 }
 
 describe('Biblioteca: comportamiento de pantallas', () => {
+  beforeAll(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: () => ({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    })
+  })
+
   it('filters movies by genre and applies the selected sort', async () => {
     renderCatalog('movies', {
       libraryTitles: vi.fn().mockResolvedValue({
@@ -411,14 +435,37 @@ describe('Biblioteca: comportamiento de pantallas', () => {
           ],
         }),
       })
-      await waitFor(() =>
-        expect(screen.getByRole('heading', { name: 'Primero' })).toBeInTheDocument(),
-      )
+      await screen.findByRole('region', { name: 'Destacados' })
       expect(interval.mock.calls.filter((call) => call[1] === 8000)).toHaveLength(0)
     } finally {
       interval.mockRestore()
       if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia)
       else Object.defineProperty(window, 'matchMedia', { configurable: true, value: undefined })
     }
+  })
+
+  it('chooses the hero once and keeps the same five titles across rerenders', async () => {
+    const random = vi.fn(() => 0)
+    const titles = Array.from({ length: 7 }, (_, index) =>
+      summary({
+        id: index + 1,
+        title: `Película ${String(index + 1)}`,
+        backdrop: `/backdrop-${String(index + 1)}.jpg`,
+        addedAt: `2026-10-${String(index + 1).padStart(2, '0')}T00:00:00Z`,
+      }),
+    )
+    const { rerenderCatalog } = renderCatalog(
+      'home',
+      { libraryTitles: vi.fn().mockResolvedValue({ titles }) },
+      { random },
+    )
+    const carousel = await screen.findByRole('region', { name: 'Destacados' })
+    const indicators = carousel.querySelectorAll(
+      '[role="group"] button[aria-label^="Ir al destacado"]',
+    )
+    expect(indicators).toHaveLength(5)
+    rerenderCatalog()
+    await screen.findByRole('region', { name: 'Destacados' })
+    expect(random).toHaveBeenCalledTimes(5)
   })
 })

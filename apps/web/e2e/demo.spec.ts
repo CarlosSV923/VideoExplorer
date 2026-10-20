@@ -54,12 +54,22 @@ test('home, movie and series details show seeded content and seasons', async ({ 
   await expect(page.getByRole('heading', { name: 'Agregados recientemente' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Colecciones' })).toHaveCount(0)
 
-  await page.locator('a[href^="/peliculas/"]').first().click()
+  await page
+    .getByRole('heading', { name: 'Películas agregadas recientemente' })
+    .locator('xpath=../..')
+    .locator('a[href^="/peliculas/"]')
+    .first()
+    .click()
   await expect(page).toHaveURL(/\/peliculas\/\d+$/)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   await page.goto('/')
-  await page.locator('a[href^="/series/"]').first().click()
+  await page
+    .getByRole('heading', { name: 'Series agregadas recientemente' })
+    .locator('xpath=../..')
+    .locator('a[href^="/series/"]')
+    .first()
+    .click()
   await expect(page).toHaveURL(/\/series\/\d+$/)
   await expect(page.getByText('Temporadas', { exact: true })).toBeVisible()
 })

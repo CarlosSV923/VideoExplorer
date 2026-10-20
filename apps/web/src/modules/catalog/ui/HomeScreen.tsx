@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useLibraryTitles, useUnassigned } from '../application/queries'
@@ -9,8 +10,9 @@ import { UploadIcon } from '@/shared/ui/icons'
 import { HeroCarousel } from './HeroCarousel'
 import { PendingStrip } from './PendingStrip'
 import { LoadingGrid, PosterFor } from './CatalogShared'
+import { selectHeroTitles } from './heroSelection'
 
-export function HomeScreen() {
+export function HomeScreen({ random = Math.random }: { random?: () => number }) {
   const { t } = useTranslation()
   const query = useLibraryTitles()
   const unassigned = useUnassigned()
@@ -48,10 +50,31 @@ export function HomeScreen() {
         </div>
       </LibraryLayout>
     )
+  return (
+    <HomeContent
+      titles={titles}
+      {...(unassigned.data
+        ? { pending: unassigned.data.entries.length + unassigned.data.jobs.length }
+        : {})}
+      random={random}
+    />
+  )
+}
+
+function HomeContent({
+  titles,
+  pending,
+  random,
+}: {
+  titles: LibraryTitleSummary[]
+  pending?: number
+  random: () => number
+}) {
+  const { t } = useTranslation()
   const recent = sortTitles(titles, 'added')
-  const hero = recent.filter((title) => title.backdrop).slice(0, 5)
   const movies = recent.filter((title) => title.kind === 'movie').slice(0, 10)
   const series = recent.filter((title) => title.kind === 'series').slice(0, 10)
+  const [hero] = useState(() => selectHeroTitles([...movies, ...series], random))
   const row = (items: LibraryTitleSummary[]) =>
     items.map((title) => <PosterFor key={title.id} title={title} />)
   return (
@@ -61,9 +84,7 @@ export function HomeScreen() {
       <div className="flex flex-col gap-[var(--row-gap,36px)] py-8">
         <PendingStrip
           titles={titles}
-          {...(unassigned.data
-            ? { unassignedCount: unassigned.data.entries.length + unassigned.data.jobs.length }
-            : {})}
+          {...(pending === undefined ? {} : { unassignedCount: pending })}
         />
         {movies.length > 0 && (
           <AutoPosterRow

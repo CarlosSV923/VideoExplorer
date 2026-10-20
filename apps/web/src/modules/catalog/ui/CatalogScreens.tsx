@@ -40,14 +40,15 @@ export type CatalogScreenProps = {
         q?: string | undefined
       }
     | undefined
+  random?: (() => number) | undefined
 }
 
-export function CatalogScreen({ screen, id, search }: CatalogScreenProps) {
+export function CatalogScreen({ screen, id, search, random }: CatalogScreenProps) {
   const { t } = useTranslation()
   if (screen === 'home')
     return (
       <Suspense fallback={<RouteLoading />}>
-        <HomeScreen />
+        <HomeScreen {...(random ? { random } : {})} />
       </Suspense>
     )
   if (screen === 'movies')
