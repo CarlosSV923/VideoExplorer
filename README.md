@@ -33,6 +33,10 @@ The image includes `ffprobe` from jellyfin-ffmpeg 8.1.3-1, licensed under GPL-3.
 
 Phases 0 through 11 are complete: the API, the full web UI (library, uploads, Unassigned, Assign, edit, trash, settings), tested against real files, and the backend-less demo published on Vercel with end-to-end tests. Phase 12, the TrueNAS production packaging, is next; progress is tracked in [`docs/tasks.md`](docs/tasks.md).
 
+## Install on TrueNAS SCALE
+
+Create a media dataset for `/library` and a separate app-state dataset for `/data`. Keep `Movies/`, `TV Shows/`, `_unassigned/`, and `.videoexplorer/` (staging and trash) on the media dataset. Set an inherited **Modify** ACL for the compose `user:` UID:GID on both datasets. Generate `APP_PASSWORD_HASH` with `task hash-password`, set a random `SESSION_SECRET` of at least 32 bytes, then install [`deploy/truenas/compose.yaml`](deploy/truenas/compose.yaml) as **Apps → Discover Apps → Custom App → Install via YAML**. After first start, check `http://<nas-ip>:8080/api/health`. The compose guide covers Jellyfin path detection and version updates: [`deploy/truenas/README.md`](deploy/truenas/README.md).
+
 ## Development
 
 Requirements: Docker, Node.js 24 or later, pnpm 12.9.1, and Task 3.
