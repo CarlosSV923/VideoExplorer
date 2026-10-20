@@ -15,6 +15,7 @@ import {
 import { UploadQueueContext } from '../application/queries'
 import type { UploadJob, UploadRow } from '../domain/types'
 import { UploadUiContext, useUploadUi } from './UploadUiContext'
+import { TryExamplesButton } from './TryExamplesButton'
 import { useFormat } from '@/shared/i18n/hooks'
 import {
   Button,
@@ -578,19 +579,5 @@ export function UploadButton() {
     <Button icon={<UploadIcon />} variant="primary" onClick={openPicker}>
       {t('library.upload')}
     </Button>
-  )
-}
-
-export function TryExamplesButton({ className }: { className: string }) {
-  const { t } = useTranslation()
-  const { openExamples } = useUploadUi()
-  return (
-    <button
-      type="button"
-      className={`min-h-control-sm items-center justify-center rounded-pill border border-control px-3 text-center text-caption font-bold md:text-body-sm ${className}`}
-      onClick={openExamples}
-    >
-      {t('uploads.tryExamples')}
-    </button>
   )
 }

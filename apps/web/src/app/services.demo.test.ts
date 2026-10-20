@@ -2,7 +2,7 @@ import { createDemoServices } from './services'
 
 describe('VideoExplorer demo adapters', () => {
   it('wires every module to in-memory ports and seeds RF-71a titles, entries, and trash', async () => {
-    const services = createDemoServices()
+    const services = await createDemoServices()
     await expect(services.identity.session()).resolves.toHaveProperty('expiresAt')
     await expect(services.mediaServers.settings()).resolves.toMatchObject({
       jellyfin: { state: 'unconfigured' },
@@ -37,7 +37,7 @@ describe('VideoExplorer demo adapters', () => {
   it('simulates own archives without a password and emits job events before creating an unassigned entry', async () => {
     vi.useFakeTimers()
     try {
-      const services = createDemoServices()
+      const services = await createDemoServices()
       const batch = await services.ingestion.createBatch({ relation: 'none' })
       const events: string[] = []
       const stop = services.ingestion.watchJobs({ onJob: (job) => events.push(job.status) })
@@ -73,7 +73,7 @@ describe('VideoExplorer demo adapters', () => {
   })
 
   it('returns fresh Unassigned snapshots after restoring an upload from trash', async () => {
-    const services = createDemoServices()
+    const services = await createDemoServices()
     const before = await services.catalog.unassigned()
 
     await services.catalog.restoreTrashEntry(2, { decisions: [] })
@@ -94,7 +94,7 @@ describe('VideoExplorer demo adapters', () => {
   it('joins sample parts, asks for the documented sample password, and filters the Sample folder', async () => {
     vi.useFakeTimers()
     try {
-      const services = createDemoServices()
+      const services = await createDemoServices()
       const batch = await services.ingestion.createBatch({
         relation: 'parts',
         name: 'sample:Inception',
@@ -184,7 +184,7 @@ describe('VideoExplorer demo adapters', () => {
   })
 
   it('suggests the seeded library duplicate, previews its choice, and saves in memory', async () => {
-    const services = createDemoServices()
+    const services = await createDemoServices()
     const lock = await services.catalog.takeAssignLock(4)
     const suggestions = await services.catalog.assignSuggestions(4, lock.token)
     expect(suggestions.videos[0]?.match?.source).toBe('library')
@@ -230,7 +230,7 @@ describe('VideoExplorer demo adapters', () => {
   it('loads demo artwork only from the TMDB image CDN and makes no API requests', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     try {
-      const services = createDemoServices()
+      const services = await createDemoServices()
       const image = services.metadata.imageUrl('poster', '8587.svg')
       expect(image).toMatch(/^https:\/\/image\.tmdb\.org\/t\/p\/w500\//)
       await services.catalog.libraryTitles()

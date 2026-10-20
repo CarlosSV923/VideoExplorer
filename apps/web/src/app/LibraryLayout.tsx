@@ -7,7 +7,7 @@ import { useLanguage } from '@/shared/i18n/hooks'
 import { useUploadUi } from '@/modules/ingestion/ui/UploadUiContext'
 import { useTranslation } from 'react-i18next'
 import { dataSource } from './config'
-import { TryExamplesButton } from '@/modules/ingestion/ui/UploadCenter'
+import { TryExamplesButton } from '@/modules/ingestion/ui/TryExamplesButton'
 import type { ReactNode } from 'react'
 
 export function Header() {

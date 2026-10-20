@@ -1,14 +1,33 @@
+import { lazy, Suspense } from 'react'
 import { EmptyState } from '@/shared/ui'
 import { useTranslation } from 'react-i18next'
 import { LibraryLayout } from '@/app/LibraryLayout'
-import { BrowseScreen } from './BrowseScreen'
-import { CollectionScreen } from './CollectionScreen'
-import { EditScreen } from './EditScreen'
-import { HomeScreen } from './HomeScreen'
-import { SearchScreen } from './SearchScreen'
-import { TitleDetailScreen } from './TitleDetailScreen'
-import { UnassignedScreen } from './UnassignedScreen'
-import { AssignScreen } from './AssignScreen'
+import { RouteLoading } from '@/app/RouteLoading'
+
+const BrowseScreen = lazy(() =>
+  import('./BrowseScreen').then((module) => ({ default: module.BrowseScreen })),
+)
+const CollectionScreen = lazy(() =>
+  import('./CollectionScreen').then((module) => ({ default: module.CollectionScreen })),
+)
+const EditScreen = lazy(() =>
+  import('./EditScreen').then((module) => ({ default: module.EditScreen })),
+)
+const HomeScreen = lazy(() =>
+  import('./HomeScreen').then((module) => ({ default: module.HomeScreen })),
+)
+const SearchScreen = lazy(() =>
+  import('./SearchScreen').then((module) => ({ default: module.SearchScreen })),
+)
+const TitleDetailScreen = lazy(() =>
+  import('./TitleDetailScreen').then((module) => ({ default: module.TitleDetailScreen })),
+)
+const UnassignedScreen = lazy(() =>
+  import('./UnassignedScreen').then((module) => ({ default: module.UnassignedScreen })),
+)
+const AssignScreen = lazy(() =>
+  import('./AssignScreen').then((module) => ({ default: module.AssignScreen })),
+)
 
 export type CatalogScreenProps = {
   screen: string
@@ -25,25 +44,71 @@ export type CatalogScreenProps = {
 
 export function CatalogScreen({ screen, id, search }: CatalogScreenProps) {
   const { t } = useTranslation()
-  if (screen === 'home') return <HomeScreen />
+  if (screen === 'home')
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <HomeScreen />
+      </Suspense>
+    )
   if (screen === 'movies')
-    return <BrowseScreen kind="movie" sort={search?.orden} genre={search?.genero} />
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <BrowseScreen kind="movie" sort={search?.orden} genre={search?.genero} />
+      </Suspense>
+    )
   if (screen === 'series')
     return (
-      <BrowseScreen
-        kind="series"
-        sort={search?.orden}
-        genre={search?.genero}
-        incomplete={search?.incompletas === '1'}
-      />
+      <Suspense fallback={<RouteLoading />}>
+        <BrowseScreen
+          kind="series"
+          sort={search?.orden}
+          genre={search?.genero}
+          incomplete={search?.incompletas === '1'}
+        />
+      </Suspense>
     )
-  if (screen === 'movieDetail' && id) return <TitleDetailScreen id={id} kind="movie" />
-  if (screen === 'seriesDetail' && id) return <TitleDetailScreen id={id} kind="series" />
-  if (screen === 'collection' && id) return <CollectionScreen id={id} />
-  if (screen === 'search') return <SearchScreen queryText={search?.q ?? ''} />
-  if (screen === 'edit' && id) return <EditScreen id={id} />
-  if (screen === 'unassigned') return <UnassignedScreen />
-  if (screen === 'assign' && id) return <AssignScreen id={id} />
+  if (screen === 'movieDetail' && id)
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <TitleDetailScreen id={id} kind="movie" />
+      </Suspense>
+    )
+  if (screen === 'seriesDetail' && id)
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <TitleDetailScreen id={id} kind="series" />
+      </Suspense>
+    )
+  if (screen === 'collection' && id)
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <CollectionScreen id={id} />
+      </Suspense>
+    )
+  if (screen === 'search')
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <SearchScreen queryText={search?.q ?? ''} />
+      </Suspense>
+    )
+  if (screen === 'edit' && id)
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <EditScreen id={id} />
+      </Suspense>
+    )
+  if (screen === 'unassigned')
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <UnassignedScreen />
+      </Suspense>
+    )
+  if (screen === 'assign' && id)
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <AssignScreen id={id} />
+      </Suspense>
+    )
   return (
     <LibraryLayout>
       <EmptyState title={t('errors.routeInvalidTitle')} body={t('errors.routeInvalidBody')} />

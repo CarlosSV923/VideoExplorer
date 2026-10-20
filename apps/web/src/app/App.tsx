@@ -1,7 +1,7 @@
 import type { i18n as I18n } from 'i18next'
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, type RouterHistory } from '@tanstack/react-router'
-import { useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
 
 import { CatalogContext } from '@/modules/catalog/application/ports'
@@ -11,10 +11,16 @@ import { IngestionContext } from '@/modules/ingestion/application/ports'
 import { MediaServersContext } from '@/modules/mediaservers/application/ports'
 import { MetadataContext } from '@/modules/metadata/application/ports'
 import { SystemContext } from '@/modules/system/application/ports'
-import { UploadUiProvider } from '@/modules/ingestion/ui/UploadCenter'
 import { createI18n } from '@/shared/i18n'
 import { InputProvider } from '@/shared/input'
 import { isAppError } from '@/shared/kernel/errors'
+import { RouteLoading } from './RouteLoading'
+
+const UploadUiProvider = lazy(() =>
+  import('@/modules/ingestion/ui/UploadCenter').then((module) => ({
+    default: module.UploadUiProvider,
+  })),
+)
 
 import { dataSource } from './config'
 import { createAppRouter } from './router'
@@ -57,6 +63,23 @@ function Ports({ services, children }: { services: Services; children: ReactNode
 }
 
 /** Composition root: data source, adapters, query cache, ports and router. */
+function ReadyApp({ services, history }: { services: Services; history?: RouterHistory }) {
+  const [environment] = useState(() => createEnvironment(services, history))
+  return (
+    <InputProvider>
+      <QueryClientProvider client={environment.queryClient}>
+        <Ports services={services}>
+          <Suspense fallback={<RouteLoading />}>
+            <UploadUiProvider demo={dataSource === 'demo'}>
+              <RouterProvider router={environment.router} />
+            </UploadUiProvider>
+          </Suspense>
+        </Ports>
+      </QueryClientProvider>
+    </InputProvider>
+  )
+}
+
 export function App({
   i18n: injected,
   services,
@@ -67,19 +90,25 @@ export function App({
   history?: RouterHistory
 }) {
   const [instance] = useState(() => injected ?? createI18n())
-  const [selectedServices] = useState(() => services ?? createServices(dataSource))
-  const [environment] = useState(() => createEnvironment(selectedServices, history))
+  const [loadedServices, setLoadedServices] = useState<Services>()
+  const selectedServices = services ?? loadedServices
+  useEffect(() => {
+    if (services || loadedServices) return
+    let active = true
+    void createServices(dataSource).then((loaded) => {
+      if (active) setLoadedServices(loaded)
+    })
+    return () => {
+      active = false
+    }
+  }, [services, loadedServices])
   return (
     <I18nextProvider i18n={instance}>
-      <InputProvider>
-        <QueryClientProvider client={environment.queryClient}>
-          <Ports services={selectedServices}>
-            <UploadUiProvider demo={dataSource === 'demo'}>
-              <RouterProvider router={environment.router} />
-            </UploadUiProvider>
-          </Ports>
-        </QueryClientProvider>
-      </InputProvider>
+      {selectedServices ? (
+        <ReadyApp services={selectedServices} {...(history ? { history } : {})} />
+      ) : (
+        <RouteLoading />
+      )}
     </I18nextProvider>
   )
 }

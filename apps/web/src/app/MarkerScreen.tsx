@@ -1,11 +1,20 @@
+import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCatalogPorts } from '@/modules/catalog/application/ports'
 import { LanguageToggle } from '@/shared/i18n/LanguageToggle'
 import { Brand } from '@/shared/ui'
 import { CatalogScreen } from '@/modules/catalog/ui/CatalogScreens'
-import { TrashScreen } from '@/modules/catalog/ui/TrashScreen'
-import { SettingsScreen } from '@/modules/system/ui/SettingsScreen'
+import { RouteLoading } from './RouteLoading'
+
+const TrashScreen = lazy(() =>
+  import('@/modules/catalog/ui/TrashScreen').then((module) => ({ default: module.TrashScreen })),
+)
+const SettingsScreen = lazy(() =>
+  import('@/modules/system/ui/SettingsScreen').then((module) => ({
+    default: module.SettingsScreen,
+  })),
+)
 
 export type ScreenKey =
   | 'home'
@@ -49,8 +58,18 @@ export function MarkerScreen({
   ) {
     return <CatalogScreen screen={screen} id={id} search={search} />
   }
-  if (screen === 'generalSettings') return <SettingsScreen />
-  if (screen === 'trashSettings') return <TrashScreen />
+  if (screen === 'generalSettings')
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <SettingsScreen />
+      </Suspense>
+    )
+  if (screen === 'trashSettings')
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <TrashScreen />
+      </Suspense>
+    )
   return (
     <main className="mx-auto flex min-h-app max-w-screen-xl flex-col gap-8 p-6">
       <header className="flex items-center justify-between gap-4">
