@@ -280,39 +280,110 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     await waitFor(() => expect(screen.getByText('Todavía no hay títulos')).toBeInTheDocument())
   })
 
-  it('shows collection cards with library counts and collection links on home', async () => {
+  it('shows the two recent rows, capped at ten, without genre or collection rows', async () => {
+    const titles = Array.from({ length: 12 }, (_, index) =>
+      summary({
+        id: index + 1,
+        kind: 'movie',
+        title: `Pel\u00edcula ${String(index + 1)}`,
+        genres: ['Drama'],
+        addedAt: `2026-10-${String(index + 1).padStart(2, '0')}T00:00:00Z`,
+        collection: { id: 9, name: 'Alien: colecci\u00f3n' },
+      }),
+    )
+    titles.push(
+      summary({
+        id: 20,
+        kind: 'series',
+        title: 'Serie reciente',
+        addedAt: '2026-10-20T00:00:00Z',
+      }),
+    )
+    renderCatalog('home', { libraryTitles: vi.fn().mockResolvedValue({ titles }) })
+    const moviesHeading = await screen.findByRole('heading', {
+      name: 'Pel\u00edculas agregadas recientemente',
+    })
+    const seriesHeading = screen.getByRole('heading', { name: 'Series agregadas recientemente' })
+    const moviesRow = moviesHeading.closest('section')
+    const seriesRow = seriesHeading.closest('section')
+    if (!moviesRow || !seriesRow) throw new Error('Expected both recent title sections')
+    expect(within(moviesRow).getAllByRole('link')).toHaveLength(11) // ten posters + Ver todos
+    expect(within(moviesRow).getByRole('link', { name: /Pel\u00edcula 12/ })).toBeInTheDocument()
+    expect(
+      within(moviesRow).queryByRole('link', { name: /Pel\u00edcula 2,/ }),
+    ).not.toBeInTheDocument()
+    expect(within(seriesRow).getByRole('link', { name: /Serie reciente/ })).toHaveAttribute(
+      'href',
+      '/series/20',
+    )
+    expect(within(moviesRow).getByRole('link', { name: 'Ver todos' })).toHaveAttribute(
+      'href',
+      '/peliculas',
+    )
+    expect(within(seriesRow).getByRole('link', { name: 'Ver todos' })).toHaveAttribute(
+      'href',
+      '/series',
+    )
+    expect(screen.queryByRole('heading', { name: 'Drama' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Colecciones' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Agregados recientemente' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('pauses and resumes automatic poster movement from the row controls', async () => {
     renderCatalog('home', {
       libraryTitles: vi.fn().mockResolvedValue({
         titles: [
-          summary({
-            id: 1,
-            title: 'Alien',
-            collection: { id: 9, name: 'Alien: colección' },
-          }),
-          summary({
-            id: 2,
-            title: 'Aliens',
-            collection: { id: 9, name: 'Alien: colección' },
-          }),
-        ],
-      }),
-      libraryCollection: vi.fn().mockResolvedValue({
-        id: 9,
-        name: 'Alien: colección',
-        overview: '',
-        movies: [
-          { id: 1, title: 'Alien', originalTitle: 'Alien', year: 1979, inLibrary: true },
-          { id: 2, title: 'Aliens', originalTitle: 'Aliens', year: 1986, inLibrary: false },
-          { id: 3, title: 'Alien 3', originalTitle: 'Alien 3', year: 1992, inLibrary: false },
+          summary({ id: 1, title: 'Primera' }),
+          summary({ id: 2, title: 'Segunda', addedAt: '2026-10-02T00:00:00Z' }),
         ],
       }),
     })
-    await waitFor(() =>
-      expect(screen.getByRole('link', { name: /Alien: colección/ })).toBeInTheDocument(),
+    const pause = await screen.findByRole('button', { name: 'Pausar avance autom\u00e1tico' })
+    expect(pause).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(pause)
+    expect(screen.getByRole('button', { name: 'Reanudar avance autom\u00e1tico' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     )
-    const card = screen.getByRole('link', { name: /Alien: colección/ })
-    expect(card).toHaveAttribute('href', '/colecciones/9')
-    await waitFor(() => expect(card).toHaveTextContent('1 de 3 en tu biblioteca'))
+  })
+
+  it('omits the recent row for a title type with no entries', async () => {
+    renderCatalog('home', {
+      libraryTitles: vi.fn().mockResolvedValue({ titles: [summary()] }),
+    })
+    await screen.findByRole('heading', { name: 'Películas agregadas recientemente' })
+    expect(
+      screen.queryByRole('heading', { name: 'Series agregadas recientemente' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not start automatic poster movement with reduced motion', async () => {
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia')
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn().mockReturnValue({
+        matches: true,
+        media: '(prefers-reduced-motion: reduce)',
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    })
+    const interval = vi.spyOn(window, 'setInterval')
+    try {
+      renderCatalog('home', {
+        libraryTitles: vi.fn().mockResolvedValue({
+          titles: [summary({ id: 1 }), summary({ id: 2, addedAt: '2026-10-02T00:00:00Z' })],
+        }),
+      })
+      await screen.findByRole('heading', { name: 'Pel\u00edculas agregadas recientemente' })
+      expect(interval.mock.calls.filter((call) => call[1] === 4000)).toHaveLength(0)
+    } finally {
+      interval.mockRestore()
+      if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia)
+      else Object.defineProperty(window, 'matchMedia', { configurable: true, value: undefined })
+    }
   })
 
   it('does not rotate the hero when reduced motion is preferred', async () => {

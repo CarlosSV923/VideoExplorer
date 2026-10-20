@@ -4,12 +4,11 @@ import { useLibraryTitles, useUnassigned } from '../application/queries'
 import { sortTitles } from '../application/search'
 import type { LibraryTitleSummary } from '../domain/types'
 import { LibraryLayout } from '@/app/LibraryLayout'
-import { Button, EmptyState, PosterRow } from '@/shared/ui'
+import { AutoPosterRow, Button, EmptyState } from '@/shared/ui'
 import { UploadIcon } from '@/shared/ui/icons'
 import { HeroCarousel } from './HeroCarousel'
 import { PendingStrip } from './PendingStrip'
 import { LoadingGrid, PosterFor } from './CatalogShared'
-import { CollectionCard } from './CollectionCard'
 
 export function HomeScreen() {
   const { t } = useTranslation()
@@ -51,16 +50,8 @@ export function HomeScreen() {
     )
   const recent = sortTitles(titles, 'added')
   const hero = recent.filter((title) => title.backdrop).slice(0, 5)
-  const movies = titles.filter((title) => title.kind === 'movie')
-  const series = titles.filter((title) => title.kind === 'series')
-  const genres = [...new Set(titles.flatMap((title) => title.genres ?? []))]
-  const collections = [
-    ...new Map(
-      titles
-        .filter((title) => title.collection)
-        .map((title) => [title.collection?.id, title.collection]),
-    ).values(),
-  ].filter((collection): collection is NonNullable<typeof collection> => Boolean(collection))
+  const movies = recent.filter((title) => title.kind === 'movie').slice(0, 10)
+  const series = recent.filter((title) => title.kind === 'series').slice(0, 10)
   const row = (items: LibraryTitleSummary[]) =>
     items.map((title) => <PosterFor key={title.id} title={title} />)
   return (
@@ -74,59 +65,27 @@ export function HomeScreen() {
             ? { unassignedCount: unassigned.data.entries.length + unassigned.data.jobs.length }
             : {})}
         />
-        <PosterRow
-          title={t('library.recent')}
-          seeAll={
-            <a href="/peliculas" className="text-body-sm">
-              {t('library.seeAll')}
-            </a>
-          }
-        >
-          {row(recent)}
-        </PosterRow>
-        <PosterRow
-          title={t('library.movies')}
-          seeAll={
-            <a href="/peliculas" className="text-body-sm">
-              {t('library.seeAll')}
-            </a>
-          }
-        >
-          {row(movies)}
-        </PosterRow>
-        <PosterRow
-          title={t('library.seriesPlural')}
-          seeAll={
-            <a href="/series" className="text-body-sm">
-              {t('library.seeAll')}
-            </a>
-          }
-        >
-          {row(series)}
-        </PosterRow>
-        {genres.map((genre) => (
-          <PosterRow key={genre} title={genre}>
-            {row(titles.filter((title) => title.genres?.includes(genre)))}
-          </PosterRow>
-        ))}
-        {collections.length > 0 && (
-          <PosterRow title={t('library.collections')}>
-            {collections.map((collection) => {
-              const members = titles.filter((title) => title.collection?.id === collection.id)
-              const member = members[0]
-              return member ? (
-                <CollectionCard
-                  key={collection.id}
-                  id={collection.id}
-                  name={collection.name}
-                  present={members.length}
-                  {...((member.backdrop ?? member.poster)
-                    ? { image: member.backdrop ?? member.poster }
-                    : {})}
-                />
-              ) : null
-            })}
-          </PosterRow>
+        {movies.length > 0 && (
+          <AutoPosterRow
+            title={t('library.recentMovies')}
+            items={row(movies)}
+            seeAll={
+              <a href="/peliculas" className="text-body-sm">
+                {t('library.seeAll')}
+              </a>
+            }
+          />
+        )}
+        {series.length > 0 && (
+          <AutoPosterRow
+            title={t('library.recentSeries')}
+            items={row(series)}
+            seeAll={
+              <a href="/series" className="text-body-sm">
+                {t('library.seeAll')}
+              </a>
+            }
+          />
         )}
       </div>
     </LibraryLayout>

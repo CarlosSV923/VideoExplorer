@@ -23,6 +23,6 @@ export {
 export { ConfirmDialog, Dialog, Sheet, SidePanel } from './Dialog'
 export { Menu, SectionTabs, Tabs, type MenuItem, type TabOption } from './Navigation'
 export { HelpBar, Glyph, PageHeader, ShortcutBar, type GlyphName, type HelpAction } from './HelpBar'
-export { Poster, PosterRow, type PosterProps } from './Poster'
+export { AutoPosterRow, Poster, PosterRow, type PosterProps } from './Poster'
 export { cx } from './cx'
 export * from './icons'

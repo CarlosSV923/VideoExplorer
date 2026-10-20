@@ -47,7 +47,12 @@ test('home, movie and series details show seeded content and seasons', async ({ 
   await page.goto('/')
   await expect(page.getByRole('status')).toContainText('Modo demo')
   await expect(page.getByRole('heading', { level: 1, name: 'Inicio' })).toBeAttached()
-  await expect(page.getByRole('heading', { name: 'Agregados recientemente' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Películas agregadas recientemente' }),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Series agregadas recientemente' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Agregados recientemente' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Colecciones' })).toHaveCount(0)
 
   await page.locator('a[href^="/peliculas/"]').first().click()
   await expect(page).toHaveURL(/\/peliculas\/\d+$/)
@@ -168,7 +173,9 @@ test('reloads a deep route and uses only TMDB images, with placeholders when blo
   await expect(page.getByRole('heading', { name: 'Papelera', exact: true })).toBeVisible()
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Agregados recientemente' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Películas agregadas recientemente' }),
+  ).toBeVisible()
   await expect(page.locator('.bg-surface-missing span[aria-hidden="true"]').first()).toBeVisible()
   expect(externalHosts.length).toBeGreaterThan(0)
   expect(new Set(externalHosts)).toEqual(new Set(['image.tmdb.org']))
