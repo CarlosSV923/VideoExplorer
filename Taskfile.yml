@@ -190,6 +190,11 @@ tasks:
     cmds:
       - pnpm build:web
 
+  image:
+    desc: Build the production image (videoexplorer:local)
+    cmds:
+      - docker build -t videoexplorer:local .
+
   e2e:
     desc: End-to-end tests of the demo build (Playwright in Docker; desktop and touch mobile)
     cmds:

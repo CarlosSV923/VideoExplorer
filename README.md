@@ -23,6 +23,12 @@ The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md)
 
 **Live demo:** [video-explorer-sepia.vercel.app](https://video-explorer-sepia.vercel.app). The demo runs without a backend; its in-memory changes reset when the page reloads. TMDB images load from `image.tmdb.org`.
 
+## Production image
+
+The TrueNAS production image is `ghcr.io/carlossv923/videoexplorer`. A `v*` release tag publishes the matching semver tag and `latest` for `linux/amd64`; pull requests build the image without publishing it. Build it locally with `task image`.
+
+The image includes `ffprobe` from jellyfin-ffmpeg 8.1.3-1, licensed under GPL-3.0. Its license and notice are at `/usr/share/doc/videoexplorer/ffprobe/` in the image. The corresponding [pinned source code](https://github.com/jellyfin/jellyfin-ffmpeg/tree/v8.1.3-1) is available from Jellyfin-FFmpeg. `ffprobe` runs as a separate process; VideoExplorer remains MIT-licensed.
+
 ## Project status
 
 Phases 0 through 11 are complete: the API, the full web UI (library, uploads, Unassigned, Assign, edit, trash, settings), tested against real files, and the backend-less demo published on Vercel with end-to-end tests. Phase 12, the TrueNAS production packaging, is next; progress is tracked in [`docs/tasks.md`](docs/tasks.md).

@@ -1,0 +1,16 @@
+.git
+.github
+.dev
+.task
+.claude
+node_modules
+**/node_modules
+**/dist
+apps/api/bin
+apps/api/tmp
+coverage
+test-results
+playwright-report
+.env
+.env.*
+!.env.example
