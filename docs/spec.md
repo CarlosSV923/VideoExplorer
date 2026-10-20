@@ -84,9 +84,8 @@ VideoExplorer es una app web autoalojada, con estética de Netflix / Prime Video
 ### Biblioteca (estética Netflix / Prime Video)
 - **RF-40** **Inicio**:
   - **Hero** con backdrop, logo (o título), año, géneros, sinopsis y botones «Ver detalles» y «Editar». **Rota cada 8 s entre los 5 últimos títulos agregados que tienen backdrop**, con indicadores y flechas; se pausa con hover o foco y no rota con `prefers-reduced-motion`. Sin títulos con backdrop, no hay hero.
-  - **Filas horizontales**: «Agregados recientemente», «Películas», «Series» y una fila por **género** de TMDB con contenido.
-  - **Filas de colecciones** de TMDB (sagas) y una **ficha de colección** con sus películas (las que faltan en la biblioteca se muestran atenuadas).
-  - **Pendientes**: aviso o fila con «N en No asignados», «Series incompletas» (capítulos ya emitidos según TMDB que no están en la biblioteca) y «Sin vincular» (RF-29).
+  - **Dos filas horizontales** (decisión del usuario 2026-10-20, reemplaza las filas «Agregados recientemente», por género y de colecciones): «Películas agregadas recientemente» y «Series agregadas recientemente», cada una con los **10 últimos títulos agregados** de su tipo y «Ver todos» hacia Películas o Series. Las filas **avanzan solas** un póster cada 4 s y vuelven al principio al llegar al final; se pausan con hover, foco o al tocarlas, y con un botón Pausar/Reanudar junto a sus flechas; con `prefers-reduced-motion` no avanzan solas. No muestran barra de desplazamiento; se recorren también con flechas, rueda, swipe, teclado y gamepad. Los géneros siguen como filtro en Películas y Series (RF-41) y la **ficha de colección** sigue accesible desde la ficha de película (RF-43a); Inicio ya no muestra filas de colecciones.
+  - **Pendientes** (se mantiene): aviso con «N en No asignados», «Series incompletas» (capítulos ya emitidos según TMDB que no están en la biblioteca) y «Sin vincular» (RF-29).
   Si la biblioteca está vacía, Inicio muestra un estado vacío con «Subir».
 - **RF-41** **Explorar**: pantallas «Películas» y «Series» en cuadrícula de pósters con orden (agregado, título, año) y filtro por género.
 - **RF-42** **Búsqueda global**: cada palabra debe aparecer en el título (original, mostrado o en disco), sin mayúsculas ni acentos.

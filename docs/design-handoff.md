@@ -106,6 +106,7 @@ Familias: **Outfit** 400/500/600/700/800 para la interfaz y **JetBrains Mono** 4
 | `PageHeader` | `back?`, `title`, `subtitle?`, `actions?` | Asignar, Editar |
 | `Poster` | `title`, `meta`, `image?`, `chips`, `href`, `dimmed?` | Nombre accesible «título, año, chips»; `dimmed` atenúa solo la imagen (A1) |
 | `PosterRow` | `title`, `count?`, `seeAll?` | Lista horizontal con `overflow-x: auto`, `scroll-snap`, botones ‹ › siempre visibles (escritorio), swipe (táctil) |
+| `AutoPosterRow` | `title`, `items` (máx. 10), `seeAll` | Fila de Inicio (RF-40, 2026-10-20): sin barra de desplazamiento visible (`scrollbar-width: none`), avance automático de un póster cada 4 s con vuelta al inicio, pausa con hover/foco/toque y botón Pausar/Reanudar (`aria-pressed`) junto a ‹ ›; sin avance con `prefers-reduced-motion`; región sin `aria-live` mientras avanza. Sustituye en Inicio a las filas por género y de colecciones del lienzo |
 | `HelpBar` / `Glyph` | `actions: [{button, label}]` | Solo con gamepad conectado; glifos A/B/X/Y/LB/RB propios en SVG |
 | `ShortcutBar` | `groups: [{title, keys}]` | Barra de atajos de Asignar (sin gamepad); `kbd` en `mono` |
 
