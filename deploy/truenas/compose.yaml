@@ -1,7 +1,7 @@
 # VideoExplorer on TrueNAS SCALE. Update the pinned version when installing a release.
 services:
   videoexplorer:
-    image: ghcr.io/carlossv923/videoexplorer:0.1.1
+    image: ghcr.io/carlossv923/videoexplorer:0.1.2
     restart: unless-stopped
     # Example UID:GID. Grant this user an inherited Modify ACL on both datasets;
     # no PUID/PGID variables are used. See README.md.
