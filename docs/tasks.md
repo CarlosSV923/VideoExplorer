@@ -114,6 +114,6 @@ Depende de: 10 · Cubre: RF-70 a RF-72
 
 ## Fase 12 — Producción en TrueNAS
 Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
-- [ ] Dockerfile de producción (node → golang → debian-slim con `7zz` y `ffprobe` vía los scripts de `scripts/`, aviso de licencia GPL de ffprobe con enlace a su código fuente), publicación en GHCR con tags `v*`
+- [~] Dockerfile de producción (node → golang → debian-slim con `7zz` y `ffprobe` vía los scripts de `scripts/`, aviso de licencia GPL de ffprobe con enlace a su código fuente), publicación en GHCR con tags `v*`
 - [ ] `deploy/truenas/compose.yaml` y guía en README (si el compose interpola variables, el hash argon2id necesita comillas o `$$`)
 - [ ] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente y Jellyfin reconociéndolo todo
