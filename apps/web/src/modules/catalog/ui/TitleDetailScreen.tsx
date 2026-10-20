@@ -6,7 +6,8 @@ import { useCatalogPorts } from '../application/ports'
 import { useInvalidateCatalog, useLibraryTitle } from '../application/queries'
 import type { Kind } from '../application/search'
 import { LibraryLayout } from '@/app/LibraryLayout'
-import { Banner, Button, ConfirmDialog, EmptyState, Tabs } from '@/shared/ui'
+import { Banner, Button, ConfirmDialog, EmptyState, LinkButton, Tabs } from '@/shared/ui'
+import { isAppError } from '@/shared/kernel/errors'
 import { TitleHeader } from './TitleHeader'
 import { VersionCard } from './VersionCard'
 import { EpisodeList } from './EpisodeList'
@@ -52,7 +53,19 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
     return (
       <LibraryLayout>
         <div className="py-12">
-          <EmptyState title={t('errors.loadTitle')} body={t('errors.loadBody')} />
+          {isAppError(query.error, 'notFound') ? (
+            <EmptyState
+              title={t('missing.title')}
+              body={t(kind === 'movie' ? 'missing.movie' : 'missing.series')}
+              action={
+                <LinkButton href={kind === 'movie' ? '/peliculas' : '/series'} variant="primary">
+                  {t(kind === 'movie' ? 'missing.backMovies' : 'missing.backSeries')}
+                </LinkButton>
+              }
+            />
+          ) : (
+            <EmptyState title={t('errors.loadTitle')} body={t('errors.loadBody')} />
+          )}
         </div>
       </LibraryLayout>
     )

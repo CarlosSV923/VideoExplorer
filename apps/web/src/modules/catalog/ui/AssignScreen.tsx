@@ -15,7 +15,17 @@ import type { AssignPlan, AssignRequest, AssignSuggestions, AssignVideo } from '
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { isAppError } from '@/shared/kernel/errors'
 import { useAction, useGamepadConnected } from '@/shared/input'
-import { Banner, Button, ConfirmDialog, HelpBar, PageHeader, ShortcutBar, Sheet } from '@/shared/ui'
+import {
+  Banner,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  HelpBar,
+  LinkButton,
+  PageHeader,
+  ShortcutBar,
+  Sheet,
+} from '@/shared/ui'
 import { AssignVideoCard } from './AssignVideoCard'
 import { PlanPreview } from './PlanPreview'
 import { SubtitleList } from './SubtitleList'
@@ -213,7 +223,21 @@ export function AssignScreen({ id }: { id: number }) {
           title={t('screens.assign.title')}
         />
         <div className="py-8">
-          <Banner tone="danger">{conflictMessage(error, translate) ?? t('errors.loadBody')}</Banner>
+          {isAppError(error, 'notFound') ? (
+            <EmptyState
+              title={t('missing.entryTitle')}
+              body={t('missing.entry')}
+              action={
+                <LinkButton href="/no-asignados" variant="primary">
+                  {t('missing.backUnassigned')}
+                </LinkButton>
+              }
+            />
+          ) : (
+            <Banner tone="danger">
+              {conflictMessage(error, translate) ?? t('errors.loadBody')}
+            </Banner>
+          )}
         </div>
       </LibraryLayout>
     )

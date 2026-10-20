@@ -181,4 +181,57 @@ describe('App', () => {
       screen.queryByText('La ruta no incluye los datos necesarios para mostrarla.'),
     ).not.toBeInTheDocument()
   })
+
+  it.each([
+    ['/peliculas/101', 'libraryTitle', 'Este título ya no está en la biblioteca', '/peliculas'],
+    ['/series/102', 'libraryTitle', 'Este título ya no está en la biblioteca', '/series'],
+    ['/colecciones/103', 'libraryCollection', 'Esta colección ya no está disponible', '/peliculas'],
+    [
+      '/no-asignados/104/asignar',
+      'takeAssignLock',
+      'Esta entrada ya no está en No asignados',
+      '/no-asignados',
+    ],
+  ])('shows a missing resource state for %s', async (path, port, title, backHref) => {
+    const catalog = {
+      ...routeServices.catalog,
+      [port]: vi.fn(() => Promise.reject(new AppError('notFound', { status: 404 }))),
+    }
+    const missingServices = { ...routeServices, catalog }
+    render(
+      <App
+        i18n={createI18n('es')}
+        services={missingServices}
+        history={createMemoryHistory({ initialEntries: [path] })}
+      />,
+    )
+
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Volver/ })).toHaveAttribute('href', backHref)
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['es', 'Este título ya no está en la biblioteca', 'Volver a Películas'],
+    ['en', 'This title is no longer in the library', 'Back to Movies'],
+  ] as const)('translates the missing movie state in %s', async (language, title, backLabel) => {
+    const missingServices = {
+      ...routeServices,
+      catalog: {
+        ...routeServices.catalog,
+        libraryTitle: vi.fn(() => Promise.reject(new AppError('notFound', { status: 404 }))),
+      },
+    } as unknown as Services
+    render(
+      <App
+        i18n={createI18n(language)}
+        services={missingServices}
+        history={createMemoryHistory({ initialEntries: ['/peliculas/1'] })}
+      />,
+    )
+
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: backLabel })).toHaveAttribute('href', '/peliculas')
+    expect(screen.queryByRole('button', { name: /retry|reintentar/i })).not.toBeInTheDocument()
+  })
 })

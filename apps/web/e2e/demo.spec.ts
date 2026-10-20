@@ -59,6 +59,18 @@ test('home, movie and series details show seeded content and seasons', async ({ 
   await expect(page.getByText('Temporadas', { exact: true })).toBeVisible()
 })
 
+test('a missing demo movie shows a translated empty state and a return link', async ({ page }) => {
+  await page.goto('/peliculas/1')
+  await expect(
+    page.getByRole('heading', { name: 'Este título ya no está en la biblioteca' }),
+  ).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Volver a Películas' })).toHaveAttribute(
+    'href',
+    '/peliculas',
+  )
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
 test('search finds a seeded movie', async ({ page }) => {
   await page.goto('/buscar?q=dark')
   await expect(page.getByRole('heading', { name: 'Buscar en la biblioteca' })).toBeVisible()
@@ -71,15 +83,14 @@ test('demo examples ask for a relation, unlock multipart archives, and reach Una
   page,
 }) => {
   await page.goto('/')
-  const tryExamples = page.getByRole('button', { name: 'Probar con archivos de ejemplo' })
-  if (await tryExamples.isVisible()) await tryExamples.click()
-  else {
+  await expect(page.getByRole('heading', { level: 1, name: 'Inicio' })).toBeAttached()
+  if ((page.viewportSize()?.width ?? 1024) < 768) {
     await page.getByRole('button', { name: /Subidas/ }).click()
     await page
       .getByRole('dialog', { name: 'Subidas' })
       .getByRole('button', { name: 'Probar con archivos de ejemplo' })
       .click()
-  }
+  } else await page.getByRole('button', { name: 'Probar con archivos de ejemplo' }).click()
   const relation = page.getByRole('dialog', { name: '¿Cómo se relacionan estos archivos?' })
   await expect(relation).toBeVisible()
   await relation.getByRole('button', { name: 'Capítulos de una misma serie' }).click()

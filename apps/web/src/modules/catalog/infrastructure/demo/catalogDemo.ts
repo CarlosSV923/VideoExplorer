@@ -12,6 +12,7 @@ import type {
   UnassignedSection,
 } from '@/modules/catalog/domain/types'
 import { demoImage } from '@/modules/metadata/infrastructure/demo/metadataDemo'
+import { AppError } from '@/shared/kernel/errors'
 
 type DemoTitle = (typeof catalog.titles)[number]
 type DemoEpisode = LibrarySeason['episodes'][number]
@@ -299,7 +300,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
   }
   const suggestionsFor = (entryId: number): AssignSuggestions => {
     const entry = unassigned.entries.find((item) => item.id === entryId)
-    if (!entry) throw new Error('Not found')
+    if (!entry) throw new AppError('notFound', { status: 404 })
     const hintedId = seededMatchIds.get(entryId)
     const match = hintedId ? titleHit(hintedId) : undefined
     const videos = entry.files
@@ -441,7 +442,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
     merged: false,
     changed: false,
   })
-  const missing = () => Promise.reject(new Error('Not found'))
+  const missing = () => Promise.reject(new AppError('notFound', { status: 404 }))
   return {
     finishSambaArchiveJob: (id) => {
       unassigned.jobs = unassigned.jobs.filter((job) => job.id !== id)
@@ -513,7 +514,8 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         })),
       }) as LibraryTitles,
     libraryTitle: async (id) =>
-      library.find((item) => item.id === id) ?? Promise.reject(new Error('Not found')),
+      library.find((item) => item.id === id) ??
+      Promise.reject(new AppError('notFound', { status: 404 })),
     libraryCollection: async (id) => {
       const members = catalog.titles.filter(
         (item) => item.collection?.id === id && item.type === 'movie',
@@ -682,9 +684,9 @@ export function createCatalogDemo(): DemoCatalogAdapter {
       const plan = buildAssignPlan(entryId, request)
       if (!plan.valid) throw new Error('Assignment choices are incomplete')
       const entryIndex = unassigned.entries.findIndex((entry) => entry.id === entryId)
-      if (entryIndex < 0) throw new Error('Not found')
+      if (entryIndex < 0) throw new AppError('notFound', { status: 404 })
       const entry = unassigned.entries[entryIndex]
-      if (!entry) throw new Error('Not found')
+      if (!entry) throw new AppError('notFound', { status: 404 })
       const placed = plan.videos
         .filter((item) => !item.keep && item.finalPath)
         .map((item) => ({ file: item.file, path: item.finalPath ?? item.file }))

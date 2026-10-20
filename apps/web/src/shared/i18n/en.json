@@ -36,6 +36,18 @@
     "loadTitle": "Could not load",
     "loadBody": "Check the connection to VideoExplorer and try again."
   },
+  "missing": {
+    "title": "This title is no longer in the library",
+    "movie": "The movie you’re looking for is no longer in the library.",
+    "series": "The series you’re looking for is no longer in the library.",
+    "collectionTitle": "This collection is no longer available",
+    "collection": "The collection you’re looking for is no longer available.",
+    "entryTitle": "This entry is no longer in Unassigned",
+    "entry": "The entry you’re looking for is no longer available to assign.",
+    "backMovies": "Back to Movies",
+    "backSeries": "Back to Series",
+    "backUnassigned": "Back to Unassigned"
+  },
   "notFound": {
     "title": "Page not found",
     "body": "The route you opened does not exist."

@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next'
 
 import { useLibraryCollection } from '../application/queries'
 import { LibraryLayout } from '@/app/LibraryLayout'
-import { EmptyState, PageHeader, Poster } from '@/shared/ui'
+import { EmptyState, LinkButton, PageHeader, Poster } from '@/shared/ui'
+import { isAppError } from '@/shared/kernel/errors'
 import { LoadingGrid } from './CatalogShared'
 
 export function CollectionScreen({ id }: { id: number }) {
@@ -20,7 +21,19 @@ export function CollectionScreen({ id }: { id: number }) {
     return (
       <LibraryLayout>
         <div className="py-12">
-          <EmptyState title={t('errors.loadTitle')} body={t('errors.loadBody')} />
+          {isAppError(query.error, 'notFound') ? (
+            <EmptyState
+              title={t('missing.collectionTitle')}
+              body={t('missing.collection')}
+              action={
+                <LinkButton href="/peliculas" variant="primary">
+                  {t('missing.backMovies')}
+                </LinkButton>
+              }
+            />
+          ) : (
+            <EmptyState title={t('errors.loadTitle')} body={t('errors.loadBody')} />
+          )}
         </div>
       </LibraryLayout>
     )

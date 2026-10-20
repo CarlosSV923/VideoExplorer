@@ -36,6 +36,18 @@
     "loadTitle": "No se pudo cargar",
     "loadBody": "Comprueba la conexión con VideoExplorer y vuelve a intentarlo."
   },
+  "missing": {
+    "title": "Este título ya no está en la biblioteca",
+    "movie": "La película que buscas ya no está en la biblioteca.",
+    "series": "La serie que buscas ya no está en la biblioteca.",
+    "collectionTitle": "Esta colección ya no está disponible",
+    "collection": "La colección que buscas ya no está disponible.",
+    "entryTitle": "Esta entrada ya no está en No asignados",
+    "entry": "La entrada que buscas ya no está disponible para asignar.",
+    "backMovies": "Volver a Películas",
+    "backSeries": "Volver a Series",
+    "backUnassigned": "Volver a No asignados"
+  },
   "notFound": {
     "title": "No encontramos esa página",
     "body": "La ruta que has abierto no existe."
