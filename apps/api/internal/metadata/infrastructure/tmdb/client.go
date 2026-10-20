@@ -106,7 +106,7 @@ func New(cfg Config) (*Client, error) {
 	}
 	hc := cfg.HTTPClient
 	if hc == nil {
-		hc = &http.Client{}
+		hc = &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()}
 	}
 	return &Client{
 		cfg:     cfg,
