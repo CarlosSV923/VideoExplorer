@@ -195,6 +195,11 @@ tasks:
     cmds:
       - docker build -t videoexplorer:local .
 
+  compose:check:
+    desc: Validate the TrueNAS deployment compose file
+    cmds:
+      - docker compose -f deploy/truenas/compose.yaml config --quiet
+
   e2e:
     desc: End-to-end tests of the demo build (Playwright in Docker; desktop and touch mobile)
     cmds:
@@ -226,6 +231,7 @@ tasks:
     desc: Everything CI runs except the generated-code check, which is CI-only (lint, tests, vulnerability check, builds)
     cmds:
       - task: lint
+      - task: compose:check
       - task: test
       - task: vuln
       - task: build

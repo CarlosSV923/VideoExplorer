@@ -13,6 +13,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  truenas-compose:
+    name: TrueNAS Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate deployment Compose file
+        run: docker compose -f deploy/truenas/compose.yaml config --quiet
+
   openapi:
     name: OpenAPI contract
     runs-on: ubuntu-latest
