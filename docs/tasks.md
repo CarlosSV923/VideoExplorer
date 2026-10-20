@@ -105,7 +105,7 @@ Depende de: 8, 9 · Cubre: RF-01 a RF-62 (UI)
 - [x] Prueba real contra la API con archivos reales (2026-10-16, biblioteca de `.dev` con enlaces duros a PruebasVideos y Jellyfin desactivado): importación de Alien Romulus (`[imdbid-]`) y Lizzie Borden, cuatro rar de Samba con contraseña, asignación de capítulos de Dahmer a una serie nueva y a una existente con subtítulo `es-419`, Editar sin cambios conserva los nombres importados, papelera y Ajustes. Cuatro rondas de correcciones (ruta de Asignar, sondeo excesivo, bloqueo al navegar, sugerencias de TMDB en la biblioteca, Editar completa, nombres importados, accesibilidad y textos). Después: subida con tus probada por el usuario en su navegador (encontró el panel de Subidas duplicado y la falta de un botón para ver el progreso: decisión RF-10, botón «Subidas» siempre visible), restaurar con lugar ocupado y «Conservar ambos» (`- 720p` y `- 720p (2)`), etiqueta editable al restaurar; siete rondas de corrección en total
 - [x] README EN/ES: estado del proyecto al día (fases cerradas)
 
-Notas para la Fase 12: una ruta de título que no existe (p. ej. `/peliculas/1` en la demo) muestra «No se pudo cargar» en lugar de un estado «no encontrado»; el build de la web avisa de un bloque de más de 500 kB; dividir por rutas (carga diferida) antes de producción.
+Notas para la Fase 12 (resueltas el 2026-10-20 antes de `v0.1.0`): estado «no encontrado» propio para recursos que no existen; carga diferida por pantalla (bloque inicial de 700 kB a 320 kB, sin aviso de 500 kB); transportes HTTP salientes propios en Jellyfin y TMDB (corrige un test intermitente).
 
 ## Fase 11 — Demo
 Depende de: 10 · Cubre: RF-70 a RF-72
