@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[Español](README.es.md) · **Status: phases 0–9 complete; phase 10 in progress**
+[Español](README.es.md) · **Status: phases 0–11 complete; phase 12 in progress**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 

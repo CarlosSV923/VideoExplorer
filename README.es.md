@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[English](README.md) · **Estado: fases 0–9 cerradas; fase 10 en curso**
+[English](README.md) · **Estado: fases 0–11 cerradas; fase 12 en curso**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
