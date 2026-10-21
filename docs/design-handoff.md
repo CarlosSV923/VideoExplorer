@@ -174,18 +174,27 @@ Capa única en `shared/input` (la de GameExplorer, adaptada): las pantallas se s
 | 768–1023 (tablet) | Cabecera en dos líneas (navegación debajo). Asignar y Editar: «Así quedará» pasa debajo del formulario con Guardar fijo abajo. Panel de Subidas a ancho completo |
 | < 768 (teléfono) | Mockups de móvil (390): barra de navegación inferior con 5 destinos (Inicio, Películas, Series, No asignados, Ajustes), icono + texto de 13 px; cabecera con lupa, indicador de subidas y botón Subir de icono; hero de 440 px con botones a lo ancho; pósters de 120 px; acciones de archivo en un menú «⋯»; Subidas y «Así quedará» como hoja inferior; Guardar fijo abajo |
 
-### Rutas (TanStack Router, en español)
+### Rutas (TanStack Router, en inglés; RF-64, decisión 2026-10-21)
 | Ruta | Pantalla |
 |---|---|
-| `/entrar` | Login (`?redirect=` vuelve a donde se estaba) |
+| `/login` | Login (`?redirect=` vuelve a donde se estaba) |
 | `/` | Inicio |
-| `/peliculas`, `/series` | Cuadrículas (`?orden=agregado\|titulo\|anio`, `?genero=`, en series `?incompletas=1`) |
-| `/peliculas/:id`, `/series/:id` | Fichas (`?temporada=` en series) |
-| `/peliculas/:id/editar`, `/series/:id/editar` | Editar y reasignar (también Vincular y etiqueta de ID) |
-| `/colecciones/:id` | Colección |
-| `/buscar?q=` | Búsqueda global |
-| `/no-asignados` y `/no-asignados/:id/asignar` | No asignados y Asignar |
-| `/ajustes/general`, `/ajustes/papelera` | Ajustes |
+| `/movies`, `/series` | Cuadrículas (`?sort=added\|title\|year`, `?genre=`, en series `?incomplete=1`) |
+| `/movies/:id`, `/series/:id` | Fichas (`?season=` en series) |
+| `/movies/:id/edit`, `/series/:id/edit` | Editar y reasignar (también Vincular y etiqueta de ID) |
+| `/collections/:id` | Colección |
+| `/search?q=` | Búsqueda global |
+| `/unassigned` y `/unassigned/:id/assign` | No asignados y Asignar |
+| `/settings/general`, `/settings/trash` | Ajustes |
+
+Las rutas antiguas en español no redirigen: muestran «no encontrado».
+
+### Selección múltiple en Películas y Series (RF-41, decisión 2026-10-21)
+- **Entrada:** botón secundario «Seleccionar» (icono de casilla) al final de la barra de orden y género; en modo selección pasa a «Cancelar».
+- **Póster en modo selección:** casilla de 24 px arriba a la izquierda sobre un círculo `surface/80`; marcado = fondo `accent` con check, y el póster lleva un anillo `accent` de 3 px y se oscurece un 20 %. El póster es un botón con `role="checkbox"` y `aria-checked` y el nombre del título (no un enlace); el foco visible es el de siempre. Sin hover especial.
+- **Barra de selección:** fija abajo, ancho de contenido, `surface-2` con borde `line` y sombra; en móvil va encima de la navegación inferior (nunca la tapa). Izquierda: «N seleccionados» (`aria-live="polite"`) y «Seleccionar todo» / «Deseleccionar todo» como botón de texto; derecha: «Mandar a la papelera» (botón peligro, desactivado con 0) y «Cancelar». En móvil los botones van a lo ancho en dos filas. Con mando se muestran los glifos A (marcar), B (cancelar) y X (papelera) solo si hay mando conectado.
+- **Confirmación:** `ConfirmDialog` de peligro (foco inicial en Cancelar): título «¿Mandar N títulos a la papelera?», cuerpo con hasta 5 nombres y «y N más», y el aviso de que se pueden restaurar desde Ajustes → Papelera durante la retención. Mientras se mandan, el botón muestra progreso «Mandando 3 de 8…» y la barra no admite cambios.
+- **Resultado:** `Banner` sobre la cuadrícula, descartable: `info` con `role=status` «N títulos en la papelera» si todo va bien; si alguno falla, `danger` con `role=alert` y los nombres que fallaron con su motivo, que siguen seleccionados. No hay componente de toast.
 
 Subidas es un panel (escritorio) o una hoja (móvil) sobre la pantalla actual, sin ruta; la pregunta de relación es un diálogo. La cabecera de **todas** las pantallas tiene siempre el botón «Subidas» (abre el panel o la hoja), separado de «Subir» (abre el selector de archivos); mientras haya trabajos activos o esperando al usuario muestra su número (RF-10). En móvil es un botón de icono con el número como insignia, junto al de subir.
 
