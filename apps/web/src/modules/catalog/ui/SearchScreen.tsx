@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { useLibraryTitles } from '../application/queries'
@@ -9,6 +10,7 @@ import { LoadingGrid, PosterFor } from './CatalogShared'
 
 export function SearchScreen({ queryText }: { queryText: string }) {
   const { t } = useTranslation()
+  const router = useRouter({ warn: false }) as ReturnType<typeof useRouter> | undefined
   const query = useLibraryTitles()
   const [value, setValue] = useState(queryText)
   const results = query.data?.titles.filter((title) => matchesSearch(title, value)) ?? []
@@ -20,10 +22,16 @@ export function SearchScreen({ queryText }: { queryText: string }) {
           label={t('library.search')}
           value={value}
           onChange={(event) => {
-            setValue(event.currentTarget.value)
+            const next = event.currentTarget.value
+            setValue(next)
+            void router?.navigate({
+              to: '/search',
+              search: { q: next },
+            })
           }}
           onClear={() => {
             setValue('')
+            void router?.navigate({ to: '/search', search: { q: '' } })
           }}
           placeholder={t('library.searchPlaceholder')}
         />

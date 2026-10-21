@@ -39,9 +39,9 @@ function createEnvironment(services: Services, history: RouterHistory | undefine
   const router = createAppRouter({ queryClient, identity: services.identity, services }, history)
   onUnauthorized = () => {
     const { pathname, href } = router.state.location
-    if (pathname === '/entrar') return
+    if (pathname === '/login') return
     queryClient.removeQueries({ queryKey: sessionKey })
-    void router.navigate({ to: '/entrar', search: { redirect: href }, replace: true })
+    void router.navigate({ to: '/login', search: { redirect: href }, replace: true })
   }
   return { queryClient, router }
 }

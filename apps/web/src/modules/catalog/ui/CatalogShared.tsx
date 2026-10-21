@@ -50,7 +50,7 @@ export function PosterFor({
       seed={String(title.id)}
       fluid={fluid}
       {...(title.poster ? { image: title.poster } : {})}
-      href={href ?? `/${title.kind === 'movie' ? 'peliculas' : 'series'}/${String(title.id)}`}
+      href={href ?? `/${title.kind === 'movie' ? 'movies' : 'series'}/${String(title.id)}`}
     />
   )
 }

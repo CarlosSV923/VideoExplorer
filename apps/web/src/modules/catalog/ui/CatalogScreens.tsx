@@ -34,10 +34,11 @@ export type CatalogScreenProps = {
   id?: number | undefined
   search?:
     | {
-        orden?: string | undefined
-        genero?: string | undefined
-        incompletas?: string | undefined
+        sort?: string | undefined
+        genre?: string | undefined
+        incomplete?: string | undefined
         q?: string | undefined
+        season?: number | undefined
       }
     | undefined
   random?: (() => number) | undefined
@@ -54,7 +55,7 @@ export function CatalogScreen({ screen, id, search, random }: CatalogScreenProps
   if (screen === 'movies')
     return (
       <Suspense fallback={<RouteLoading />}>
-        <BrowseScreen kind="movie" sort={search?.orden} genre={search?.genero} />
+        <BrowseScreen kind="movie" sort={search?.sort} genre={search?.genre} />
       </Suspense>
     )
   if (screen === 'series')
@@ -62,9 +63,9 @@ export function CatalogScreen({ screen, id, search, random }: CatalogScreenProps
       <Suspense fallback={<RouteLoading />}>
         <BrowseScreen
           kind="series"
-          sort={search?.orden}
-          genre={search?.genero}
-          incomplete={search?.incompletas === '1'}
+          sort={search?.sort}
+          genre={search?.genre}
+          incomplete={search?.incomplete === '1'}
         />
       </Suspense>
     )
@@ -77,7 +78,11 @@ export function CatalogScreen({ screen, id, search, random }: CatalogScreenProps
   if (screen === 'seriesDetail' && id)
     return (
       <Suspense fallback={<RouteLoading />}>
-        <TitleDetailScreen id={id} kind="series" />
+        <TitleDetailScreen
+          id={id}
+          kind="series"
+          {...(search?.season !== undefined ? { seasonParam: search.season } : {})}
+        />
       </Suspense>
     )
   if (screen === 'collection' && id)

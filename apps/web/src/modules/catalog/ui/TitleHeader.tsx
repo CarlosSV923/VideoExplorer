@@ -72,7 +72,7 @@ export function TitleHeader({
             </p>
             <div className="flex flex-wrap gap-3">
               <LinkButton
-                href={`/peliculas/${String(title.id)}/editar`}
+                href={`/movies/${String(title.id)}/edit`}
                 variant="primary"
                 icon={<EditIcon />}
               >

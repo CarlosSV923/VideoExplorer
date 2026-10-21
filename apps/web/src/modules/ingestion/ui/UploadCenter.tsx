@@ -264,7 +264,7 @@ function UploadRowCard({
         {row.phase === 'done' && (
           <AppLink
             className="inline-flex min-h-control-sm items-center rounded-pill border border-accent px-3 text-body-sm font-bold no-underline"
-            href="/no-asignados"
+            href="/unassigned"
             onClick={onOpenPanel}
           >
             {t('uploads.assign')}

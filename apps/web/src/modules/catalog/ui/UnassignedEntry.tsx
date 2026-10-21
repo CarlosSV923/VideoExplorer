@@ -121,7 +121,7 @@ export function UnassignedEntryCard({
       {!blocked && !hiddenOnly && (
         <div className="flex flex-wrap items-center gap-3">
           <LinkButton
-            href={`/no-asignados/${String(entry.id)}/asignar`}
+            href={`/unassigned/${String(entry.id)}/assign`}
             variant="primary"
             aria-label={t('unassigned.assignFor', { name: entry.name })}
           >

@@ -115,14 +115,14 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
         </p>
         <div className="flex h-12 shrink-0 flex-wrap gap-3">
           <LinkButton
-            href={`/${current.kind === 'movie' ? 'peliculas' : 'series'}/${String(current.id)}`}
+            href={`/${current.kind === 'movie' ? 'movies' : 'series'}/${String(current.id)}`}
             variant="primary"
             icon={<ArrowRightIcon />}
           >
             {t('library.details')}
           </LinkButton>
           <LinkButton
-            href={`/${current.kind === 'movie' ? 'peliculas' : 'series'}/${String(current.id)}/editar`}
+            href={`/${current.kind === 'movie' ? 'movies' : 'series'}/${String(current.id)}/edit`}
             variant="secondary"
             icon={<EditIcon />}
           >

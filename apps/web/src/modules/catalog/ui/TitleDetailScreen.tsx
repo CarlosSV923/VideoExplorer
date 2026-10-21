@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -18,13 +19,22 @@ import {
   useRefreshTitleMetadata,
 } from '@/modules/metadata/application/queries'
 
-export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
+export function TitleDetailScreen({
+  id,
+  kind,
+  seasonParam,
+}: {
+  id: number
+  kind: Kind
+  seasonParam?: number
+}) {
   const { t } = useTranslation()
   const query = useLibraryTitle(id)
   const ports = useCatalogPorts()
+  const router = useRouter({ warn: false }) as ReturnType<typeof useRouter> | undefined
   const invalidateCatalog = useInvalidateCatalog()
   const [confirm, setConfirm] = useState<'unassigned' | 'trash' | null>(null)
-  const [season, setSeason] = useState<number | null>(null)
+  const [season, setSeason] = useState<number | null>(seasonParam ?? null)
   const refresh = useRefreshTitleMetadata(id)
   const loadMetadata = useLoadTitleMetadata(id)
   useEffect(() => {
@@ -68,7 +78,7 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
               title={t('missing.title')}
               body={t(kind === 'movie' ? 'missing.movie' : 'missing.series')}
               action={
-                <LinkButton href={kind === 'movie' ? '/peliculas' : '/series'} variant="primary">
+                <LinkButton href={kind === 'movie' ? '/movies' : '/series'} variant="primary">
                   {t(kind === 'movie' ? 'missing.backMovies' : 'missing.backSeries')}
                 </LinkButton>
               }
@@ -150,7 +160,13 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
               }))}
               value={selectedSeason ? String(selectedSeason.number) : ''}
               onChange={(value) => {
-                setSeason(Number(value))
+                const selected = Number(value)
+                setSeason(selected)
+                void router?.navigate({
+                  to: '/series/$id',
+                  params: { id: String(id) },
+                  search: { season: selected },
+                })
               }}
             />
             {selectedSeason ? (

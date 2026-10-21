@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { useLibraryTitles } from '../application/queries'
@@ -19,6 +20,7 @@ export function BrowseScreen({
   incomplete?: boolean | undefined
 }) {
   const { t } = useTranslation()
+  const router = useRouter({ warn: false }) as ReturnType<typeof useRouter> | undefined
   const query = useLibraryTitles()
   const [selectedSort, setSelectedSort] = useState<Sort>(
     sort === 'title' || sort === 'year' ? sort : 'added',
@@ -66,7 +68,16 @@ export function BrowseScreen({
             { value: 'year', label: t('library.sortYear') },
           ]}
           value={selectedSort}
-          onChange={setSelectedSort}
+          onChange={(value) => {
+            setSelectedSort(value)
+            const search = { sort: value, genre: selectedGenre || undefined }
+            if (kind === 'movie') void router?.navigate({ to: '/movies', search })
+            else
+              void router?.navigate({
+                to: '/series',
+                search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
+              })
+          }}
         />
         <ChipGroup
           legend={t('library.genre')}
@@ -76,7 +87,16 @@ export function BrowseScreen({
             ...genres.map((value) => ({ value, label: value })),
           ]}
           value={selectedGenre}
-          onChange={setSelectedGenre}
+          onChange={(value) => {
+            setSelectedGenre(value)
+            const search = { sort: selectedSort, genre: value || undefined }
+            if (kind === 'movie') void router?.navigate({ to: '/movies', search })
+            else
+              void router?.navigate({
+                to: '/series',
+                search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
+              })
+          }}
         />
       </div>
       {kind === 'series' && (
@@ -85,7 +105,16 @@ export function BrowseScreen({
             type="checkbox"
             checked={onlyIncomplete}
             onChange={(event) => {
-              setOnlyIncomplete(event.currentTarget.checked)
+              const incomplete = event.currentTarget.checked
+              setOnlyIncomplete(incomplete)
+              void router?.navigate({
+                to: '/series',
+                search: {
+                  sort: selectedSort,
+                  genre: selectedGenre || undefined,
+                  incomplete: incomplete ? 1 : undefined,
+                },
+              })
             }}
             className="size-5 accent-accent"
           />

@@ -209,7 +209,7 @@ export function EditScreen({ id }: { id: number }) {
         .then(() => {
           invalidateCatalog()
           void navigate({
-            to: `/${kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}` as never,
+            to: `/${kind === 'movie' ? 'movies' : 'series'}/${String(id)}` as never,
           })
         })
         .catch(setPlanError)
@@ -281,7 +281,7 @@ export function EditScreen({ id }: { id: number }) {
     <LibraryLayout hideMobileNav>
       <PageHeader
         back={
-          <AppLink href={`/${title.kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}`}>
+          <AppLink href={`/${title.kind === 'movie' ? 'movies' : 'series'}/${String(id)}`}>
             {title.title}
           </AppLink>
         }

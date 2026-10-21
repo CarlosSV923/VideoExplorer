@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryHistory } from '@tanstack/react-router'
 
 import { createI18n, type Language } from '@/shared/i18n'
@@ -133,7 +133,7 @@ describe('App', () => {
   })
 
   it('redirects an expired session to login with the current route', async () => {
-    const history = createMemoryHistory({ initialEntries: ['/peliculas'] })
+    const history = createMemoryHistory({ initialEntries: ['/movies'] })
     const expired = {
       ...services,
       identity: {
@@ -145,18 +145,18 @@ describe('App', () => {
     render(<App services={expired} history={history} />)
 
     await waitFor(() => {
-      expect(history.location.pathname).toBe('/entrar')
+      expect(history.location.pathname).toBe('/login')
     })
-    expect(history.location.search).toContain('redirect=%2Fpeliculas')
+    expect(history.location.search).toContain('redirect=%2Fmovies')
   })
 
   it.each([
-    ['/no-asignados/7/asignar', 'assign'],
-    ['/peliculas/1', 'movie'],
+    ['/unassigned/7/assign', 'assign'],
+    ['/movies/1', 'movie'],
     ['/series/2', 'series'],
-    ['/peliculas/1/editar', 'edit'],
-    ['/series/2/editar', 'seriesEdit'],
-    ['/colecciones/9', 'collection'],
+    ['/movies/1/edit', 'edit'],
+    ['/series/2/edit', 'seriesEdit'],
+    ['/collections/9', 'collection'],
   ])('resuelve la ruta real %s sin caer en el estado vacío', async (path, route) => {
     const history = createMemoryHistory({ initialEntries: [path] })
     render(<App i18n={createI18n('es')} services={routeServices} history={history} />)
@@ -184,14 +184,129 @@ describe('App', () => {
   })
 
   it.each([
-    ['/peliculas/101', 'libraryTitle', 'Este título ya no está en la biblioteca', '/peliculas'],
+    ['/login', 'Entrar'],
+    ['/movies?sort=year&genre=Drama', 'Películas'],
+    ['/series?sort=added&incomplete=1', 'Series'],
+    ['/search?q=dark', 'Buscar en la biblioteca'],
+    ['/unassigned', 'No asignados'],
+    ['/settings/general', 'Ajustes'],
+    ['/settings/trash', 'Papelera'],
+  ])('loads the English route and query names at %s', async (path, heading) => {
+    render(
+      <App
+        i18n={createI18n('es')}
+        services={routeServices}
+        history={createMemoryHistory({ initialEntries: [path] })}
+      />,
+    )
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+  })
+
+  it.each(['/peliculas', '/ajustes/papelera'])(
+    'does not keep the former route %s and shows not found',
+    async (path) => {
+      render(
+        <App
+          i18n={createI18n('es')}
+          services={routeServices}
+          history={createMemoryHistory({ initialEntries: [path] })}
+        />,
+      )
+      expect(
+        await screen.findByRole('heading', { name: 'No encontramos esa página' }),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it('writes the English browse search parameters when filters change', async () => {
+    const catalog = {
+      ...routeServices.catalog,
+      libraryTitles: vi.fn(() =>
+        Promise.resolve({
+          titles: [
+            {
+              id: 1,
+              kind: 'series' as const,
+              title: 'Dark',
+              discTitle: 'Dark',
+              year: 2017,
+              idTag: true,
+              addedAt: '2026-10-01T00:00:00Z',
+              genres: ['Drama', 'Comedia'],
+              missingEpisodes: 1,
+            },
+          ],
+        }),
+      ),
+    }
+    const history = createMemoryHistory({ initialEntries: ['/series?sort=added&genre=Drama'] })
+    render(
+      <App i18n={createI18n('es')} services={{ ...routeServices, catalog }} history={history} />,
+    )
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Ordenar' })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Año' }))
+    await waitFor(() => {
+      expect(history.location.search).toContain('sort=year')
+    })
+    fireEvent.click(screen.getByLabelText('Comedia'))
+    await waitFor(() => {
+      expect(history.location.search).toContain('genre=Comedia')
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Solo incomplet/ }))
+    await waitFor(() => {
+      expect(history.location.search).toContain('incomplete=1')
+    })
+  })
+
+  it('reads and writes the English season parameter on a series detail route', async () => {
+    const catalog = {
+      ...routeServices.catalog,
+      libraryTitle: vi.fn(() =>
+        Promise.resolve({
+          id: 2,
+          kind: 'series' as const,
+          title: 'Dark',
+          discTitle: 'Dark',
+          year: 2017,
+          idTag: true,
+          tmdbId: 1,
+          originalTitle: 'Dark',
+          overview: '',
+          runtime: 0,
+          genres: [],
+          seasons: [
+            { number: 1, episodes: [] },
+            { number: 2, episodes: [] },
+          ],
+          videos: [],
+        }),
+      ),
+    }
+    const history = createMemoryHistory({ initialEntries: ['/series/2?season=1'] })
+    render(
+      <App i18n={createI18n('es')} services={{ ...routeServices, catalog }} history={history} />,
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /Temporada 1/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    )
+    fireEvent.click(screen.getByRole('tab', { name: /Temporada 2/ }))
+    await waitFor(() => {
+      expect(history.location.search).toContain('season=2')
+    })
+  })
+
+  it.each([
+    ['/movies/101', 'libraryTitle', 'Este título ya no está en la biblioteca', '/movies'],
     ['/series/102', 'libraryTitle', 'Este título ya no está en la biblioteca', '/series'],
-    ['/colecciones/103', 'libraryCollection', 'Esta colección ya no está disponible', '/peliculas'],
+    ['/collections/103', 'libraryCollection', 'Esta colección ya no está disponible', '/movies'],
     [
-      '/no-asignados/104/asignar',
+      '/unassigned/104/assign',
       'takeAssignLock',
       'Esta entrada ya no está en No asignados',
-      '/no-asignados',
+      '/unassigned',
     ],
   ])('shows a missing resource state for %s', async (path, port, title, backHref) => {
     const catalog = {
@@ -227,12 +342,12 @@ describe('App', () => {
       <App
         i18n={createI18n(language)}
         services={missingServices}
-        history={createMemoryHistory({ initialEntries: ['/peliculas/1'] })}
+        history={createMemoryHistory({ initialEntries: ['/movies/1'] })}
       />,
     )
 
     expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: backLabel })).toHaveAttribute('href', '/peliculas')
+    expect(screen.getByRole('link', { name: backLabel })).toHaveAttribute('href', '/movies')
     expect(screen.queryByRole('button', { name: /retry|reintentar/i })).not.toBeInTheDocument()
   })
 })

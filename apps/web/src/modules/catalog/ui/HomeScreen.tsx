@@ -92,7 +92,7 @@ function HomeContent({
             title={t('library.recentMovies')}
             items={row(movies)}
             seeAll={
-              <AppLink href="/peliculas" className="text-body-sm">
+              <AppLink href="/movies" className="text-body-sm">
                 {t('library.seeAll')}
               </AppLink>
             }

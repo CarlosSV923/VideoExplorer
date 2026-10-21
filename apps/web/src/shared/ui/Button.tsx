@@ -120,7 +120,7 @@ interface LinkButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
 function isAppRouteHref(href: string): boolean {
   return (
     href === '/' ||
-    /^\/(?:peliculas|series|colecciones|buscar|no-asignados|ajustes|entrar)(?:\/|\?|$)/.test(href)
+    /^\/(?:movies|series|collections|search|unassigned|settings|login)(?:\/|\?|$)/.test(href)
   )
 }
 

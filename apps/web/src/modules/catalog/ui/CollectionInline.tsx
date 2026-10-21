@@ -20,7 +20,7 @@ export function CollectionInline({
             {t('library.collectionCount', { present, total: collection.movies.length })}
           </p>
         </div>
-        <AppLink href={`/colecciones/${String(collection.id)}`}>
+        <AppLink href={`/collections/${String(collection.id)}`}>
           {t('library.viewCollection')}
         </AppLink>
       </div>
@@ -37,9 +37,7 @@ export function CollectionInline({
               .join(' · ')}
             dimmed={!movie.inLibrary}
             {...(movie.poster ? { image: movie.poster } : {})}
-            {...(movie.libraryTitleId
-              ? { href: `/peliculas/${String(movie.libraryTitleId)}` }
-              : {})}
+            {...(movie.libraryTitleId ? { href: `/movies/${String(movie.libraryTitleId)}` } : {})}
           />
         ))}
       </div>

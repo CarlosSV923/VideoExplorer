@@ -25,7 +25,7 @@ export function CollectionCard({
     : 'linear-gradient(120deg, #11221d 0%, #2c5246 60%, #0c0c0f 100%)'
   return (
     <AppLink
-      href={`/colecciones/${String(id)}`}
+      href={`/collections/${String(id)}`}
       aria-label={`${name}, ${t('library.collectionCount', { present: inLibrary, total })}`}
       className="block min-w-[280px] flex-[0_0_360px] shrink-0 rounded-lg no-underline transition duration-120 ease-out hover:-translate-y-1 focus-visible:-translate-y-1 sm:min-w-0"
       style={{ backgroundImage: background }}

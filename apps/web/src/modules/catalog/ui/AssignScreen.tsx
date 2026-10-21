@@ -59,7 +59,7 @@ export function AssignScreen({ id }: { id: number }) {
 
   const goToUnassigned = useCallback(() => {
     try {
-      void navigate({ to: '/no-asignados' as never }).catch(() => undefined)
+      void navigate({ to: '/unassigned' as never }).catch(() => undefined)
     } catch {
       // Standalone screen tests do not mount the app router.
     }
@@ -226,7 +226,7 @@ export function AssignScreen({ id }: { id: number }) {
               title={t('missing.entryTitle')}
               body={t('missing.entry')}
               action={
-                <LinkButton href="/no-asignados" variant="primary">
+                <LinkButton href="/unassigned" variant="primary">
                   {t('missing.backUnassigned')}
                 </LinkButton>
               }

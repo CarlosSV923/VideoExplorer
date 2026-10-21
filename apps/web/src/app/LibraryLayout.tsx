@@ -22,7 +22,7 @@ export function Header() {
   const uploadsAriaLabel =
     active > 0 ? t('library.uploadsAriaLabel', { count: active }) : t('library.uploads')
   const links = [
-    ['/peliculas', t('library.movies')],
+    ['/movies', t('library.movies')],
     ['/series', t('library.seriesPlural')],
   ] as const
   return (
@@ -34,13 +34,17 @@ export function Header() {
             {t('library.home')}
           </AppLink>
           {links.map(([href, label]) => (
-            <AppLink key={href} href={href} className="text-body-sm font-semibold no-underline">
+            <AppLink
+              key={href}
+              href={href}
+              className="text-body-sm font-semibold no-underline [&[aria-current=page]]:text-accent"
+            >
               {label}
             </AppLink>
           ))}
         </nav>
         <form
-          action="/buscar"
+          action="/search"
           method="get"
           className="ml-auto hidden min-w-48 max-w-72 flex-1 md:block"
         >
@@ -52,7 +56,7 @@ export function Header() {
           />
         </form>
         <AppLink
-          href="/buscar"
+          href="/search"
           aria-label={t('library.search')}
           className="inline-flex size-control-sm items-center justify-center rounded-full md:hidden"
         >
@@ -86,7 +90,7 @@ export function Header() {
         </button>
         {dataSource === 'demo' && <TryExamplesButton className="hidden md:inline-flex" />}
         <AppLink
-          href="/ajustes/general"
+          href="/settings/general"
           aria-label={t('library.settings')}
           className="inline-flex size-control-sm items-center justify-center rounded-full text-ink-2"
         >
@@ -102,10 +106,10 @@ export function MobileNav() {
   const { t } = useTranslation()
   const links = [
     ['/', '⌂', t('library.home')],
-    ['/peliculas', '▣', t('library.movies')],
+    ['/movies', '▣', t('library.movies')],
     ['/series', '▤', t('library.seriesPlural')],
-    ['/no-asignados', '□', t('library.unassigned')],
-    ['/ajustes/general', '⚙', t('library.settings')],
+    ['/unassigned', '□', t('library.unassigned')],
+    ['/settings/general', '⚙', t('library.settings')],
   ] as const
   return (
     <nav
@@ -116,7 +120,7 @@ export function MobileNav() {
         <AppLink
           key={href}
           href={href}
-          className="flex min-h-16 flex-col items-center justify-center gap-0.5 text-caption text-ink-2 no-underline"
+          className="flex min-h-16 flex-col items-center justify-center gap-0.5 text-caption text-ink-2 no-underline [&[aria-current=page]]:text-accent"
         >
           <span aria-hidden="true" className="text-lg">
             {icon}

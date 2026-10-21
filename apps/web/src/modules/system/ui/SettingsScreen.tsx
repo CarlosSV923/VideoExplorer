@@ -27,14 +27,14 @@ export function SettingsScreen() {
         actions={
           <nav aria-label={t('settings.sections')} className="flex gap-2">
             <AppLink
-              href="/ajustes/general"
+              href="/settings/general"
               aria-current="page"
               className="rounded-pill border border-accent px-3 py-2 text-body-sm font-bold no-underline"
             >
               {t('settings.general')}
             </AppLink>
             <AppLink
-              href="/ajustes/papelera"
+              href="/settings/trash"
               className="rounded-pill border border-control px-3 py-2 text-body-sm font-bold no-underline"
             >
               {t('settings.trash')}
@@ -144,7 +144,7 @@ export function SettingsScreen() {
             onClick={() => {
               logout.mutate(undefined, {
                 onSuccess: () => {
-                  void navigate({ to: '/entrar', search: {} }).catch(() => undefined)
+                  void navigate({ to: '/login', search: {} }).catch(() => undefined)
                 },
               })
             }}

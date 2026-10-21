@@ -77,7 +77,7 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/entrar',
+  path: '/login',
   validateSearch: (search: Record<string, unknown>): { redirect?: string } =>
     typeof search.redirect === 'string' ? { redirect: search.redirect } : {},
   beforeLoad: ({ context, search }) => {
@@ -144,7 +144,7 @@ const appRoute = createRoute({
     } catch (error) {
       if (isAppError(error, 'unauthorized')) {
         // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router redirect is a control-flow object
-        throw redirect({ to: '/entrar', search: { redirect: location.href } })
+        throw redirect({ to: '/login', search: { redirect: location.href } })
       }
       throw error
     }
@@ -163,10 +163,10 @@ function screenRoute(path: string, screen: ScreenKey) {
 const homeRoute = screenRoute('/', 'home')
 const moviesRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/peliculas',
+  path: '/movies',
   validateSearch: (search: Record<string, unknown>) => ({
-    orden: typeof search.orden === 'string' ? search.orden : undefined,
-    genero: typeof search.genero === 'string' ? search.genero : undefined,
+    sort: typeof search.sort === 'string' ? search.sort : undefined,
+    genre: typeof search.genre === 'string' ? search.genre : undefined,
   }),
   component: MoviesRoute,
 })
@@ -174,53 +174,56 @@ const seriesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/series',
   validateSearch: (search: Record<string, unknown>) => ({
-    orden: typeof search.orden === 'string' ? search.orden : undefined,
-    genero: typeof search.genero === 'string' ? search.genero : undefined,
-    incompletas: search.incompletas === '1' ? '1' : undefined,
+    sort: typeof search.sort === 'string' ? search.sort : undefined,
+    genre: typeof search.genre === 'string' ? search.genre : undefined,
+    incomplete: search.incomplete === 1 ? 1 : undefined,
   }),
   component: SeriesRoute,
 })
 const movieDetailRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/peliculas/$id',
+  path: '/movies/$id',
   component: MovieDetailRoute,
 })
 const seriesDetailRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/series/$id',
+  validateSearch: (search: Record<string, unknown>) => ({
+    season: typeof search.season === 'number' ? search.season : undefined,
+  }),
   component: SeriesDetailRoute,
 })
 const movieEditRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/peliculas/$id/editar',
+  path: '/movies/$id/edit',
   component: MovieEditRoute,
 })
 const seriesEditRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/series/$id/editar',
+  path: '/series/$id/edit',
   component: SeriesEditRoute,
 })
 const collectionRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/colecciones/$id',
+  path: '/collections/$id',
   component: CollectionRoute,
 })
 const searchRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/buscar',
+  path: '/search',
   validateSearch: (search: Record<string, unknown>) => ({
     q: typeof search.q === 'string' ? search.q : '',
   }),
   component: SearchRoute,
 })
-const unassignedRoute = screenRoute('/no-asignados', 'unassigned')
+const unassignedRoute = screenRoute('/unassigned', 'unassigned')
 const assignRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/no-asignados/$id/asignar',
+  path: '/unassigned/$id/assign',
   component: AssignRoute,
 })
-const generalSettingsRoute = screenRoute('/ajustes/general', 'generalSettings')
-const trashSettingsRoute = screenRoute('/ajustes/papelera', 'trashSettings')
+const generalSettingsRoute = screenRoute('/settings/general', 'generalSettings')
+const trashSettingsRoute = screenRoute('/settings/trash', 'trashSettings')
 
 function MoviesRoute() {
   const search = moviesRoute.useSearch()
@@ -228,8 +231,8 @@ function MoviesRoute() {
     <MarkerScreen
       screen="movies"
       search={{
-        ...(search.orden !== undefined ? { orden: search.orden } : {}),
-        ...(search.genero !== undefined ? { genero: search.genero } : {}),
+        ...(search.sort !== undefined ? { sort: search.sort } : {}),
+        ...(search.genre !== undefined ? { genre: search.genre } : {}),
       }}
     />
   )
@@ -241,9 +244,9 @@ function SeriesRoute() {
     <MarkerScreen
       screen="series"
       search={{
-        ...(search.orden !== undefined ? { orden: search.orden } : {}),
-        ...(search.genero !== undefined ? { genero: search.genero } : {}),
-        ...(search.incompletas !== undefined ? { incompletas: search.incompletas } : {}),
+        ...(search.sort !== undefined ? { sort: search.sort } : {}),
+        ...(search.genre !== undefined ? { genre: search.genre } : {}),
+        ...(search.incomplete !== undefined ? { incomplete: String(search.incomplete) } : {}),
       }}
     />
   )
@@ -256,7 +259,8 @@ function MovieDetailRoute() {
 
 function SeriesDetailRoute() {
   const { id } = seriesDetailRoute.useParams()
-  return <MarkerScreen screen="seriesDetail" id={Number(id)} />
+  const search = seriesDetailRoute.useSearch()
+  return <MarkerScreen screen="seriesDetail" id={Number(id)} search={search} />
 }
 
 function MovieEditRoute() {

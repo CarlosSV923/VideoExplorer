@@ -36,13 +36,13 @@ async function chooseDuplicate(page: Page) {
 }
 
 async function clickInternalPath(page: Page, path: string) {
-  if (path === '/no-asignados' && (page.viewportSize()?.width ?? 1024) < 768) {
+  if (path === '/unassigned' && (page.viewportSize()?.width ?? 1024) < 768) {
     await page
       .getByRole('navigation', { name: 'Navegación móvil' })
       .getByRole('link', { name: 'No asignados' })
       .click()
   } else {
-    if (path === '/no-asignados') {
+    if (path === '/unassigned') {
       await page.getByRole('link', { name: 'VideoExplorer' }).click()
     }
     await page.locator(`a[href="${path}"]`).first().click()
@@ -97,10 +97,10 @@ test('internal navigation preserves demo state and active upload progress withou
   await page
     .getByRole('heading', { name: 'Películas agregadas recientemente' })
     .locator('xpath=../..')
-    .locator('a[href^="/peliculas/"]')
+    .locator('a[href^="/movies/"]')
     .first()
     .click()
-  await expect(page).toHaveURL(/\/peliculas\/\d+$/)
+  await expect(page).toHaveURL(/\/movies\/\d+$/)
   await page.getByRole('button', { name: /Subidas/ }).click()
   const detailProgress = panel
     .locator('article')
@@ -118,8 +118,8 @@ test('internal navigation preserves demo state and active upload progress withou
         .getByRole('navigation', { name: 'Navegación principal' })
         .getByRole('link', { name: 'Películas' })
   await moviesLink.click()
-  await expect(page).toHaveURL('/peliculas')
-  await clickInternalPath(page, '/no-asignados')
+  await expect(page).toHaveURL('/movies')
+  await clickInternalPath(page, '/unassigned')
   await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
   expect(
     await page.evaluate(() => (window as Window & { navigationMarker?: string }).navigationMarker),
@@ -153,10 +153,10 @@ test('home, movie and series details show seeded content and seasons', async ({ 
   await page
     .getByRole('heading', { name: 'Películas agregadas recientemente' })
     .locator('xpath=../..')
-    .locator('a[href^="/peliculas/"]')
+    .locator('a[href^="/movies/"]')
     .first()
     .click()
-  await expect(page).toHaveURL(/\/peliculas\/\d+$/)
+  await expect(page).toHaveURL(/\/movies\/\d+$/)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   await page.goto('/')
@@ -171,19 +171,19 @@ test('home, movie and series details show seeded content and seasons', async ({ 
 })
 
 test('a missing demo movie shows a translated empty state and a return link', async ({ page }) => {
-  await page.goto('/peliculas/1')
+  await page.goto('/movies/1')
   await expect(
     page.getByRole('heading', { name: 'Este título ya no está en la biblioteca' }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: 'Volver a Películas' })).toHaveAttribute(
     'href',
-    '/peliculas',
+    '/movies',
   )
   await expect(page.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
 })
 
 test('search finds a seeded movie', async ({ page }) => {
-  await page.goto('/buscar?q=dark')
+  await page.goto('/search?q=dark')
   await expect(page.getByRole('heading', { name: 'Buscar en la biblioteca' })).toBeVisible()
   await expect(
     page.getByText('Batman: El caballero de la noche', { exact: true }).first(),
@@ -229,26 +229,26 @@ test('demo examples ask for a relation, unlock multipart archives, and reach Una
   ).toBeVisible()
 
   await page.getByLabel('Subidas').getByRole('button', { name: 'Cerrar' }).click()
-  await clickInternalPath(page, '/no-asignados')
-  await expect(page).toHaveURL('/no-asignados')
+  await clickInternalPath(page, '/unassigned')
+  await expect(page).toHaveURL('/unassigned')
   await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Volver a leer' }).click()
   await expect(page.locator('article').filter({ hasText: 'Inception.2010' })).toBeVisible()
 })
 
 test('assigns the seeded Dark Knight duplicate through save', async ({ page }) => {
-  await page.goto('/no-asignados/4/asignar')
+  await page.goto('/unassigned/4/assign')
   await expect(page.getByRole('heading', { name: /Asignar/ })).toBeVisible()
   await chooseDuplicate(page)
 
   const save = page.getByRole('button', { name: 'Guardar', exact: true }).last()
   await expect(save).toBeEnabled()
   await save.click()
-  await expect(page).toHaveURL('/no-asignados')
+  await expect(page).toHaveURL('/unassigned')
 })
 
 test('restores a trash item and shows TMDB attribution in settings', async ({ page }) => {
-  await page.goto('/ajustes/papelera')
+  await page.goto('/settings/trash')
   const entry = page.locator('article').filter({ hasText: 'Inception.2010.part1.rar' })
   await entry.getByRole('button', { name: /Restaurar/ }).click()
   const dialog = page.getByRole('dialog')
@@ -257,13 +257,13 @@ test('restores a trash item and shows TMDB attribution in settings', async ({ pa
   await dialog.getByRole('button', { name: 'Restaurar', exact: true }).click()
   await expect(dialog).toBeHidden()
 
-  await clickInternalPath(page, '/no-asignados')
+  await clickInternalPath(page, '/unassigned')
   await page.getByRole('button', { name: 'Volver a leer' }).click()
   await expect(
     page.locator('article').filter({ hasText: 'Inception.2010.part1.rar' }),
   ).toBeVisible()
 
-  await page.goto('/ajustes/general')
+  await page.goto('/settings/general')
   await expect(
     page.getByText('This product uses the TMDB API but is not endorsed or certified by TMDB.'),
   ).toBeVisible()
@@ -273,7 +273,7 @@ test('reloads a deep route and uses only TMDB images, with placeholders when blo
   page,
   externalHosts,
 }) => {
-  await page.goto('/ajustes/papelera')
+  await page.goto('/settings/trash')
   await expect(page.getByRole('heading', { name: 'Papelera', exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Papelera', exact: true })).toBeVisible()

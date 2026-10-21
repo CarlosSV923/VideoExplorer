@@ -26,7 +26,7 @@ export function CollectionScreen({ id }: { id: number }) {
               title={t('missing.collectionTitle')}
               body={t('missing.collection')}
               action={
-                <LinkButton href="/peliculas" variant="primary">
+                <LinkButton href="/movies" variant="primary">
                   {t('missing.backMovies')}
                 </LinkButton>
               }
@@ -62,9 +62,7 @@ export function CollectionScreen({ id }: { id: number }) {
             dimmed={!movie.inLibrary}
             fluid
             {...(movie.poster ? { image: movie.poster } : {})}
-            {...(movie.libraryTitleId
-              ? { href: `/peliculas/${String(movie.libraryTitleId)}` }
-              : {})}
+            {...(movie.libraryTitleId ? { href: `/movies/${String(movie.libraryTitleId)}` } : {})}
           />
         ))}
       </div>

@@ -17,7 +17,7 @@ export function PendingStrip({
     <section aria-label={t('library.pending')} className="flex flex-wrap gap-3">
       {unassignedCount !== undefined && unassignedCount > 0 && (
         <AppLink
-          href="/no-asignados"
+          href="/unassigned"
           className="rounded-md border border-warning bg-warning-surface px-4 py-3 text-warning-ink no-underline"
         >
           {t('library.pendingUnassigned', { count: unassignedCount })}
@@ -25,7 +25,7 @@ export function PendingStrip({
       )}
       {incomplete > 0 && (
         <AppLink
-          href="/series?incompletas=1"
+          href="/series?incomplete=1"
           className="rounded-md border border-warning bg-warning-surface px-4 py-3 text-warning-ink no-underline"
         >
           {t('library.pendingIncomplete', { count: incomplete })}

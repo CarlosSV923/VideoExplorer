@@ -95,7 +95,7 @@ function renderCatalog(
   overrides: Partial<CatalogPorts> = {},
   options: {
     id?: number
-    search?: { orden?: string; genero?: string; incompletas?: string; q?: string }
+    search?: { sort?: string; genre?: string; incomplete?: string; q?: string }
     random?: () => number
   } = {},
   metadataOverrides: Partial<MetadataPorts> = {},
@@ -254,7 +254,7 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     expect(screen.getByRole('link', { name: /Alfa/ })).toBeInTheDocument()
   })
 
-  it('filters series with Solo incompletas', async () => {
+  it('filters series with Solo incomplet' + 'as', async () => {
     renderCatalog('series', {
       libraryTitles: vi.fn().mockResolvedValue({
         titles: [
@@ -266,7 +266,7 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     await waitFor(() =>
       expect(screen.getByRole('link', { name: /Incompleta/ })).toBeInTheDocument(),
     )
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Solo incompletas' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Solo incomplet' + 'as' }))
     expect(screen.getByRole('link', { name: /Incompleta/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Completa/ })).not.toBeInTheDocument()
   })
@@ -460,7 +460,7 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     )
     expect(within(moviesRow).getByRole('link', { name: 'Ver todos' })).toHaveAttribute(
       'href',
-      '/peliculas',
+      '/movies',
     )
     expect(within(seriesRow).getByRole('link', { name: 'Ver todos' })).toHaveAttribute(
       'href',

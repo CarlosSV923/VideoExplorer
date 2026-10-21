@@ -37,7 +37,13 @@ export function MarkerScreen({
 }: {
   screen: ScreenKey
   id?: number
-  search?: { orden?: string; genero?: string; incompletas?: string; q?: string }
+  search?: {
+    sort?: string
+    genre?: string
+    incomplete?: string
+    q?: string
+    season?: number | undefined
+  }
 }) {
   const { t } = useTranslation()
   const catalog = useCatalogPorts()
