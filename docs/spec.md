@@ -246,6 +246,6 @@ Se resuelven con el usuario, uno a uno, antes de la fase que los necesita.
 7. ~~Título destacado del hero~~ **Resuelto**: rotativo entre los 5 recientes (RF-40).
 8. ~~Nombre de las carpetas raíz~~ **Resuelto**: `Movies/` y `TV Shows/` (§5).
 9. ~~Idioma de los subtítulos~~ **Resuelto**: ISO 639-1 con región opcional, solo regiones que Jellyfin reconoce (§5, spike 2026-10-10).
-10. ~~Repositorio e imagen~~ **Resuelto**: `github.com/CarlosSV923/VideoExplorer` público (MIT) e imagen `ghcr.io/carlossv923/videoexplorer`. Primera versión publicada: `0.1.0` (tag `v0.1.0`, antes de la prueba en el NAS); el compose de TrueNAS fija la versión publicada que se va a probar (`0.1.3` desde el 2026-10-20, con las correcciones de la primera instalación y la detección automática).
+10. ~~Repositorio e imagen~~ **Resuelto**: `github.com/CarlosSV923/VideoExplorer` público (MIT) e imagen `ghcr.io/carlossv923/videoexplorer`. Primera versión publicada: `0.1.0` (tag `v0.1.0`, antes de la prueba en el NAS); el compose de TrueNAS fija la versión publicada que se va a probar (`0.1.4` desde el 2026-10-21, con la segunda ronda de correcciones del NAS).
 11. ~~Valores por defecto de las variables~~ **Resuelto** (2026-10-10): como GameExplorer (§7).
 12. ~~Estados de `/api/health`~~ **Resuelto** (2026-10-10): RF-63.
