@@ -6,6 +6,8 @@
 4. **Install the app.** In TrueNAS SCALE, open **Apps → Discover Apps → Custom App → Install via YAML**. Use `videoexplorer` as the app name, paste the compose YAML, and install. The image is pinned to `0.1.2`; keep Jellyfin settings commented unless configuring Jellyfin.
 5. **Check first start.** Open `http://<nas-ip>:8080/api/health`. It should return HTTP 200 with `status: "ok"`. If the library ACL is wrong, health reports a degraded state; if `/data` is not writable, check the app log for the UID/GID and missing ACL.
 
+The fallback scan of the full library runs every 6 hours (`LIBRARY_SCAN_INTERVAL`); `_unassigned/` is scanned every 30 minutes (`UNASSIGNED_SCAN_INTERVAL`). The compose sets both values. Filesystem change detection is configured separately.
+
 ## Jellyfin paths
 
 Jellyfin should see the same media dataset that VideoExplorer mounts at `/library`. If both containers expose it at different paths, VideoExplorer detects the Jellyfin paths for `Movies/` and `TV Shows/` automatically. If detection cannot find them, set `JELLYFIN_LIBRARY_PATH` to the path Jellyfin uses for the root mounted at `/library`. Configure `JELLYFIN_URL` and `JELLYFIN_API_KEY` together; all three values are optional. Jellyfin scans the shared files normally, and VideoExplorer requests a refresh after changes.

@@ -53,8 +53,8 @@ func TestLoadAppliesDefaults(t *testing.T) {
 		{"JellyfinLibraryPath", cfg.JellyfinLibraryPath, ""},
 		{"TrashRetentionDays", cfg.TrashRetentionDays, 30},
 		{"ExtractConcurrency", cfg.ExtractConcurrency, 1},
-		{"UnassignedScanInterval", cfg.UnassignedScanInterval, 5 * time.Minute},
-		{"LibraryScanInterval", cfg.LibraryScanInterval, time.Hour},
+		{"UnassignedScanInterval", cfg.UnassignedScanInterval, 30 * time.Minute},
+		{"LibraryScanInterval", cfg.LibraryScanInterval, 6 * time.Hour},
 		{"VideoExtensions", cfg.VideoExtensions, splitList(defaultVideoExts)},
 		{"SubtitleExtensions", cfg.SubtitleExtensions, splitList(defaultSubtitleExts)},
 	}
@@ -228,7 +228,7 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 		{"missing data", func(e map[string]string) { delete(e, "DATA_PATH") }, "DATA_PATH"},
 		{"missing session secret", func(e map[string]string) { delete(e, "SESSION_SECRET") }, "SESSION_SECRET"},
 		{"no password", func(e map[string]string) { delete(e, "APP_PASSWORD") }, "APP_PASSWORD_HASH (recommended) or APP_PASSWORD"},
-		{"both passwords", func(e map[string]string) { e["APP_PASSWORD_HASH"] = "$argon2id$..." }, "only one of APP_PASSWORD_HASH"},
+		{"both passwords", func(e map[string]string) { e["APP_PASSWORD_HASH"] = "$argon2id$..." }, "APP_PASSWORD_HASH and APP_PASSWORD are both set"},
 		{"short secret", func(e map[string]string) { e["SESSION_SECRET"] = "short" }, "SESSION_SECRET must be at least 32 bytes"},
 		{"zero ttl", func(e map[string]string) { e["SESSION_TTL"] = "0s" }, "SESSION_TTL must be positive"},
 		{"bad ttl", func(e map[string]string) { e["SESSION_TTL"] = "720" }, "SESSION_TTL"},
@@ -244,9 +244,9 @@ func TestLoadRejectsInvalidConfig(t *testing.T) {
 		{"both TMDB credentials", func(e map[string]string) {
 			e["TMDB_API_KEY"] = "v3"
 			e["TMDB_READ_TOKEN"] = "v4"
-		}, "only one of TMDB_API_KEY and TMDB_READ_TOKEN"},
-		{"Jellyfin URL without key", func(e map[string]string) { e["JELLYFIN_URL"] = "http://jellyfin:8096" }, "JELLYFIN_URL and JELLYFIN_API_KEY"},
-		{"Jellyfin key without URL", func(e map[string]string) { e["JELLYFIN_API_KEY"] = "key" }, "JELLYFIN_URL and JELLYFIN_API_KEY"},
+		}, "TMDB_API_KEY and TMDB_READ_TOKEN are both set"},
+		{"Jellyfin URL without key", func(e map[string]string) { e["JELLYFIN_URL"] = "http://jellyfin:8096" }, "JELLYFIN_API_KEY is empty while JELLYFIN_URL is set"},
+		{"Jellyfin key without URL", func(e map[string]string) { e["JELLYFIN_API_KEY"] = "key" }, "JELLYFIN_URL is empty while JELLYFIN_API_KEY is set"},
 		{"Jellyfin URL not http", func(e map[string]string) {
 			e["JELLYFIN_URL"] = "ftp://jellyfin"
 			e["JELLYFIN_API_KEY"] = "key"

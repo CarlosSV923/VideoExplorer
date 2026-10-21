@@ -37,6 +37,8 @@ Las fases 0 a 11 están cerradas: la API, la interfaz web completa (biblioteca, 
 
 Crea un dataset multimedia para `/library` y otro para el estado de la app en `/data`. Mantén `Movies/`, `TV Shows/`, `_unassigned/` y `.videoexplorer/` (staging y papelera) en el dataset multimedia. Da una ACL heredada **Modify** al UID:GID de `user:` en el compose para ambos datasets. Genera `APP_PASSWORD_HASH` con `task hash-password` y configura un `SESSION_SECRET` aleatorio de al menos 32 bytes. Luego instala [`deploy/truenas/compose.yaml`](deploy/truenas/compose.yaml) desde **Apps → Discover Apps → Custom App → Install via YAML**. Tras el primer arranque, comprueba `http://<ip-del-nas>:8080/api/health`. La guía del compose explica la detección de rutas de Jellyfin y las actualizaciones: [`deploy/truenas/README.md`](deploy/truenas/README.md).
 
+El escaneo de respaldo de la biblioteca se ejecuta cada 6 horas y el de `_unassigned/` cada 30 minutos. El compose de TrueNAS configura estos intervalos con `LIBRARY_SCAN_INTERVAL` y `UNASSIGNED_SCAN_INTERVAL`; la detección de cambios del sistema de archivos se configura por separado.
+
 ## Desarrollo
 
 Requisitos: Docker, Node.js 24 o posterior, pnpm 12.9.1 y Task 3.

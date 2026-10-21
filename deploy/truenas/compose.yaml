@@ -37,8 +37,8 @@ services:
       # JELLYFIN_LIBRARY_PATH: '' # optional; path Jellyfin uses for /library
       TRASH_RETENTION_DAYS: '30'
       EXTRACT_CONCURRENCY: '1'
-      UNASSIGNED_SCAN_INTERVAL: 5m
-      LIBRARY_SCAN_INTERVAL: 1h
+      UNASSIGNED_SCAN_INTERVAL: 30m
+      LIBRARY_SCAN_INTERVAL: 6h
       VIDEO_EXTENSIONS: .mkv,.mp4,.avi,.m4v,.ts,.m2ts,.mov,.wmv,.webm,.mpg,.mpeg
       SUBTITLE_EXTENSIONS: .srt,.ass,.ssa,.sub,.idx,.vtt
     # The Dockerfile HEALTHCHECK (GET /api/health) is inherited by this service.

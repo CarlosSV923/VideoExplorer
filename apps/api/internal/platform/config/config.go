@@ -70,8 +70,8 @@ type Config struct {
 	// for spinning disks: parallel extractions only make them seek.
 	ExtractConcurrency int `env:"EXTRACT_CONCURRENCY" envDefault:"1"`
 	// UnassignedScanInterval and LibraryScanInterval set how often the scans run (RF-28).
-	UnassignedScanInterval time.Duration `env:"UNASSIGNED_SCAN_INTERVAL" envDefault:"5m"`
-	LibraryScanInterval    time.Duration `env:"LIBRARY_SCAN_INTERVAL" envDefault:"1h"`
+	UnassignedScanInterval time.Duration `env:"UNASSIGNED_SCAN_INTERVAL" envDefault:"30m"`
+	LibraryScanInterval    time.Duration `env:"LIBRARY_SCAN_INTERVAL" envDefault:"6h"`
 
 	// VideoExtensions and SubtitleExtensions are normalized to lowercase with a
 	// leading dot (RF-07).
@@ -146,7 +146,7 @@ func (c Config) validate() error {
 	case c.PasswordHash == "" && c.Password == "":
 		errs = append(errs, errors.New("set APP_PASSWORD_HASH (recommended) or APP_PASSWORD"))
 	case c.PasswordHash != "" && c.Password != "":
-		errs = append(errs, errors.New("set only one of APP_PASSWORD_HASH and APP_PASSWORD"))
+		errs = append(errs, errors.New("APP_PASSWORD_HASH and APP_PASSWORD are both set; leave one empty"))
 	}
 	if len(c.SessionSecret) < MinSessionSecretBytes {
 		errs = append(errs, fmt.Errorf("SESSION_SECRET must be at least %d bytes", MinSessionSecretBytes))
@@ -170,10 +170,14 @@ func (c Config) validate() error {
 		errs = append(errs, fmt.Errorf("LIBRARY_SCAN_INTERVAL must be at least 1m, got %s", c.LibraryScanInterval))
 	}
 	if c.TMDBAPIKey != "" && c.TMDBReadToken != "" {
-		errs = append(errs, errors.New("set only one of TMDB_API_KEY and TMDB_READ_TOKEN, or neither"))
+		errs = append(errs, errors.New("TMDB_API_KEY and TMDB_READ_TOKEN are both set; leave one empty"))
 	}
 	if (c.JellyfinURL == "") != (c.JellyfinAPIKey == "") {
-		errs = append(errs, errors.New("set both JELLYFIN_URL and JELLYFIN_API_KEY, or neither"))
+		if c.JellyfinURL != "" {
+			errs = append(errs, errors.New("JELLYFIN_API_KEY is empty while JELLYFIN_URL is set"))
+		} else {
+			errs = append(errs, errors.New("JELLYFIN_URL is empty while JELLYFIN_API_KEY is set"))
+		}
 	}
 	if c.JellyfinURL != "" && !validHTTPURL(c.JellyfinURL) {
 		errs = append(errs, fmt.Errorf("JELLYFIN_URL %q must be an http or https URL", c.JellyfinURL))
