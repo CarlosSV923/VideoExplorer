@@ -83,10 +83,28 @@ export function Poster({
           <span aria-hidden="true" className="absolute inset-0 bg-black/20" />
         )}
         {chips.length > 0 && (
-          <span className="absolute top-2 right-2 flex max-w-[calc(100%-16px)] flex-wrap justify-end gap-1 [&>span>span]:max-w-full [&>span>span]:whitespace-normal [&>span>span]:break-words">
+          <span
+            className={cx(
+              'absolute top-2 right-2 flex flex-wrap justify-end gap-1 [&>span>span]:max-w-full [&>span>span]:whitespace-normal [&>span>span]:break-words',
+              onToggle ? 'max-w-[calc(100%-48px)]' : 'max-w-[calc(100%-16px)]',
+            )}
+          >
             {chips.map((chip, index) => (
               <span key={index}>{chip}</span>
             ))}
+          </span>
+        )}
+        {onToggle && (
+          <span
+            aria-hidden="true"
+            className={cx(
+              'absolute top-2 left-2 grid size-6 place-items-center rounded-full border-2 shadow-sm',
+              selected
+                ? 'border-accent bg-accent text-on-accent'
+                : 'border-white bg-surface/80 text-on-accent',
+            )}
+          >
+            {selected && <CheckIcon size={16} strokeWidth={3} />}
           </span>
         )}
       </div>
@@ -107,22 +125,11 @@ export function Poster({
         aria-label={accessibleName}
         onClick={onToggle}
         className={cx(
-          'group relative block min-w-0 shrink-0 text-left',
+          'group relative flex min-w-0 shrink-0 flex-col items-stretch justify-start self-start text-left',
           fluid ? 'w-full' : 'w-poster-w',
         )}
       >
         {content}
-        <span
-          aria-hidden="true"
-          className={cx(
-            'absolute top-2 left-2 grid size-6 place-items-center rounded-full border',
-            selected
-              ? 'border-accent bg-accent text-on-accent'
-              : 'border-white bg-surface/80 text-on-accent',
-          )}
-        >
-          {selected && <CheckIcon size={16} strokeWidth={3} />}
-        </span>
       </button>
     )
   return href ? (

@@ -59,6 +59,25 @@ describe('UI primitives', () => {
     expect(screen.getByRole('link', { name: 'Dark, 2017, Serie, Faltan 4' })).toBeInTheDocument()
   })
 
+  it('keeps the selection mark inside the image frame and aligns the poster button to the top', () => {
+    wrap(<Poster title="Dark" onToggle={() => undefined} />)
+    const poster = screen.getByRole('checkbox', { name: 'Dark' })
+    const frame = poster.firstElementChild
+    const mark = frame?.querySelector('.rounded-full')
+
+    expect(poster).toHaveClass('flex', 'flex-col', 'items-stretch', 'justify-start', 'self-start')
+    expect(frame).toHaveClass('aspect-[2/3]')
+    expect(mark?.parentElement).toBe(frame)
+    expect(mark).toHaveClass(
+      'top-2',
+      'left-2',
+      'border-2',
+      'border-white',
+      'bg-surface/80',
+      'shadow-sm',
+    )
+  })
+
   it('keeps poster row widths fixed as the number of titles grows', () => {
     const posters = (count: number) =>
       Array.from({ length: count }, (_, index) => (

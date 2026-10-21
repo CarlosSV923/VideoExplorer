@@ -266,7 +266,9 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Seleccionar' }))
     const selectedPoster = screen.getByRole('checkbox', { name: /Zeta/ })
     fireEvent.click(selectedPoster)
-    const selectionMark = selectedPoster.querySelector('.absolute.top-2.left-2')
+    const imageFrame = selectedPoster.firstElementChild
+    const selectionMark = imageFrame?.querySelector('.absolute.top-2.left-2')
+    expect(selectionMark?.parentElement).toBe(imageFrame)
     expect(selectionMark).toHaveClass('border-accent', 'bg-accent', 'text-on-accent')
     expect(selectionMark?.querySelector('svg')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Título' }))

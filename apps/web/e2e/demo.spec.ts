@@ -214,6 +214,81 @@ test('selects two demo movies and restores them in Settings trash on desktop and
   await expect(page.locator('article')).toHaveCount(previousEntries + 2)
 })
 
+test('selection mode keeps every movie poster frame in the same top-aligned position', async ({
+  page,
+}) => {
+  await page.goto('/movies')
+  await expect(page.locator('a[href^="/movies/"]').first()).toBeVisible()
+  const grid = page.locator('main div.grid').first()
+  const setMixedLengthTitles = () =>
+    grid.evaluate((element) => {
+      const titles = Array.from(element.children)
+        .slice(0, 2)
+        .map((poster) => poster.children[1])
+      if (!titles[0] || !titles[1]) throw new Error('Expected two movie posters')
+      titles[0].textContent = 'Short'
+      titles[1].textContent =
+        'A deliberately long title that wraps into three lines on this poster grid'
+      return titles.map((title) => {
+        const lineHeight = Number.parseFloat(window.getComputedStyle(title).lineHeight)
+        return Math.round(title.getBoundingClientRect().height / lineHeight)
+      })
+    })
+  const readFrames = () =>
+    grid.evaluate((element) =>
+      Array.from(element.children).map((poster) => {
+        const frame = poster.firstElementChild
+        const title = frame?.nextElementSibling
+        return {
+          top: frame ? frame.getBoundingClientRect().top + window.scrollY : undefined,
+          left: frame?.getBoundingClientRect().left,
+          width: frame?.getBoundingClientRect().width,
+          height: frame?.getBoundingClientRect().height,
+          lines: title
+            ? Math.round(
+                title.getBoundingClientRect().height /
+                  Number.parseFloat(window.getComputedStyle(title).lineHeight),
+              )
+            : 0,
+        }
+      }),
+    )
+
+  expect(await setMixedLengthTitles()).toEqual([1, 3])
+  const before = await readFrames()
+  expect(before.length).toBeGreaterThan(1)
+  const rows = new Map<number, number[]>()
+  for (const frame of before) {
+    const top = Math.round(frame.top ?? -1)
+    rows.set(top, [...(rows.get(top) ?? []), frame.lines])
+  }
+  expect([...rows.values()][0]).toContain(1)
+  expect([...rows.values()][0]).toContain(3)
+
+  await page.getByRole('button', { name: 'Seleccionar', exact: true }).click()
+  await expect(page.getByRole('checkbox').first()).toBeVisible()
+  expect(await setMixedLengthTitles()).toEqual([1, 3])
+  const after = await readFrames()
+  expect(after).toHaveLength(before.length)
+  for (const [index, frame] of after.entries()) {
+    expect(frame.top).toBe(before[index]?.top)
+    expect(frame.left).toBe(before[index]?.left)
+    expect(frame.width).toBe(before[index]?.width)
+    expect(frame.height).toBe(before[index]?.height)
+  }
+
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).first().click()
+  await expect(page.getByRole('button', { name: 'Seleccionar', exact: true })).toBeVisible()
+  expect(await setMixedLengthTitles()).toEqual([1, 3])
+  const afterCancel = await readFrames()
+  for (const [index, frame] of afterCancel.entries()) {
+    expect(frame.top).toBe(before[index]?.top)
+    expect(frame.left).toBe(before[index]?.left)
+    expect(frame.width).toBe(before[index]?.width)
+    expect(frame.height).toBe(before[index]?.height)
+  }
+})
+
 test('demo examples ask for a relation, unlock multipart archives, and reach Unassigned', async ({
   page,
 }) => {
