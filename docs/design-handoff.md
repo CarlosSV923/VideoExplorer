@@ -90,7 +90,8 @@ Familias: **Outfit** 400/500/600/700/800 para la interfaz y **JetBrains Mono** 4
 | `PasswordField` | `reveal` | Botón «Mostrar la contraseña» con `aria-pressed` |
 | `Checkbox` / `Switch` | `label` | `Switch` = `input[type=checkbox][role=switch]` (etiqueta de ID) |
 | `SegmentedControl` | Radios o botones con `aria-pressed` | Orden, idioma, tipo (Película / Serie) |
-| `ChipGroup` | Radios con estilo de chip | Filtro de género |
+| `ChipGroup` | Radios con estilo de chip | (ya no se usa en las cuadrículas; el filtro de género es `MultiSelectMenu`) |
+| `MultiSelectMenu` | `label`, `options`, `value: string[]`, `onChange`, `clearLabel` | Botón desplegable con lista de casillas: filtro de géneros (RF-41) |
 | `Chip` / `StatusChip` | `tone: neutral \| success \| warning \| info \| danger`, `solid?` | Texto + color siempre; `solid` = chip `warning` sobre póster («Faltan 4», «Sin vincular») |
 | `Tabs` | `role=tablist` | Temporadas; ←/→ entre pestañas, seleccionada en `ink-1` sobre fondo claro |
 | `SectionTabs` | Enlaces con `aria-current` | General / Papelera en Ajustes |
@@ -179,7 +180,7 @@ Capa única en `shared/input` (la de GameExplorer, adaptada): las pantallas se s
 |---|---|
 | `/login` | Login (`?redirect=` vuelve a donde se estaba) |
 | `/` | Inicio |
-| `/movies`, `/series` | Cuadrículas (`?sort=added\|title\|year`, `?genre=`, en series `?incomplete=1`) |
+| `/movies`, `/series` | Cuadrículas (`?sort=added\|title\|year`, `?genre=a,b` (varios), en series `?incomplete=1`) |
 | `/movies/:id`, `/series/:id` | Fichas (`?season=` en series) |
 | `/movies/:id/edit`, `/series/:id/edit` | Editar y reasignar (también Vincular y etiqueta de ID) |
 | `/collections/:id` | Colección |
@@ -188,6 +189,12 @@ Capa única en `shared/input` (la de GameExplorer, adaptada): las pantallas se s
 | `/settings/general`, `/settings/trash` | Ajustes |
 
 Las rutas antiguas en español no redirigen: muestran «no encontrado».
+
+### Barra de las cuadrículas y filtro de géneros (RF-41, decisión 2026-10-21)
+- **Barra:** a la izquierda «Ordenar» (`SegmentedControl`) y el botón «Géneros»; a la derecha «Seleccionar». En series, «Solo incompletas» sigue debajo. En móvil la barra hace `flex-wrap` y «Seleccionar» queda al final de la última línea.
+- **Botón «Géneros»:** `Button` `secondary` `sm` con chevron hacia abajo (gira al abrir); texto «Géneros», el nombre del género si hay uno, o «Géneros · N» si hay varios. Con filtro activo el borde es `accent` (como `SearchField` con texto). `aria-haspopup="true"`, `aria-expanded` y `aria-controls`.
+- **Lista:** panel `surface-2` con borde `line`, radio `md`, sombra, ancho mínimo 240 px y máximo 320 px, alto máximo 60vh con scroll; se abre debajo del botón alineado a su izquierda (en móvil, a lo ancho del contenido). Cada opción es una casilla real (`input type=checkbox` dentro de `label`) de 44 px de alto como mínimo, casilla de 20 px con borde `control` y, marcada, fondo `accent` con check `on-accent`; hover `surface-3`. Al final, separada por una línea, «Quitar filtro» (botón de texto, desactivado sin filtro). El filtro se aplica al marcar y la lista sigue abierta.
+- **Interacción:** se cierra con Escape, B del mando, clic o toque fuera, o al volver a pulsar el botón; al cerrar, el foco vuelve al botón. Al abrir, el foco va a la primera casilla; flechas arriba/abajo (y la cruceta del mando) recorren las opciones, Espacio o A marcan. El recuento de títulos del encabezado se actualiza al filtrar.
 
 ### Selección múltiple en Películas y Series (RF-41, decisión 2026-10-21)
 - **Entrada:** botón secundario «Seleccionar» (icono de casilla) al final de la barra de orden y género; en modo selección pasa a «Cancelar».
