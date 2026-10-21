@@ -194,7 +194,7 @@ func TestTheTitleListEncodesUnavailableGenresAsAnEmptyArray(t *testing.T) {
 	}
 }
 
-func TestTheTitleHandlerAnswersTMDBDetailsAndEpisodeFiles(t *testing.T) {
+func TestTheTitleHandlerSeparatesImmediateFilesFromTMDBDetails(t *testing.T) {
 	t.Parallel()
 	h := NewLibraryHandler(application.NewLibraryViews(richLibraryRegistry{}, richLibraryTMDB{}, nil), nil, nil, nil)
 	got, err := h.GetLibraryTitle(t.Context(), httpapi.GetLibraryTitleRequestObject{Id: 7})
@@ -205,11 +205,22 @@ func TestTheTitleHandlerAnswersTMDBDetailsAndEpisodeFiles(t *testing.T) {
 	if !ok {
 		t.Fatalf("response = %T, want 200", got)
 	}
-	if title.Title != "Show" || title.OriginalTitle != "The Show" || title.Overview != "A synopsis" || title.Backdrop == nil || *title.Backdrop != "/api/images/backdrop/backdrop.jpg" || title.Logo == nil || *title.Logo != "/api/images/logo/logo.png" {
-		t.Errorf("TMDB details = %+v", title)
+	if title.Title != "Show" || title.Overview != "" || len(title.Seasons) != 0 || len(title.Videos) != 1 {
+		t.Fatalf("immediate title response = %+v; want saved title and episode files without TMDB details", title)
 	}
-	if len(title.Genres) != 1 || title.Genres[0] != "Drama" || len(title.Seasons) != 2 || title.Seasons[1].Episodes[0].Status != httpapi.Present || len(title.Seasons[1].Episodes[0].Files) != 1 || title.Seasons[1].Episodes[1].Status != httpapi.Missing {
-		t.Errorf("seasons = %+v", title.Seasons)
+	metadata, err := h.GetLibraryTitleMetadata(t.Context(), httpapi.GetLibraryTitleMetadataRequestObject{Id: 7})
+	if err != nil {
+		t.Fatalf("GetLibraryTitleMetadata: %v", err)
+	}
+	complete, ok := metadata.(httpapi.GetLibraryTitleMetadata200JSONResponse)
+	if !ok {
+		t.Fatalf("metadata response = %T, want 200", metadata)
+	}
+	if complete.Title != "Show" || complete.OriginalTitle != "The Show" || complete.Overview != "A synopsis" || complete.Backdrop == nil || *complete.Backdrop != "/api/images/backdrop/backdrop.jpg" || complete.Logo == nil || *complete.Logo != "/api/images/logo/logo.png" {
+		t.Errorf("TMDB details = %+v", complete)
+	}
+	if len(complete.Genres) != 1 || complete.Genres[0] != "Drama" || len(complete.Seasons) != 2 || complete.Seasons[1].Episodes[0].Status != httpapi.Present || len(complete.Seasons[1].Episodes[0].Files) != 1 || complete.Seasons[1].Episodes[1].Status != httpapi.Missing {
+		t.Errorf("seasons = %+v", complete.Seasons)
 	}
 }
 

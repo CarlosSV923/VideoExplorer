@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	catalogapplication "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
@@ -249,13 +250,34 @@ func (t tmdbOf) details(ctx context.Context, kind catalogdomain.TitleKind, id in
 			Logo:    chosenLogo(series.Images.Logos, t.svc.Language()),
 			Seasons: make([]catalogapplication.SeasonMetadata, 0, len(series.Seasons)),
 		}
-		for _, summary := range series.Seasons {
-			season, err := t.svc.Season(ctx, id, summary.Number)
-			if err != nil {
-				return catalogapplication.TitleMetadata{}, tmdbErr(err)
-			}
-			out.Seasons = append(out.Seasons, seasonMetadata(season))
+		seasons := make([]catalogapplication.SeasonMetadata, len(series.Seasons))
+		var wg sync.WaitGroup
+		var firstErr error
+		var errMu sync.Mutex
+		seasonCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		for i, summary := range series.Seasons {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				season, err := t.svc.Season(seasonCtx, id, summary.Number)
+				if err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = err
+						cancel()
+					}
+					errMu.Unlock()
+					return
+				}
+				seasons[i] = seasonMetadata(season)
+			}()
 		}
+		wg.Wait()
+		if firstErr != nil {
+			return catalogapplication.TitleMetadata{}, tmdbErr(firstErr)
+		}
+		out.Seasons = seasons
 		return out, nil
 	}
 	movie, err := t.svc.Movie(ctx, id)

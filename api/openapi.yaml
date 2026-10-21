@@ -860,18 +860,38 @@ paths:
     get:
       tags: [library]
       operationId: getLibraryTitle
-      summary: A title of the library with its files and TMDB details (RF-43, RF-43a)
+      summary: A title of the library with its files and saved TMDB metadata (RF-43, RF-43a)
       description: |
-        The title with its videos and their subtitles, the files that are out of the trash, and the localized
-        TMDB data when the title is linked. Images are local `/api/images/...` routes (RNF-10). A free title
-        carries only its registry data: it has no TMDB episodes or missing count. A series includes season 0,
-        marks each TMDB episode as `present`, `missing` or `upcoming`, and repeats a multi-episode file in every
-        episode it covers (RF-43a). `missingEpisodes` counts only missing episodes in normal seasons (RF-40).
+        The title with its videos and their subtitles, the files that are out of the trash, and any TMDB
+        metadata already stored. This response does not wait for a TMDB cache miss; use the metadata operation
+        to complete the page asynchronously. Images are local `/api/images/...` routes (RNF-10).
       parameters:
         - $ref: '#/components/parameters/TitleId'
       responses:
         '200':
           description: The title.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryTitle'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /library/titles/{id}/metadata:
+    get:
+      tags: [library]
+      operationId: getLibraryTitleMetadata
+      summary: Complete a title page with cache-aware TMDB metadata (RF-43a)
+      description: |
+        Reads cached TMDB metadata or fetches a cache miss, returning the complete title page. Call this
+        after the immediate library detail response so upstream latency does not delay saved library data.
+      parameters:
+        - $ref: '#/components/parameters/TitleId'
+      responses:
+        '200':
+          description: The title with metadata and its live files.
           content:
             application/json:
               schema:

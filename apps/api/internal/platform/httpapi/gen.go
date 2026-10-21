@@ -2087,7 +2087,7 @@ type ServerInterface interface {
 	// ListLibraryTitles The titles of the library (RF-40, RF-43)
 	// (GET /library/titles)
 	ListLibraryTitles(w http.ResponseWriter, r *http.Request)
-	// GetLibraryTitle A title of the library with its files and TMDB details (RF-43, RF-43a)
+	// GetLibraryTitle A title of the library with its files and saved TMDB metadata (RF-43, RF-43a)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(w http.ResponseWriter, r *http.Request, id TitleId)
 	// DownloadLibraryTitle Download a whole library title as a streamed store zip (RF-44)
@@ -2111,6 +2111,9 @@ type ServerInterface interface {
 	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
 	// (POST /library/titles/{id}/id-tag/plan)
 	PlanTitleIDTag(w http.ResponseWriter, r *http.Request, id TitleId)
+	// GetLibraryTitleMetadata Complete a title page with cache-aware TMDB metadata (RF-43a)
+	// (GET /library/titles/{id}/metadata)
+	GetLibraryTitleMetadata(w http.ResponseWriter, r *http.Request, id TitleId)
 	// RefreshLibraryTitleMetadata Refresh a linked title's TMDB data
 	// (POST /library/titles/{id}/metadata/refresh)
 	RefreshLibraryTitleMetadata(w http.ResponseWriter, r *http.Request, id TitleId)
@@ -2665,6 +2668,32 @@ func (siw *ServerInterfaceWrapper) PlanTitleIDTag(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PlanTitleIDTag(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLibraryTitleMetadata operation middleware
+func (siw *ServerInterfaceWrapper) GetLibraryTitleMetadata(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id TitleId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLibraryTitleMetadata(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3567,6 +3596,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles", wrapper.ListLibraryTitles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/collections/{id}", wrapper.GetLibraryCollection)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}", wrapper.GetLibraryTitle)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/metadata", wrapper.GetLibraryTitleMetadata)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/library/titles/{id}/metadata/refresh", wrapper.RefreshLibraryTitleMetadata)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/files/{fileId}/technical", wrapper.GetLibraryFileTechnical)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/library/titles/{id}/download", wrapper.DownloadLibraryTitle)
@@ -4963,6 +4993,60 @@ type PlanTitleIDTag404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PlanTitleIDTag404ApplicationProblemPlusJSONResponse) VisitPlanTitleIDTagResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryTitleMetadataRequestObject struct {
+	Id TitleId `json:"id"`
+}
+
+type GetLibraryTitleMetadataResponseObject interface {
+	VisitGetLibraryTitleMetadataResponse(w http.ResponseWriter) error
+}
+
+type GetLibraryTitleMetadata200JSONResponse LibraryTitle
+
+func (response GetLibraryTitleMetadata200JSONResponse) VisitGetLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryTitleMetadata401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetLibraryTitleMetadata401ApplicationProblemPlusJSONResponse) VisitGetLibraryTitleMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLibraryTitleMetadata404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GetLibraryTitleMetadata404ApplicationProblemPlusJSONResponse) VisitGetLibraryTitleMetadataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6595,7 +6679,7 @@ type StrictServerInterface interface {
 	// ListLibraryTitles The titles of the library (RF-40, RF-43)
 	// (GET /library/titles)
 	ListLibraryTitles(ctx context.Context, request ListLibraryTitlesRequestObject) (ListLibraryTitlesResponseObject, error)
-	// GetLibraryTitle A title of the library with its files and TMDB details (RF-43, RF-43a)
+	// GetLibraryTitle A title of the library with its files and saved TMDB metadata (RF-43, RF-43a)
 	// (GET /library/titles/{id})
 	GetLibraryTitle(ctx context.Context, request GetLibraryTitleRequestObject) (GetLibraryTitleResponseObject, error)
 	// DownloadLibraryTitle Download a whole library title as a streamed store zip (RF-44)
@@ -6619,6 +6703,9 @@ type StrictServerInterface interface {
 	// PlanTitleIDTag Preview putting the ID tag on a title or taking it off (RF-45)
 	// (POST /library/titles/{id}/id-tag/plan)
 	PlanTitleIDTag(ctx context.Context, request PlanTitleIDTagRequestObject) (PlanTitleIDTagResponseObject, error)
+	// GetLibraryTitleMetadata Complete a title page with cache-aware TMDB metadata (RF-43a)
+	// (GET /library/titles/{id}/metadata)
+	GetLibraryTitleMetadata(ctx context.Context, request GetLibraryTitleMetadataRequestObject) (GetLibraryTitleMetadataResponseObject, error)
 	// RefreshLibraryTitleMetadata Refresh a linked title's TMDB data
 	// (POST /library/titles/{id}/metadata/refresh)
 	RefreshLibraryTitleMetadata(ctx context.Context, request RefreshLibraryTitleMetadataRequestObject) (RefreshLibraryTitleMetadataResponseObject, error)
@@ -7310,6 +7397,32 @@ func (sh *strictHandler) PlanTitleIDTag(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PlanTitleIDTagResponseObject); ok {
 		if err := validResponse.VisitPlanTitleIDTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLibraryTitleMetadata operation middleware
+func (sh *strictHandler) GetLibraryTitleMetadata(w http.ResponseWriter, r *http.Request, id TitleId) {
+	var request GetLibraryTitleMetadataRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLibraryTitleMetadata(ctx, request.(GetLibraryTitleMetadataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLibraryTitleMetadata")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLibraryTitleMetadataResponseObject); ok {
+		if err := validResponse.VisitGetLibraryTitleMetadataResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

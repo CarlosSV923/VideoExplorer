@@ -268,42 +268,43 @@ func TestATitleOutOfTheLibraryIsNotFound(t *testing.T) {
 	}
 }
 
-func TestThePosterComesFromTMDBOnlyForALinkedTitle(t *testing.T) {
+func TestTitleReturnsStoredMetadataWithoutCallingTMDB(t *testing.T) {
 	t.Parallel()
 	linked := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
-	free := movie(2, 0, "Movies/Free (2008)")
 	repo := &viewRepo{
-		titles: []domain.LibraryTitle{linked, free},
+		titles: []domain.LibraryTitle{linked},
 		files: map[int64][]domain.LibraryFile{
 			1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man (2008) [tmdbid-1726].mkv")},
-			2: {liveFile(20, 2, "Movies/Free (2008)/Free (2008).mkv")},
 		},
 	}
-	tests := []struct {
-		name       string
-		id         int64
-		configured bool
-		fail       bool
-		wantPoster string
-		wantCalls  int
-	}{
-		{"linked, TMDB answers", 1, true, false, "poster.jpg", 1},
-		{"linked, TMDB fails: no poster, no error", 1, true, true, "", 1},
-		{"linked, TMDB not configured", 1, false, false, "", 0},
-		{"free title never asks TMDB", 2, true, false, "", 0},
+	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: TitleMetadata{Poster: "network.jpg"}}
+	got, err := NewLibraryViews(repo, tmdb, nil).Title(t.Context(), linked.ID)
+	if err != nil {
+		t.Fatalf("Title: %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			tmdb := &viewTMDB{configured: tt.configured, fail: tt.fail}
-			got, err := NewLibraryViews(repo, tmdb, nil).Title(t.Context(), tt.id)
-			if err != nil {
-				t.Fatalf("Title: %v", err)
-			}
-			if got.Poster != tt.wantPoster || tmdb.calls != tt.wantCalls {
-				t.Errorf("poster = %q (calls %d), want %q (calls %d)", got.Poster, tmdb.calls, tt.wantPoster, tt.wantCalls)
-			}
-		})
+	if got.Poster != "" || tmdb.calls != 0 {
+		t.Errorf("poster = %q and TMDB Details calls = %d; want no uncached metadata in the response", got.Poster, tmdb.calls)
+	}
+}
+
+func TestTitleIncludesItsStoredSummaryImmediately(t *testing.T) {
+	t.Parallel()
+	linked := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
+	repo := &viewRepo{titles: []domain.LibraryTitle{linked}, files: map[int64][]domain.LibraryFile{
+		1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")},
+	}}
+	tmdb := &storedViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: TitleSummaryMetadata{
+		OriginalTitle: "Iron Man", Poster: "poster.jpg", Backdrop: "backdrop.jpg", Genres: []string{"Action"},
+	}}
+	got, err := NewLibraryViews(repo, tmdb, nil).Title(t.Context(), linked.ID)
+	if err != nil {
+		t.Fatalf("Title: %v", err)
+	}
+	if got.Poster != "poster.jpg" || got.Backdrop != "backdrop.jpg" || got.OriginalTitle != "Iron Man" || len(got.Genres) != 1 {
+		t.Errorf("stored summary = %+v", got.TitleSummary)
+	}
+	if tmdb.storedCalls != 1 || tmdb.calls != 0 {
+		t.Errorf("stored reads = %d, upstream calls = %d; want 1 and 0", tmdb.storedCalls, tmdb.calls)
 	}
 }
 
@@ -330,7 +331,7 @@ func TestTheTitlePageBuildsTheTMDBCollectionAndMarksLibraryMovies(t *testing.T) 
 				files[2] = []domain.LibraryFile{liveFile(20, 2, "Movies/Iron Man 2 (2010) [tmdbid-1727]/Iron Man 2.mkv")}
 			}
 			tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: metadata}
-			got, err := NewLibraryViews(&viewRepo{titles: titles, files: files}, tmdb, nil).Title(t.Context(), 1)
+			got, err := NewLibraryViews(&viewRepo{titles: titles, files: files}, tmdb, nil).Metadata(t.Context(), 1)
 			if err != nil {
 				t.Fatalf("Title: %v", err)
 			}
@@ -364,7 +365,7 @@ func TestTheSeriesPageMarksPresentMissingAndUpcomingEpisodes(t *testing.T) {
 	}
 	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, metadata: metadata}
 	now := func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) }
-	got, err := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{series}, files: map[int64][]domain.LibraryFile{7: files}}, tmdb, nil, now).Title(t.Context(), 7)
+	got, err := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{series}, files: map[int64][]domain.LibraryFile{7: files}}, tmdb, nil, now).Metadata(t.Context(), 7)
 	if err != nil {
 		t.Fatalf("Title: %v", err)
 	}
@@ -403,12 +404,16 @@ func TestTMDBWithoutCachedDetailsDoesNotBreakTheTitlePage(t *testing.T) {
 	t.Parallel()
 	linked := movie(1, 1726, "Movies/Iron Man (2008) [tmdbid-1726]")
 	tmdb := &richViewTMDB{viewTMDB: viewTMDB{configured: true}, err: ErrTMDBUnavailable}
-	got, err := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{linked}, files: map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")}}}, tmdb, nil).Title(t.Context(), 1)
+	views := NewLibraryViews(&viewRepo{titles: []domain.LibraryTitle{linked}, files: map[int64][]domain.LibraryFile{1: {liveFile(10, 1, "Movies/Iron Man (2008) [tmdbid-1726]/Iron Man.mkv")}}}, tmdb, nil)
+	got, err := views.Title(t.Context(), 1)
 	if err != nil {
 		t.Fatalf("Title: %v", err)
 	}
 	if got.Title != linked.Title || got.DiscTitle != linked.DiscTitle || got.Poster != "" || got.MissingEpisodes != nil {
 		t.Errorf("record-only title = %+v", got)
+	}
+	if _, err := views.Metadata(t.Context(), 1); !errors.Is(err, ErrTMDBUnavailable) {
+		t.Errorf("Metadata error = %v, want TMDB unavailable", err)
 	}
 }
 

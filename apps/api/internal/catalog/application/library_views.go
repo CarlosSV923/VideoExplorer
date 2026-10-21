@@ -296,9 +296,18 @@ func (v *LibraryViews) Collection(ctx context.Context, id int64) (CollectionView
 	return *view, nil
 }
 
-// Title returns a title of the library with its files that are out of the trash (RF-43). The poster comes
-// from TMDB through its cache when TMDB is configured; a failure there leaves it out and is logged.
+// Title returns the title's saved metadata and files out of the trash (RF-43); it never calls TMDB.
 func (v *LibraryViews) Title(ctx context.Context, id int64) (TitleDetail, error) {
+	return v.title(ctx, id, false)
+}
+
+// Metadata returns a title with cache-aware TMDB details. Callers can load it
+// after Title so TMDB latency does not delay the files already in the library.
+func (v *LibraryViews) Metadata(ctx context.Context, id int64) (TitleDetail, error) {
+	return v.title(ctx, id, true)
+}
+
+func (v *LibraryViews) title(ctx context.Context, id int64, loadMetadata bool) (TitleDetail, error) {
 	live, _, err := classifyTitles(ctx, v.repo)
 	if err != nil {
 		return TitleDetail{}, err
@@ -321,20 +330,30 @@ func (v *LibraryViews) Title(ctx context.Context, id int64) (TitleDetail, error)
 	out := TitleDetail{TitleSummary: summaryOf(title), DiscTitle: title.DiscTitle}
 	out.MissingEpisodes = v.readMissingEpisodes(ctx, title.ID)
 	out.Videos = videoViews(title, files)
-	if title.TMDBID > 0 && v.tmdb != nil && v.tmdb.Configured() {
-		if rich, ok := v.tmdb.(LibraryMetadata); ok {
-			metadata, err := rich.Details(ctx, title.Kind, title.TMDBID)
+	if title.TMDBID > 0 && loadMetadata {
+		if v.tmdb == nil || !v.tmdb.Configured() {
+			return TitleDetail{}, ErrTMDBUnavailable
+		}
+		rich, ok := v.tmdb.(LibraryMetadata)
+		if !ok {
+			return TitleDetail{}, ErrTMDBUnavailable
+		}
+		metadata, err := rich.Details(ctx, title.Kind, title.TMDBID)
+		if err != nil {
+			v.log.WarnContext(ctx, "metadata of a title not read from TMDB", "title", id, "error", err)
+			return TitleDetail{}, err
+		}
+		v.applyMetadata(ctx, &out, metadata, title, v.now())
+	} else if title.TMDBID > 0 && v.tmdb != nil {
+		if stored, ok := v.tmdb.(LibraryMetadataSummary); ok {
+			metadata, found, err := stored.StoredSummary(ctx, title.Kind, title.TMDBID)
 			if err != nil {
-				v.log.WarnContext(ctx, "metadata of a title not read from TMDB", "title", id, "error", err)
-			} else {
-				v.applyMetadata(ctx, &out, metadata, title, v.now())
-			}
-		} else {
-			t, err := v.tmdb.Title(ctx, title.Kind, title.TMDBID)
-			if err != nil {
-				v.log.WarnContext(ctx, "poster of a title not read from TMDB", "title", id, "error", err)
-			} else {
-				out.Poster = t.PosterFile
+				v.log.WarnContext(ctx, "stored metadata of a title not read", "title", id, "error", err)
+			} else if found {
+				out.OriginalTitle = metadata.OriginalTitle
+				out.Poster = metadata.Poster
+				out.Backdrop = metadata.Backdrop
+				out.Genres = append([]string(nil), metadata.Genres...)
 			}
 		}
 	}
@@ -373,7 +392,7 @@ func (v *LibraryViews) Refresh(ctx context.Context, id int64) (TitleDetail, erro
 	if _, err := refresher.Refresh(ctx, title.Kind, title.TMDBID); err != nil {
 		return TitleDetail{}, err
 	}
-	return v.Title(ctx, id)
+	return v.Metadata(ctx, id)
 }
 
 // summaryOf returns the list's view of a title.

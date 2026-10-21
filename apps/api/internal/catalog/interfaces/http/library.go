@@ -85,6 +85,20 @@ func (h *LibraryHandler) GetLibraryTitle(ctx context.Context, req httpapi.GetLib
 	return httpapi.GetLibraryTitle200JSONResponse(detailToAPI(t)), nil
 }
 
+// GetLibraryTitleMetadata loads cache-aware TMDB details after the immediate title response.
+func (h *LibraryHandler) GetLibraryTitleMetadata(ctx context.Context, req httpapi.GetLibraryTitleMetadataRequestObject) (httpapi.GetLibraryTitleMetadataResponseObject, error) {
+	t, err := h.views.Metadata(ctx, req.Id)
+	if errors.Is(err, application.ErrTitleNotFound) {
+		return httpapi.GetLibraryTitleMetadata404ApplicationProblemPlusJSONResponse{
+			NotFoundApplicationProblemPlusJSONResponse: httpapi.NotFoundApplicationProblemPlusJSONResponse(notFoundProblem()),
+		}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return httpapi.GetLibraryTitleMetadata200JSONResponse(detailToAPI(t)), nil
+}
+
 // RefreshLibraryTitleMetadata implements the explicit TMDB refresh from a
 // title page (RF-44). The application stages cache writes until all related
 // metadata has been fetched, and this handler never changes library files.
