@@ -35,13 +35,109 @@ async function chooseDuplicate(page: Page) {
   await desktopPreview.click()
 }
 
-async function navigateWithinApp(page: Page, path: string) {
-  await page.evaluate((target) => {
-    window.history.pushState({}, '', target)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-  }, path)
+async function clickInternalPath(page: Page, path: string) {
+  if (path === '/no-asignados' && (page.viewportSize()?.width ?? 1024) < 768) {
+    await page
+      .getByRole('navigation', { name: 'Navegación móvil' })
+      .getByRole('link', { name: 'No asignados' })
+      .click()
+  } else {
+    if (path === '/no-asignados') {
+      await page.getByRole('link', { name: 'VideoExplorer' }).click()
+    }
+    await page.locator(`a[href="${path}"]`).first().click()
+  }
   await expect(page).toHaveURL(path)
 }
+
+test('internal navigation preserves demo state and active upload progress without a document reload', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    ;(window as Window & { navigationMarker?: string }).navigationMarker = 'alive'
+    // Keep simulated uploads active long enough to observe progress across route changes.
+    const setInterval = window.setInterval.bind(window)
+    window.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
+      setInterval(
+        handler,
+        timeout === 90 ? 700 : (timeout ?? 0),
+        ...args,
+      )) as typeof window.setInterval
+  })
+  await page.goto('/')
+  const mobile = (page.viewportSize()?.width ?? 1024) < 768
+  const navigationCount = await page.evaluate(
+    () => performance.getEntriesByType('navigation').length,
+  )
+
+  if (mobile) {
+    await page.getByRole('button', { name: /Subidas/ }).click()
+    await page
+      .getByRole('dialog', { name: 'Subidas' })
+      .getByRole('button', { name: 'Probar con archivos de ejemplo' })
+      .click()
+  } else {
+    await page.getByRole('button', { name: 'Probar con archivos de ejemplo' }).click()
+  }
+  await page
+    .getByRole('dialog', { name: '¿Cómo se relacionan estos archivos?' })
+    .getByRole('button', { name: 'Sin relación' })
+    .click()
+  const panel = mobile
+    ? page.getByRole('dialog', { name: 'Subidas' })
+    : page.getByRole('complementary', { name: 'Subidas' })
+  const progress = panel
+    .locator('article')
+    .filter({ hasText: 'Dark.S02E05.1080p.mkv' })
+    .getByRole('progressbar')
+  await expect(progress).toBeVisible()
+  const initialProgress = Number(await progress.getAttribute('aria-valuenow'))
+  await panel.getByRole('button', { name: 'Cerrar' }).click()
+
+  await page
+    .getByRole('heading', { name: 'Películas agregadas recientemente' })
+    .locator('xpath=../..')
+    .locator('a[href^="/peliculas/"]')
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/peliculas\/\d+$/)
+  await page.getByRole('button', { name: /Subidas/ }).click()
+  const detailProgress = panel
+    .locator('article')
+    .filter({ hasText: 'Dark.S02E05.1080p.mkv' })
+    .getByRole('progressbar')
+  await expect
+    .poll(async () => Number(await detailProgress.getAttribute('aria-valuenow')))
+    .toBeGreaterThan(initialProgress)
+  await panel.getByRole('button', { name: 'Cerrar' }).click()
+  const moviesLink = mobile
+    ? page
+        .getByRole('navigation', { name: 'Navegación móvil' })
+        .getByRole('link', { name: 'Películas' })
+    : page
+        .getByRole('navigation', { name: 'Navegación principal' })
+        .getByRole('link', { name: 'Películas' })
+  await moviesLink.click()
+  await expect(page).toHaveURL('/peliculas')
+  await clickInternalPath(page, '/no-asignados')
+  await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
+  expect(
+    await page.evaluate(() => (window as Window & { navigationMarker?: string }).navigationMarker),
+  ).toBe('alive')
+  expect(await page.evaluate(() => performance.getEntriesByType('navigation').length)).toBe(
+    navigationCount,
+  )
+  await expect(page.getByRole('heading', { name: 'Copia de Samba' })).toBeVisible()
+  await page.getByRole('button', { name: /Subidas/ }).click()
+  const finalProgress = panel
+    .locator('article')
+    .filter({ hasText: 'Dark.S02E05.1080p.mkv' })
+    .getByRole('progressbar')
+  await expect
+    .poll(async () => Number(await finalProgress.getAttribute('aria-valuenow')))
+    .toBeGreaterThan(initialProgress)
+  await panel.getByRole('button', { name: 'Cerrar' }).click()
+})
 
 test('home, movie and series details show seeded content and seasons', async ({ page }) => {
   await page.goto('/')
@@ -133,7 +229,7 @@ test('demo examples ask for a relation, unlock multipart archives, and reach Una
   ).toBeVisible()
 
   await page.getByLabel('Subidas').getByRole('button', { name: 'Cerrar' }).click()
-  await navigateWithinApp(page, '/no-asignados')
+  await clickInternalPath(page, '/no-asignados')
   await expect(page).toHaveURL('/no-asignados')
   await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Volver a leer' }).click()
@@ -161,7 +257,7 @@ test('restores a trash item and shows TMDB attribution in settings', async ({ pa
   await dialog.getByRole('button', { name: 'Restaurar', exact: true }).click()
   await expect(dialog).toBeHidden()
 
-  await navigateWithinApp(page, '/no-asignados')
+  await clickInternalPath(page, '/no-asignados')
   await page.getByRole('button', { name: 'Volver a leer' }).click()
   await expect(
     page.locator('article').filter({ hasText: 'Inception.2010.part1.rar' }),
