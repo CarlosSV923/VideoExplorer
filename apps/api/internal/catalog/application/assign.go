@@ -196,7 +196,9 @@ type SearchResult struct {
 // positive, narrows the TMDB results.
 func (a *Assignments) Search(ctx context.Context, query string, year int) (SearchResult, error) {
 	words := strings.Fields(foldText(query))
-	if len(words) == 0 {
+	jellyfinID, tmdbID, imdbID := domain.IDTagsOf(query)
+	_ = jellyfinID
+	if len(words) == 0 && tmdbID == 0 && imdbID == "" {
 		return SearchResult{}, ErrInvalidQuery
 	}
 	titles, _, err := classifyTitles(ctx, a.d.Library)
@@ -205,6 +207,9 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 	}
 	var out SearchResult
 	for _, t := range titles {
+		if len(words) == 0 {
+			break
+		}
 		text := foldText(t.Title + " " + t.DiscTitle)
 		if containsAllWords(text, words) {
 			out.Library = append(out.Library, libraryHit(t))
@@ -218,6 +223,45 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 	}
 	out.TMDBAvailable = true
 	for _, kind := range []domain.TitleKind{domain.KindMovie, domain.KindSeries} {
+		if tmdbID > 0 {
+			t, err := a.d.TMDB.Title(ctx, kind, tmdbID)
+			if err == nil {
+				hit := TitleHit{Source: "tmdb", TMDBID: t.ID, Kind: kind, Title: t.Title, Year: t.Year, PosterFile: t.PosterFile}
+				hit.LibraryID = libraryIDOf(titles, kind, t.ID)
+				if hit.LibraryID != 0 {
+					hit.Source = "library"
+				}
+				out.TMDB = append(out.TMDB, hit)
+			} else if !errors.Is(err, ErrTMDBNotFound) {
+				out.TMDBAvailable = false
+			}
+			continue
+		}
+		if imdbID != "" {
+			finder, ok := a.d.TMDB.(interface {
+				FindIMDb(context.Context, domain.TitleKind, string) ([]TMDBTitle, error)
+			})
+			if !ok {
+				out.TMDBAvailable = false
+				continue
+			}
+			hits, err := finder.FindIMDb(ctx, kind, imdbID)
+			if err != nil {
+				if !errors.Is(err, ErrTMDBNotFound) {
+					out.TMDBAvailable = false
+				}
+				continue
+			}
+			for _, t := range hits {
+				hit := TitleHit{Source: "tmdb", TMDBID: t.ID, Kind: kind, Title: t.Title, Year: t.Year, PosterFile: t.PosterFile}
+				hit.LibraryID = libraryIDOf(titles, kind, t.ID)
+				if hit.LibraryID != 0 {
+					hit.Source = "library"
+				}
+				out.TMDB = append(out.TMDB, hit)
+			}
+			continue
+		}
 		hits, err := a.d.TMDB.SearchTitles(ctx, kind, query, year)
 		if err != nil {
 			a.log.WarnContext(ctx, "TMDB search failed", "kind", kind, "error", err)
@@ -325,7 +369,8 @@ func (a *Assignments) Suggest(ctx context.Context, entryID int64, token string) 
 			reading := a.d.Names.Read(entryPath(entry, rel), false)
 			s := VideoSuggestion{File: rel, Reading: reading}
 			if out.TMDBConfigured {
-				s.Match = a.bestMatch(ctx, reading, titles)
+				_, tmdbID, imdbID := domain.IDTagsOf(rel)
+				s.Match = a.bestMatch(ctx, reading, titles, tmdbID, imdbID)
 			}
 			out.Videos = append(out.Videos, s)
 		case a.isSubtitle(entryPath(entry, rel)):
@@ -344,7 +389,31 @@ func (a *Assignments) Suggest(ctx context.Context, entryID int64, token string) 
 }
 
 // bestMatch returns the first TMDB result for what the name says, of the kind it says (RF-20), or nil.
-func (a *Assignments) bestMatch(ctx context.Context, r NameReading, titles []domain.LibraryTitle) *TitleHit {
+func (a *Assignments) bestMatch(ctx context.Context, r NameReading, titles []domain.LibraryTitle, tmdbID int64, imdbID string) *TitleHit {
+	if tmdbID > 0 {
+		hit, err := a.d.TMDB.Title(ctx, r.Kind, tmdbID)
+		if err == nil {
+			return a.titleHit(r.Kind, hit, titles)
+		}
+		if !errors.Is(err, ErrTMDBNotFound) {
+			a.log.WarnContext(ctx, "TMDB id match failed", "kind", r.Kind, "error", err)
+		}
+		return nil
+	}
+	if imdbID != "" {
+		if finder, ok := a.d.TMDB.(interface {
+			FindIMDb(context.Context, domain.TitleKind, string) ([]TMDBTitle, error)
+		}); ok {
+			hits, err := finder.FindIMDb(ctx, r.Kind, imdbID)
+			if err == nil && len(hits) > 0 {
+				return a.titleHit(r.Kind, hits[0], titles)
+			}
+			if err != nil && !errors.Is(err, ErrTMDBNotFound) {
+				a.log.WarnContext(ctx, "TMDB IMDb match failed", "kind", r.Kind, "error", err)
+			}
+		}
+		return nil
+	}
 	if r.Kind == "" || r.Title == "" {
 		return nil
 	}
@@ -356,8 +425,12 @@ func (a *Assignments) bestMatch(ctx context.Context, r NameReading, titles []dom
 	if len(hits) == 0 {
 		return nil
 	}
-	h := TitleHit{Source: "tmdb", TMDBID: hits[0].ID, Kind: r.Kind, Title: hits[0].Title, Year: hits[0].Year, PosterFile: hits[0].PosterFile}
-	h.LibraryID = libraryIDOf(titles, r.Kind, h.TMDBID)
+	return a.titleHit(r.Kind, hits[0], titles)
+}
+
+func (a *Assignments) titleHit(kind domain.TitleKind, title TMDBTitle, titles []domain.LibraryTitle) *TitleHit {
+	h := TitleHit{Source: "tmdb", TMDBID: title.ID, Kind: kind, Title: title.Title, Year: title.Year, PosterFile: title.PosterFile}
+	h.LibraryID = libraryIDOf(titles, kind, h.TMDBID)
 	if h.LibraryID != 0 {
 		h.Source = "library"
 	}

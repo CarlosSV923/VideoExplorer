@@ -22,6 +22,7 @@ type fakeTMDB struct {
 	movies     map[int64]application.TMDBTitle
 	series     map[int64]application.TMDBTitle
 	hits       map[string][]application.TMDBTitle
+	byIMDb     map[string][]application.TMDBTitle
 	// seasons holds, per series and season, the title of each chapter; a season missing here is unknown.
 	seasons map[int64]map[int]map[int]string
 }
@@ -48,6 +49,13 @@ func (f *fakeTMDB) Title(_ context.Context, kind domain.TitleKind, id int64) (ap
 		return application.TMDBTitle{}, application.ErrTMDBNotFound
 	}
 	return t, nil
+}
+
+func (f *fakeTMDB) FindIMDb(_ context.Context, kind domain.TitleKind, imdbID string) ([]application.TMDBTitle, error) {
+	if f.down {
+		return nil, application.ErrTMDBUnavailable
+	}
+	return f.byIMDb[string(kind)+"|"+imdbID], nil
 }
 
 func (f *fakeTMDB) Chapters(_ context.Context, seriesID int64, season, first, last int) (application.TMDBChapters, error) {
@@ -109,7 +117,7 @@ func newAssignEnv(t *testing.T, files func(root string) application.Files) *assi
 		t: t, root: root, store: &memStore{}, clock: new(time.Time),
 		tmdb: &fakeTMDB{
 			configured: true, movies: map[int64]application.TMDBTitle{}, series: map[int64]application.TMDBTitle{},
-			hits: map[string][]application.TMDBTitle{}, seasons: map[int64]map[int]map[int]string{},
+			hits: map[string][]application.TMDBTitle{}, byIMDb: map[string][]application.TMDBTitle{}, seasons: map[int64]map[int]map[int]string{},
 		},
 		names: map[string]application.NameReading{}, media: mediaByName{},
 	}
@@ -344,6 +352,23 @@ func TestSuggestionsReadTheNamesAndTheBestTMDBMatch(t *testing.T) {
 	}
 }
 
+func TestSuggestionsPreferIMDbTagForMovieMatch(t *testing.T) {
+	t.Parallel()
+	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+	e.tmdb.byIMDb["movie|tt0118583"] = []application.TMDBTitle{{ID: 8077, Title: "Alien Resurrection", Year: 1997}}
+	name := "Alien Resurrection (1997) [imdbid-tt0118583].mp4"
+	id := e.entry("Alien Resurrection (1997)", domain.RelationNone, false, map[string]string{name: "movie"})
+	e.names["Alien Resurrection (1997)/"+name] = application.NameReading{Kind: domain.KindMovie, Title: "Alien Resurrection", Year: 1997}
+	e.lockAs(id)
+	suggestions, err := e.svc.Suggest(t.Context(), id, "tab-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(suggestions.Videos) != 1 || suggestions.Videos[0].Match == nil || suggestions.Videos[0].Match.TMDBID != 8077 {
+		t.Fatalf("IMDb suggestion = %+v", suggestions.Videos)
+	}
+}
+
 func TestSuggestionsWithoutTMDBKeepOnlyTheReading(t *testing.T) {
 	t.Parallel()
 	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
@@ -410,6 +435,20 @@ func TestSearchPutsTheLibraryTitlesFirst(t *testing.T) {
 	}
 	if off.TMDBAvailable || len(off.TMDB) != 0 || len(off.Library) != 1 {
 		t.Errorf("without TMDB only the library answers: %+v", off)
+	}
+}
+
+func TestSearchResolvesAnIMDbIDTagForAssign(t *testing.T) {
+	t.Parallel()
+	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+	e.tmdb.configured = true
+	e.tmdb.byIMDb["movie|tt0118583"] = []application.TMDBTitle{{ID: 8077, Title: "Alien Resurrection", Year: 1997}}
+	got, err := e.svc.Search(t.Context(), "[imdbid-tt0118583]", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.TMDBAvailable || len(got.TMDB) != 1 || got.TMDB[0].TMDBID != 8077 || got.TMDB[0].Title != "Alien Resurrection" {
+		t.Fatalf("IMDb id search = %+v", got)
 	}
 }
 
