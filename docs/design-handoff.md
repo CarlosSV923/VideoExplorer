@@ -128,7 +128,7 @@ Componentes de módulo (Fase 10): `HeroCarousel`, `PendingStrip`, `TitleHeader` 
 | Etiqueta de versión | incompleta | Borde `danger` de 2 px, `aria-invalid` y texto de qué falta (idioma del audio) |
 | Campo | error | Borde `danger` y mensaje debajo |
 | Hero | rotando | Cada 8 s; se pausa con hover, con foco dentro y con el botón Pausar (que pasa a «Reanudar»); sin rotación con `prefers-reduced-motion` |
-| Hero | entre títulos | Mismo tamaño para todos los títulos (sin saltos de diseño al rotar): alto fijo por tamaño de pantalla (600 px en escritorio, 440 px en móvil), backdrop con `object-fit: cover`, logo dentro de una caja fija (máx. 520 × 160 px en escritorio, 300 × 110 px en móvil) con `object-fit: contain` y alineado abajo a la izquierda, título de texto con el mismo alto de caja cuando no hay logo, y sinopsis cortada a 3 líneas |
+| Hero | entre títulos | Mismo tamaño para todos los títulos (sin saltos de diseño al rotar): alto fijo por tamaño de pantalla (600 px en escritorio, 440 px en móvil), backdrop con `object-fit: cover`, logo dentro de una caja fija (máx. 520 × 160 px en escritorio, 300 × 110 px en móvil) con `object-fit: contain` y alineado abajo a la izquierda, título de texto con el mismo alto de caja cuando no hay logo (ajuste 2026-10-21: el título nunca se sale de su caja; el tamaño baja según su longitud —`display-hero` hasta 18 caracteres, 75 % hasta 32 y 55 % por encima— y se corta con `…` a 3 líneas, con el título completo en `title` y en el nombre accesible), y sinopsis cortada a 3 líneas. Sin la etiqueta «Destacado» sobre el título (ajuste 2026-10-21) |
 
 ### Movimiento
 | Elemento | Disparador | Animación | Duración | Curva |

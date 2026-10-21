@@ -128,4 +128,5 @@ Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
 - [x] Ajustes de la 0.1.8 en las cuadrículas (RF-41, decisión 2026-10-21): casillas de selección alineadas con los pósters; filtro de géneros en un desplegable con varios géneros (al menos uno): probado en la demo (marcos alineados antes y durante la selección, casilla a 8 px en todos; Acción + Aventura → 8 títulos, URL `?genre=Aventura,Acción`; lista a lo ancho en móvil)
 - [ ] Pregunta de relación con tarjetas de opción apiladas (RF-03, ajuste 2026-10-21: con muchos comprimidos los botones se solapaban)
 - [ ] Elegir coincidencia como opciones claras con póster, 5 por sección y «Mostrar 5 más» (RF-21, ajuste 2026-10-21)
+- [ ] Hero: título largo sin logo que se sale de su caja; quitar la etiqueta «Destacado» (RF-40, ajuste 2026-10-21)
 - [~] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente y Jellyfin reconociéndolo todo
