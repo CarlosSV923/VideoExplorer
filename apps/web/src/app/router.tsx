@@ -102,6 +102,9 @@ function AppShell() {
     if (typeof EventSource === 'undefined' || typeof ports.watchJobs !== 'function')
       return undefined
     return watchJobsInCache(queryClient, ports, {
+      onCatalogChanged: () => {
+        scheduleCatalogInvalidation(queryClient, [unassignedKey, ['library']])
+      },
       onStatusChange: (job) => {
         if (['done', 'discarded', 'failed', 'cancelled'].includes(job.status)) {
           scheduleCatalogInvalidation(queryClient, [unassignedKey])

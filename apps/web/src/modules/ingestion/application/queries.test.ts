@@ -1,5 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 
+import { scheduleCatalogInvalidation } from '@/modules/catalog/application/queries'
+
 import { applyJobEvent, jobKey, jobsKey, watchJobsInCache } from './queries'
 import type { IngestionPorts } from './ports'
 import type { UploadJob } from '../domain/types'
@@ -76,5 +78,30 @@ describe('job event cache updates', () => {
       expect.objectContaining({ status: 'done' }),
       undefined,
     )
+  })
+
+  it('invalidates No asignados and the library after a catalog SSE event', async () => {
+    const client = new QueryClient()
+    const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined)
+    let onCatalogChanged: (() => void) | undefined
+    const ports = {
+      watchJobs: vi.fn(
+        (handlers: { onJob: (next: UploadJob) => void; onCatalogChanged?: () => void }) => {
+          onCatalogChanged = handlers.onCatalogChanged
+          return () => undefined
+        },
+      ),
+    } as unknown as IngestionPorts
+
+    watchJobsInCache(client, ports, {
+      onCatalogChanged: () => {
+        scheduleCatalogInvalidation(client, [['unassigned'], ['library']])
+      },
+    })
+    onCatalogChanged?.()
+    await Promise.resolve()
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['unassigned'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['library'] })
   })
 })

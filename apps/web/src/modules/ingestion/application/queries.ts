@@ -35,6 +35,7 @@ export function watchJobsInCache(
   ports: IngestionPorts,
   options?: {
     onStatusChange?: (job: UploadJob, previous?: UploadJob) => void
+    onCatalogChanged?: () => void
   },
 ): () => void {
   return ports.watchJobs({
@@ -43,6 +44,7 @@ export function watchJobsInCache(
       applyJobEvent(queryClient, job)
       if (previous?.status !== job.status) options?.onStatusChange?.(job, previous)
     },
+    ...(options?.onCatalogChanged ? { onCatalogChanged: options.onCatalogChanged } : {}),
   })
 }
 

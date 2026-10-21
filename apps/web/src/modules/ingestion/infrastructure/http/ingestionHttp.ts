@@ -40,12 +40,13 @@ export function createIngestionHttp(client: ApiClient, baseUrl = '/api'): Ingest
       return { abort: () => void upload.abort(false) }
     },
     jobs: () => unwrap(client.GET('/jobs')),
-    watchJobs: ({ onJob, onOpen }) => {
+    watchJobs: ({ onJob, onOpen, onCatalogChanged }) => {
       const source = new EventSource(`${baseUrl}/jobs/events`, { withCredentials: true })
       const listener = (event: MessageEvent<string>) => {
         onJob(JSON.parse(event.data) as Parameters<typeof onJob>[0])
       }
       source.addEventListener('job', listener)
+      if (onCatalogChanged) source.addEventListener('catalog', onCatalogChanged)
       if (onOpen) source.addEventListener('open', onOpen)
       return () => {
         source.close()

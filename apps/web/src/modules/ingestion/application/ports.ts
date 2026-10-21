@@ -29,7 +29,11 @@ export interface IngestionPorts {
   /** Resumable tus upload; implemented by the HTTP adapter in the next task. */
   upload?: (file: File, spec: UploadSpec, callbacks: UploadCallbacks) => UploadHandle
   jobs(): Promise<UploadJob[]>
-  watchJobs(handlers: { onJob: (job: UploadJob) => void; onOpen?: () => void }): () => void
+  watchJobs(handlers: {
+    onJob: (job: UploadJob) => void
+    onOpen?: () => void
+    onCatalogChanged?: () => void
+  }): () => void
   submitPassword(jobId: string, password: string): Promise<UploadJob>
   retryJob(jobId: string): Promise<UploadJob>
   dismissJob(jobId: string): Promise<UploadJob>
