@@ -36,7 +36,7 @@ func TestSPAHandler(t *testing.T) {
 		{name: "explicit index", fsys: builtSPA(), method: http.MethodGet, path: "/index.html", wantStatus: http.StatusOK, wantBody: indexHTML, wantCache: "no-cache"},
 		{name: "static asset", fsys: builtSPA(), method: http.MethodGet, path: "/favicon.svg", wantStatus: http.StatusOK, wantBody: "<svg></svg>"},
 		{name: "fingerprinted asset is immutable", fsys: builtSPA(), method: http.MethodGet, path: "/assets/app.js", wantStatus: http.StatusOK, wantBody: "console.log('app')", wantCache: "public, max-age=31536000, immutable"},
-		{name: "client route falls back to index", fsys: builtSPA(), method: http.MethodGet, path: "/peliculas/iron-man", wantStatus: http.StatusOK, wantBody: indexHTML, wantCache: "no-cache"},
+		{name: "client route falls back to index", fsys: builtSPA(), method: http.MethodGet, path: "/movies/iron-man", wantStatus: http.StatusOK, wantBody: indexHTML, wantCache: "no-cache"},
 		{name: "path traversal falls back to index", fsys: builtSPA(), method: http.MethodGet, path: "/../../etc/passwd", wantStatus: http.StatusOK, wantBody: indexHTML, wantCache: "no-cache"},
 		{name: "head of a client route", fsys: builtSPA(), method: http.MethodHead, path: "/series", wantStatus: http.StatusOK},
 		{name: "post is not allowed", fsys: builtSPA(), method: http.MethodPost, path: "/", wantStatus: http.StatusMethodNotAllowed},

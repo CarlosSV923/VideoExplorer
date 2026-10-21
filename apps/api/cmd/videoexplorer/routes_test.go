@@ -170,7 +170,7 @@ func TestRoutes(t *testing.T) {
 		{
 			name:            "client route falls back to the SPA",
 			method:          http.MethodGet,
-			path:            "/peliculas/iron-man",
+			path:            "/movies/iron-man",
 			wantStatus:      http.StatusOK,
 			wantContentType: "text/html",
 		},
