@@ -302,7 +302,11 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 					p.writing[path] = true
 				}
 			}
-			onChange(p.change)
+			// Only No asignados needs copying-state updates. Library changes are consumed only after
+			// the title folder has settled, so a large copy cannot trigger one import per write event.
+			if root.Area == "unassigned" {
+				onChange(p.change)
+			}
 			if event.Op&(fsnotify.Remove|fsnotify.Rename) != 0 {
 				delete(p.writing, path)
 				removeTree(path)

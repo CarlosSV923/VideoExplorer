@@ -204,14 +204,14 @@ func run(cfg config.Config, log *slog.Logger) error {
 			{Path: filepath.Join(cfg.LibraryPath, cfg.SeriesDir), Area: "library"},
 		}, catalog.Files.IsAppWrite)
 		err := w.Run(watchCtx, func(change fswatch.Change) {
-			if change.Area == "unassigned" && !change.Stable {
-				catalog.Section.MarkCopyingEntry(change.Group)
-				ingest.Events.PublishCatalogChanged()
+			if !change.Stable {
+				if change.Area == "unassigned" {
+					catalog.Section.MarkCopyingEntry(change.Group)
+					ingest.Events.PublishCatalogChanged()
+				}
 				return
 			}
-			if change.Stable {
-				log.InfoContext(watchCtx, "stable filesystem change detected", "area", change.Area, "group", change.Group)
-			}
+			log.InfoContext(watchCtx, "stable filesystem change detected", "area", change.Area, "group", change.Group)
 			var kind catalogdomain.ScanKind
 			folder := ""
 			switch change.Area {

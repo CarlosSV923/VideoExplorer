@@ -151,3 +151,76 @@ settled:
 		t.Fatalf("watcher: %v", err)
 	}
 }
+
+func TestWatcherCoalescesManyWritesIntoOneStableChange(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	settle := 100 * time.Millisecond
+	changes := make(chan Change, 256)
+	w := newWith([]Root{{Path: root, Area: "library"}}, settle, time.Now, func() (watchFS, error) {
+		fsw, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil, err
+		}
+		return nativeFS{fsw}, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- w.Run(ctx, func(change Change) { changes <- change }) }()
+
+	file := filepath.Join(root, "Godzilla (2014)", "Godzilla.mkv")
+	if err := os.Mkdir(filepath.Dir(file), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := make([]byte, 64*1024)
+	for range 64 {
+		if _, err := f.Write(block); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	changeCount := 0
+	deadline := time.After(5 * time.Second)
+	for changeCount == 0 {
+		select {
+		case change := <-changes:
+			changeCount++
+			if !change.Stable {
+				t.Fatalf("library change = %+v, want only a stable notification", change)
+			}
+			if change.Group != "Godzilla (2014)" {
+				t.Fatalf("stable group = %q, want title folder", change.Group)
+			}
+		case <-deadline:
+			t.Fatal("watcher did not report a stable change")
+		}
+	}
+
+	quiet := time.NewTimer(2 * settle)
+	defer quiet.Stop()
+	for {
+		select {
+		case change := <-changes:
+			changeCount++
+			if !change.Stable {
+				t.Fatalf("library change = %+v, want only stable notifications", change)
+			}
+		case <-quiet.C:
+			if changeCount != 1 {
+				t.Fatalf("library changes = %d, want one for the write burst", changeCount)
+			}
+			cancel()
+			if err := <-done; err != nil {
+				t.Fatalf("watcher: %v", err)
+			}
+			return
+		}
+	}
+}
