@@ -27,11 +27,11 @@ An orchestrator (Claude Code) gives you **one task** from `docs/tasks.md` per ru
 R="$(pwd -W)"
 MSYS_NO_PATHCONV=1 docker run --rm -v "$R:/spec" -w /spec redocly/cli:2.62.1 lint --config api/redocly.yaml api/openapi.yaml
 MSYS_NO_PATHCONV=1 docker run --rm -v "$R:/src" -v ve-gomod:/go/pkg/mod -v ve-lintcache:/root/.cache -w /src/apps/api golangci/golangci-lint:v2.14.0 golangci-lint run ./...
-MSYS_NO_PATHCONV=1 docker run --rm -v "$R:/src" -v ve-gomod:/go/pkg/mod -v ve-gocache:/root/.cache/go-build -w /src/apps/api videoexplorer-dev:1 go test -race -count=1 -timeout 300s ./...
+MSYS_NO_PATHCONV=1 docker run --rm -v "$R:/src" -v ve-gomod:/go/pkg/mod -v ve-gocache:/root/.cache/go-build -w /src/apps/api videoexplorer-dev:2 go test -race -count=1 -timeout 300s ./...
 pnpm lint:web && pnpm typecheck:web && pnpm format:check && pnpm test:web
 ```
 
-`pnpm` must run **without** `MSYS_NO_PATHCONV`. After changing `api/openapi.yaml` regenerate with `go tool oapi-codegen` (in `apps/api/internal/platform/httpapi`, inside the `videoexplorer-dev:1` image) and `pnpm gen:web`; after changing SQL run `sqlc/sqlc:1.31.1 generate` in Docker on `apps/api`. If Docker does not answer, report it instead of retrying forever. Run the full Go test suite once at the end; if a test fails intermittently, report its name and error instead of re-running repeatedly.
+`pnpm` must run **without** `MSYS_NO_PATHCONV`. After changing `api/openapi.yaml` regenerate with `go tool oapi-codegen` (in `apps/api/internal/platform/httpapi`, inside the `videoexplorer-dev:2` image) and `pnpm gen:web`; after changing SQL run `sqlc/sqlc:1.31.1 generate` in Docker on `apps/api`. If Docker does not answer, report it instead of retrying forever. Run the full Go test suite once at the end; if a test fails intermittently, report its name and error instead of re-running repeatedly.
 
 ## Finishing a task
 1. Make the checks above pass.
