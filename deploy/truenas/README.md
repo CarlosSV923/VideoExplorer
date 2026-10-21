@@ -8,6 +8,8 @@
 
 The fallback scan of the full library runs every 6 hours (`LIBRARY_SCAN_INTERVAL`); `_unassigned/` is scanned every 30 minutes (`UNASSIGNED_SCAN_INTERVAL`). The compose sets both values. Filesystem change detection is configured separately.
 
+Automatic detection works when files are copied to the same NAS, either through Samba/SMB or locally on the NAS. Copies made somewhere else and later made visible without filesystem notifications may not be detected immediately; **Scan now** remains available in Settings.
+
 ## Jellyfin paths
 
 Jellyfin should see the same media dataset that VideoExplorer mounts at `/library`. If both containers expose it at different paths, VideoExplorer detects the Jellyfin paths for `Movies/` and `TV Shows/` automatically. If detection cannot find them, set `JELLYFIN_LIBRARY_PATH` to the path Jellyfin uses for the root mounted at `/library`. Configure `JELLYFIN_URL` and `JELLYFIN_API_KEY` together; all three values are optional. Jellyfin scans the shared files normally, and VideoExplorer requests a refresh after changes.

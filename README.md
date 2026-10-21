@@ -39,6 +39,8 @@ Create a media dataset for `/library` and a separate app-state dataset for `/dat
 
 The fallback library scan runs every 6 hours, and the `_unassigned/` scan every 30 minutes. The TrueNAS compose sets these as `LIBRARY_SCAN_INTERVAL` and `UNASSIGNED_SCAN_INTERVAL`; filesystem change detection is configured separately.
 
+Automatic detection requires copies to reach the same NAS, through Samba/SMB or locally on the NAS. If a change is not detected, **Scan now** remains available in Settings.
+
 ## Development
 
 Requirements: Docker, Node.js 24 or later, pnpm 12.9.1, and Task 3.

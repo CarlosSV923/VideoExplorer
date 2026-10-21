@@ -39,6 +39,8 @@ Crea un dataset multimedia para `/library` y otro para el estado de la app en `/
 
 El escaneo de respaldo de la biblioteca se ejecuta cada 6 horas y el de `_unassigned/` cada 30 minutos. El compose de TrueNAS configura estos intervalos con `LIBRARY_SCAN_INTERVAL` y `UNASSIGNED_SCAN_INTERVAL`; la detección de cambios del sistema de archivos se configura por separado.
 
+La detección automática requiere que las copias lleguen al mismo NAS, por Samba/SMB o localmente en el NAS. Si no se detecta un cambio, «Escanear ahora» sigue disponible en Ajustes.
+
 ## Desarrollo
 
 Requisitos: Docker, Node.js 24 o posterior, pnpm 12.9.1 y Task 3.
