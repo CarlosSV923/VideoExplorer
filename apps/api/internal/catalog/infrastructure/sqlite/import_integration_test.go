@@ -20,6 +20,7 @@ import (
 // importTMDB answers the lookups of the import from fixed tables. Configured says whether TMDB is set up.
 type importTMDB struct {
 	configured bool
+	byID       map[string]application.TMDBTitle
 	byIMDb     map[string][]application.TMDBTitle
 	search     map[string][]application.TMDBTitle
 }
@@ -30,8 +31,51 @@ func (f *importTMDB) SearchTitles(_ context.Context, kind domain.TitleKind, quer
 	return f.search[string(kind)+"|"+query], nil
 }
 
-func (f *importTMDB) Title(context.Context, domain.TitleKind, int64) (application.TMDBTitle, error) {
-	return application.TMDBTitle{}, application.ErrTMDBNotFound
+func (f *importTMDB) Title(_ context.Context, kind domain.TitleKind, id int64) (application.TMDBTitle, error) {
+	title, ok := f.byID[string(kind)+"|"+fmt.Sprint(id)]
+	if !ok {
+		return application.TMDBTitle{}, application.ErrTMDBNotFound
+	}
+	return title, nil
+}
+
+func TestScanLinksPreviouslyFreeTitleFromFileTMDBTagWithoutRenaming(t *testing.T) {
+	t.Parallel()
+	tmdb := &importTMDB{
+		configured: true,
+		byID: map[string]application.TMDBTitle{
+			"movie|8077": {ID: 8077, Title: "Alien Resurrection", Year: 1997},
+		},
+	}
+	fx := newImportFixture(t, tmdb)
+	folder := "Movies/Alien Resurrection (1997)"
+	rel := folder + "/Alien Resurrection (1997) [tmdbid-8077].mp4"
+	fx.put(t, rel, []byte("video"), fx.settled())
+	title, err := domain.NewLibraryTitle(domain.KindMovie, "Alien Resurrection", "Alien Resurrection", 1997, 0, false, folder, fx.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := commitLibrary(t.Context(), fx.conn, func(rec application.Records) error {
+		id, err := rec.InsertLibraryTitle(t.Context(), title)
+		if err != nil {
+			return err
+		}
+		return rec.InsertLibraryFiles(t.Context(), id, []domain.LibraryFile{{Kind: domain.FileVideo, Rel: rel, Size: 5}})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	fx.scan(t)
+	titles, err := fx.library.Titles(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(titles) != 1 || titles[0].TMDBID != 8077 || titles[0].Title != "Alien Resurrection" || titles[0].Folder != folder {
+		t.Fatalf("linked title = %+v", titles)
+	}
+	if !fx.exists(rel) {
+		t.Fatalf("scan renamed or moved the imported file %q", rel)
+	}
 }
 
 func (f *importTMDB) FindIMDb(_ context.Context, kind domain.TitleKind, imdbID string) ([]application.TMDBTitle, error) {

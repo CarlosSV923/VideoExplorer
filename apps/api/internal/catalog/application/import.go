@@ -363,6 +363,9 @@ func (im *LibraryImport) apply(ctx context.Context, b *Builder, in domain.Import
 			return rec.InsertLibraryFiles(ctx, af.TitleID, af.Files)
 		})
 	}
+	for _, title := range plan.LinkedTitles {
+		b.Record(func(rec Records) error { return rec.SaveLibraryTitle(ctx, title) })
+	}
 
 	planned := domain.NameSet{}
 	for _, m := range plan.Moves {

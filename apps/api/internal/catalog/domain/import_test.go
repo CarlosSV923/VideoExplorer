@@ -952,6 +952,48 @@ func TestPlanImportRegistryAndDisk(t *testing.T) {
 	})
 }
 
+func TestPlanImportLinksTaggedFreeTitlesWithoutRenaming(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		folder string
+		file   string
+		lookup domain.Lookup
+		wantID int64
+		link   bool
+	}{
+		{name: "TMDB tag on folder", folder: "Alien Resurrection (1997) [tmdbid-8077]", file: "Alien Resurrection (1997).mp4", lookup: domain.Lookup{ByID: &domain.TMDBHit{ID: 8077, Title: "Alien Resurrection"}}, wantID: 8077, link: true},
+		{name: "TMDB tag on file", folder: "Alien Resurrection (1997)", file: "Alien Resurrection (1997) [tmdbid-8077].mp4", lookup: domain.Lookup{ByID: &domain.TMDBHit{ID: 8077, Title: "Alien Resurrection"}}, wantID: 8077, link: true},
+		{name: "known IMDb tag on file", folder: "Alien Resurrection (1997)", file: "Alien Resurrection (1997) [imdbid-tt0118583].mp4", lookup: domain.Lookup{ByIMDb: []domain.TMDBHit{{ID: 8077, Title: "Alien Resurrection"}}}, wantID: 8077, link: true},
+		{name: "unknown tag stays free", folder: "Alien Resurrection (1997)", file: "Alien Resurrection (1997) [imdbid-tt0000000].mp4"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			in := baseInput(movieRoot, folderOf(tt.folder, tt.file))
+			rel := "Movies/" + tt.folder + "/" + tt.file
+			in.Titles = []domain.RegisteredTitle{{
+				Title: domain.LibraryTitle{ID: 4, Kind: domain.KindMovie, Title: "Sin vincular", DiscTitle: tt.folder, Year: 1997, Folder: "Movies/" + tt.folder},
+				Files: []domain.LibraryFile{{ID: 40, Rel: rel, Kind: domain.FileVideo, Size: 1000}},
+			}}
+			in.Lookups = map[string]domain.Lookup{"movies/" + strings.ToLower(tt.folder): tt.lookup}
+			plan := domain.PlanImport(in)
+			if !tt.link {
+				if len(plan.LinkedTitles) != 0 {
+					t.Fatalf("unknown tag linked title: %+v", plan.LinkedTitles)
+				}
+				return
+			}
+			if len(plan.LinkedTitles) != 1 || plan.LinkedTitles[0].TMDBID != tt.wantID || plan.LinkedTitles[0].Title != "Alien Resurrection" {
+				t.Fatalf("linked titles = %+v", plan.LinkedTitles)
+			}
+			if plan.LinkedTitles[0].Folder != "Movies/"+tt.folder || plan.LinkedTitles[0].IDTag || plan.LinkedTitles[0].DiscTitle != tt.folder {
+				t.Errorf("link changed imported paths or tag state: %+v", plan.LinkedTitles[0])
+			}
+		})
+	}
+}
+
 func TestPlanImportIsDeterministic(t *testing.T) {
 	t.Parallel()
 	in := baseInput(movieRoot,

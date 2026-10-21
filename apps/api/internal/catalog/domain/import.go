@@ -159,12 +159,13 @@ type ImportCounts struct {
 // titles and files are registered, then the moves into No asignados run and the folders they empty go, and
 // the waiting files are stored. Wanted is the lookups the plan needs, for the first pass.
 type ImportPlan struct {
-	Wanted     []Wanted
-	GoneFiles  []int64
-	GoneTitles []int64
-	NewTitles  []NewTitle
-	AddFiles   []AddFiles
-	Moves      []UnassignedMove
+	Wanted       []Wanted
+	LinkedTitles []LibraryTitle
+	GoneFiles    []int64
+	GoneTitles   []int64
+	NewTitles    []NewTitle
+	AddFiles     []AddFiles
+	Moves        []UnassignedMove
 	// RemoveDirs are the folders of the library that the moves emptied, deepest first.
 	RemoveDirs []string
 	// Waiting holds the stamps of the files still waiting; it replaces the stamps of the last scan.
@@ -187,6 +188,7 @@ func PlanImport(in ImportInput) ImportPlan {
 		p.roots[strings.ToLower(r.Root.Name)] = r.Root
 	}
 	p.registry()
+	p.linkTaggedFreeTitles()
 	for _, r := range in.Roots {
 		for _, f := range r.Entries {
 			if f.Loose {
@@ -197,6 +199,45 @@ func PlanImport(in ImportInput) ImportPlan {
 		}
 	}
 	return p.plan
+}
+
+// linkTaggedFreeTitles links previously imported free titles when a folder or one of its files carries a known
+// TMDB/IMDb id (RF-29). It changes registry metadata only; imported paths remain untouched.
+func (p *importPlanner) linkTaggedFreeTitles() {
+	for _, rt := range p.in.Titles {
+		if rt.Title.TMDBID != 0 || rt.Title.ID <= 0 {
+			continue
+		}
+		folder := path.Base(rt.Title.Folder)
+		fn := ParseFolderName(folder)
+		if fn.TMDBID == 0 && fn.IMDbID == "" {
+			for _, f := range rt.Files {
+				if f.Kind != FileVideo || !f.Live() {
+					continue
+				}
+				_, tmdbID, imdbID := IDTagsOf(f.Rel)
+				if tmdbID != 0 || imdbID != "" {
+					fn.TMDBID, fn.IMDbID = tmdbID, imdbID
+					break
+				}
+			}
+		}
+		if fn.TMDBID == 0 && fn.IMDbID == "" {
+			continue
+		}
+		p.plan.Wanted = append(p.plan.Wanted, Wanted{
+			Folder: rt.Title.Folder, Kind: rt.Title.Kind, Title: rt.Title.DiscTitle, Year: rt.Title.Year,
+			TMDBID: fn.TMDBID, IMDbID: fn.IMDbID,
+		})
+		look, ok := p.in.Lookups[strings.ToLower(rt.Title.Folder)]
+		linked := linkOf(fn, look, ok)
+		if linked.tmdbID == 0 {
+			continue
+		}
+		title := rt.Title
+		title.Title, title.TMDBID, title.IDTag = linked.title, linked.tmdbID, false
+		p.plan.LinkedTitles = append(p.plan.LinkedTitles, title)
+	}
 }
 
 // importPlanner holds the state of one PlanImport run.
