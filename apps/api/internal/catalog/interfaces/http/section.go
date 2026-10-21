@@ -208,7 +208,7 @@ func entryConflict(err error) httpapi.EntryConflictApplicationProblemPlusJSONRes
 
 // sectionToAPI turns the entries of the section into the contract's shape. Lists are never null.
 func sectionToAPI(entries []application.SectionEntry) httpapi.UnassignedSection {
-	out := httpapi.UnassignedSection{Entries: make([]httpapi.UnassignedEntry, 0, len(entries))}
+	out := httpapi.UnassignedSection{Entries: make([]httpapi.UnassignedEntry, 0, len(entries)), Jobs: []httpapi.UploadJob{}}
 	for _, e := range entries {
 		v := httpapi.UnassignedEntry{
 			Id:       e.ID,

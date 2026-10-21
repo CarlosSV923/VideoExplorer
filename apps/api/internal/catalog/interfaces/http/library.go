@@ -295,10 +295,8 @@ func summaryToAPI(t application.TitleSummary) httpapi.LibraryTitleSummary {
 		backdrop := imageURL("backdrop", t.Backdrop)
 		out.Backdrop = &backdrop
 	}
-	if len(t.Genres) > 0 {
-		genres := append([]string(nil), t.Genres...)
-		out.Genres = &genres
-	}
+	genres := append([]string{}, t.Genres...)
+	out.Genres = &genres
 	if t.Collection != nil {
 		out.Collection = &httpapi.LibraryTitleSummaryCollection{Id: t.Collection.ID, Name: t.Collection.Name}
 	}
@@ -313,7 +311,7 @@ func detailToAPI(t application.TitleDetail) httpapi.LibraryTitle {
 	out := httpapi.LibraryTitle{
 		Id: t.ID, Kind: kindToAPI(t.Kind), Title: t.Title, DiscTitle: t.DiscTitle, Year: t.Year,
 		TmdbId: tmdbIDToAPI(t.TMDBID), IdTag: t.IDTag, OriginalTitle: t.OriginalTitle,
-		Overview: t.Overview, Runtime: t.Runtime, Genres: append([]string(nil), t.Genres...), Seasons: make([]httpapi.LibrarySeason, 0, len(t.Seasons)), Videos: make([]httpapi.LibraryVideo, 0, len(t.Videos)),
+		Overview: t.Overview, Runtime: t.Runtime, Genres: append([]string{}, t.Genres...), Seasons: make([]httpapi.LibrarySeason, 0, len(t.Seasons)), Videos: make([]httpapi.LibraryVideo, 0, len(t.Videos)),
 	}
 	if t.MissingEpisodes != nil {
 		out.MissingEpisodes = t.MissingEpisodes

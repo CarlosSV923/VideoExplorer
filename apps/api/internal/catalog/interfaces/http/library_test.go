@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -155,6 +156,9 @@ func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 	if title.Id != 7 || title.TmdbId != nil || title.IdTag || title.Poster != nil {
 		t.Errorf("the free title: %+v", title)
 	}
+	if title.Genres == nil || title.Seasons == nil || title.Videos == nil {
+		t.Errorf("free title arrays must be empty arrays, got genres=%v seasons=%v videos=%v", title.Genres, title.Seasons, title.Videos)
+	}
 	if len(title.Videos) != 1 {
 		t.Fatalf("videos = %+v, want the live one only", title.Videos)
 	}
@@ -167,6 +171,26 @@ func TestTheTitlePageAnswersTheVideosWithTheirChapters(t *testing.T) {
 	}
 	if len(v.Subtitles) != 1 || v.Subtitles[0].Language != "es" {
 		t.Errorf("the subtitles: %+v", v.Subtitles)
+	}
+}
+
+func TestTheTitleListEncodesUnavailableGenresAsAnEmptyArray(t *testing.T) {
+	t.Parallel()
+	h := NewLibraryHandler(application.NewLibraryViews(libraryRegistry{}, nil, nil), nil, nil, nil)
+	got, err := h.ListLibraryTitles(t.Context(), httpapi.ListLibraryTitlesRequestObject{})
+	if err != nil {
+		t.Fatalf("ListLibraryTitles: %v", err)
+	}
+	response, ok := got.(httpapi.ListLibraryTitles200JSONResponse)
+	if !ok || len(response.Titles) == 0 {
+		t.Fatalf("response = %#v, want a title list", got)
+	}
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), `"genres":null`) || !strings.Contains(string(encoded), `"genres":[]`) {
+		t.Errorf("title list genres must encode as []: %s", encoded)
 	}
 }
 

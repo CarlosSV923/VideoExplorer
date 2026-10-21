@@ -77,9 +77,13 @@ func (h *TrashHandler) PlanTrashRestore(ctx context.Context, req httpapi.PlanTra
 		}
 		return nil, err
 	}
+	return httpapi.PlanTrashRestore200JSONResponse(trashRestorePlanToAPI(p)), nil
+}
+
+func trashRestorePlanToAPI(p application.TrashRestorePlan) httpapi.TrashRestorePlan {
 	out := httpapi.TrashRestorePlan{EntryId: p.EntryID, Files: make([]httpapi.TrashRestoreFilePlan, 0, len(p.Files))}
 	for _, f := range p.Files {
-		v := httpapi.TrashRestoreFilePlan{File: f.File, Destinations: f.Destinations, Duplicates: make([]httpapi.PlanDuplicate, 0, len(f.Duplicates)), Allowed: make([]httpapi.TrashRestoreDecision, 0, len(f.Allowed))}
+		v := httpapi.TrashRestoreFilePlan{File: f.File, Destinations: append([]string{}, f.Destinations...), Duplicates: make([]httpapi.PlanDuplicate, 0, len(f.Duplicates)), Allowed: make([]httpapi.TrashRestoreDecision, 0, len(f.Allowed))}
 		if f.VersionProposal != "" {
 			proposal := f.VersionProposal
 			v.VersionProposal = &proposal
@@ -97,7 +101,7 @@ func (h *TrashHandler) PlanTrashRestore(ctx context.Context, req httpapi.PlanTra
 		}
 		out.Files = append(out.Files, v)
 	}
-	return httpapi.PlanTrashRestore200JSONResponse(out), nil
+	return out
 }
 
 // RestoreTrashEntry commits the preview through the catalog engine (RF-31, RF-31a).
@@ -125,5 +129,5 @@ func (h *TrashHandler) RestoreTrashEntry(ctx context.Context, req httpapi.Restor
 		}
 		return nil, err
 	}
-	return httpapi.RestoreTrashEntry200JSONResponse(httpapi.TrashRestoreResult{Restored: paths}), nil
+	return httpapi.RestoreTrashEntry200JSONResponse(httpapi.TrashRestoreResult{Restored: append([]string{}, paths...)}), nil
 }
