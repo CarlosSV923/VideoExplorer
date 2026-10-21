@@ -7,6 +7,7 @@ import type { TitleChoice, TitleHit } from '../domain/types'
 import { titleChoiceFromHit } from '../application/assignment'
 import { Button, Dialog, TextField } from '@/shared/ui'
 import { kindLabel } from './CatalogLabels'
+import { TitleHitOptions } from './TitleHitOptions'
 
 function sortHits(hits: readonly TitleHit[], preferred: 'movie' | 'series') {
   return [...hits].sort((left, right) => {
@@ -142,30 +143,13 @@ export function TitlePicker({
               {t('assign.titlePicker.tmdbUnavailable')}
             </p>
           )}
-          {!!search.data?.library.length && (
-            <section className="flex flex-col gap-2">
-              <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
-                {t('assign.titlePicker.library')}
-              </h3>
-              {sortHits(search.data.library, kind).map((hit) => (
-                <TitleHitButton
-                  key={`library-${String(hit.libraryTitleId)}`}
-                  hit={hit}
-                  onPick={pick}
-                />
-              ))}
-            </section>
-          )}
-          {!!search.data?.tmdb.length && (
-            <section className="flex flex-col gap-2">
-              <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
-                {t('assign.titlePicker.tmdbResults')}
-              </h3>
-              {sortHits(search.data.tmdb, kind).map((hit) => (
-                <TitleHitButton key={`tmdb-${String(hit.tmdbId)}`} hit={hit} onPick={pick} />
-              ))}
-            </section>
-          )}
+          <TitleHitOptions
+            key={term}
+            library={sortHits(search.data?.library ?? [], kind)}
+            tmdb={sortHits(search.data?.tmdb ?? [], kind)}
+            selected={selectedHit}
+            onPick={pick}
+          />
           {search.isSuccess &&
             term.trim() &&
             search.data.library.length === 0 &&
@@ -202,41 +186,5 @@ export function TitlePicker({
         </Dialog>
       )}
     </div>
-  )
-}
-
-function TitleHitButton({ hit, onPick }: { hit: TitleHit; onPick: (hit: TitleHit) => void }) {
-  const { t } = useTranslation()
-  const metadata = useMetadataPorts()
-  return (
-    <button
-      type="button"
-      className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
-      onClick={() => {
-        onPick(hit)
-      }}
-    >
-      {hit.posterFile ? (
-        <img
-          src={metadata.imageUrl('poster', hit.posterFile)}
-          alt=""
-          className="size-12 shrink-0 rounded object-cover"
-        />
-      ) : (
-        <span className="size-12 shrink-0 rounded bg-surface-2" aria-hidden="true" />
-      )}
-      <span className="min-w-0">
-        <strong className="block truncate">{hit.title}</strong>
-        <small className="text-ink-2">
-          {[
-            hit.year,
-            kindLabel(hit.kind, t),
-            hit.libraryTitleId !== undefined ? t('library.inLibrary') : '',
-          ]
-            .filter(Boolean)
-            .join(` ${t('common.separator')} `)}
-        </small>
-      </span>
-    </button>
   )
 }

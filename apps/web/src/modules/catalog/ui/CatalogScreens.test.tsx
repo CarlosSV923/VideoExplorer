@@ -144,10 +144,8 @@ describe('Biblioteca', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Coincidencia de TMDB' }), {
       target: { value: 'Iron' },
     })
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Iron Man/ })).toBeInTheDocument(),
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Iron Man/ }))
+    await waitFor(() => expect(screen.getByRole('radio', { name: /Iron Man/ })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('radio', { name: /Iron Man/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Previsualizar' }))
     await waitFor(() =>
       expect(screen.getByText('Movies/Pelicula Ambar (2024)')).toBeInTheDocument(),

@@ -320,7 +320,7 @@ describe('Asignar', () => {
     await waitFor(() => expect(screen.getByText('Godzilla.2014.mkv')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /Godzilla.*Cambiar/ }))
     const dialog = screen.getByRole('dialog')
-    const results = within(dialog).getAllByRole('button', { name: /Godzilla/ })
+    const results = within(dialog).getAllByRole('radio', { name: /Godzilla/ })
     const firstResult = results[0]
     expect(firstResult).toBeDefined()
     if (!firstResult) return

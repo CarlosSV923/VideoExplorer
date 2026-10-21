@@ -21,6 +21,21 @@ export function useAction(action: Action, handler: Handler, enabled = true) {
     [action, enabled, subscribe],
   )
 }
+
+export function useOptionalAction(action: Action, handler: Handler, enabled = true) {
+  const input = use(InputContext)
+  const latest = useRef(handler)
+  useEffect(() => {
+    latest.current = handler
+  }, [handler])
+  useEffect(
+    () =>
+      enabled && input
+        ? input.subscribe(action, (direction) => latest.current(direction))
+        : undefined,
+    [action, enabled, input],
+  )
+}
 export function useDispatch() {
   return useInput().dispatch
 }

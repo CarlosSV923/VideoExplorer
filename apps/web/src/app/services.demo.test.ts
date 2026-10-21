@@ -231,6 +231,9 @@ describe('VideoExplorer demo adapters', () => {
   it('searches demo TMDB ids and sends seeded library matches to their stored title', async () => {
     const services = await createDemoServices()
 
+    const byName = await services.metadata.searchTitles('dark')
+    expect(byName.library[0]?.posterFile).toBeTruthy()
+
     const movie = await services.metadata.searchTitles(
       'https://www.themoviedb.org/movie/155-dark-knight',
     )

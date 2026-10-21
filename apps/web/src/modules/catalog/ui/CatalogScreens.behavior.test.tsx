@@ -538,7 +538,9 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     const dialog = await screen.findByRole('dialog')
     await waitFor(() => expect(within(dialog).getByText('Resultados de TMDB')).toBeInTheDocument())
     expect(within(dialog).queryByText(movie.title)).not.toBeInTheDocument()
-    expect(within(dialog).getByText('A La Mierda Con Los Zombis')).toBeInTheDocument()
+    expect(
+      within(dialog).getByRole('radio', { name: /A La Mierda Con Los Zombis/ }),
+    ).toBeInTheDocument()
   })
 
   it('shows the empty home state', async () => {

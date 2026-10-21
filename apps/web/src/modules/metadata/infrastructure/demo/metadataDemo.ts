@@ -78,7 +78,7 @@ export function createMetadataDemo(catalogPorts?: CatalogPorts): MetadataPorts {
           kind: item.kind,
           title: item.title,
           year: item.year,
-          ...(item.poster ? { posterFile: `${String(item.tmdbId ?? item.id)}.svg` } : {}),
+          ...(item.tmdbId === undefined ? {} : { posterFile: `${String(item.tmdbId)}.svg` }),
         }))
       const results = catalog.titles
         .filter(

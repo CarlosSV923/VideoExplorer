@@ -420,6 +420,56 @@ test('assigns the seeded Dark Knight duplicate through save', async ({ page }) =
   await expect(page).toHaveURL('/unassigned')
 })
 
+test('shows selectable title matches with posters in Edit and Assign on desktop and mobile', async ({
+  page,
+}) => {
+  await page.goto('/movies/1000/edit')
+  await page.getByRole('textbox', { name: 'Coincidencia de TMDB' }).click()
+  const editDialog = page.getByRole('dialog')
+  await editDialog.getByRole('textbox', { name: 'Buscar título' }).fill('dark')
+  await expect(editDialog.getByRole('radio').first()).toBeVisible()
+  await expect(editDialog.getByRole('radiogroup').first()).toHaveAttribute('aria-labelledby', /.+/)
+  const editOption = editDialog.getByRole('radio').first()
+  await expect(editOption).toHaveAttribute('aria-checked', 'false')
+  await expect(editOption.locator('img')).toHaveAttribute('loading', 'lazy')
+  await editOption.scrollIntoViewIfNeeded()
+  await expect
+    .poll(async () => {
+      const image = editOption.locator('img')
+      if ((await image.count()) === 0) return true
+      return image.evaluate((element) => (element as HTMLImageElement).complete)
+    })
+    .toBe(true)
+  await page.screenshot({
+    path: `test-results/title-picker-edit-${String(page.viewportSize()?.width ?? 0)}.png`,
+    animations: 'disabled',
+  })
+
+  await page.goto('/unassigned/4/assign')
+  await page
+    .getByRole('button', { name: /Cambiar/ })
+    .first()
+    .click()
+  const assignDialog = page.getByRole('dialog')
+  await assignDialog.getByRole('textbox', { name: 'Buscar título' }).fill('dark')
+  const assignOption = assignDialog.getByRole('radio').first()
+  await expect(assignOption).toBeVisible()
+  await expect(assignOption).toHaveAttribute('aria-checked', 'true')
+  await expect(assignOption.locator('img')).toHaveAttribute('loading', 'lazy')
+  await assignOption.scrollIntoViewIfNeeded()
+  await expect
+    .poll(async () => {
+      const image = assignOption.locator('img')
+      if ((await image.count()) === 0) return true
+      return image.evaluate((element) => (element as HTMLImageElement).complete)
+    })
+    .toBe(true)
+  await page.screenshot({
+    path: `test-results/title-picker-assign-${String(page.viewportSize()?.width ?? 0)}.png`,
+    animations: 'disabled',
+  })
+})
+
 test('restores a trash item and shows TMDB attribution in settings', async ({ page }) => {
   await page.goto('/settings/trash')
   const entry = page.locator('article').filter({ hasText: 'Inception.2010.part1.rar' })
