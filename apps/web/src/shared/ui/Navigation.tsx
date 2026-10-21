@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import { useAction } from '../input'
 import { cx } from './cx'
@@ -142,7 +143,10 @@ export function Menu({
     if (!open) return
     menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
     const closeOnOutside = (event: PointerEvent) => {
-      if (!box.current?.contains(event.target as Node)) {
+      if (
+        !box.current?.contains(event.target as Node) &&
+        !menu.current?.contains(event.target as Node)
+      ) {
         setOpen(false)
       }
     }
@@ -157,17 +161,24 @@ export function Menu({
       return
     }
     const trigger = button.current.getBoundingClientRect()
-    const width = menu.current.getBoundingClientRect().width
+    const bounds = menu.current.getBoundingClientRect()
+    const width = bounds.width
+    const height = bounds.height
     const margin = 8
+    const below = trigger.bottom + 8
+    const top =
+      below + height <= window.innerHeight - margin
+        ? below
+        : Math.max(margin, trigger.top - height - 8)
     setMenuPosition({
       left: Math.max(margin, Math.min(trigger.right - width, window.innerWidth - width - margin)),
-      top: trigger.bottom + 8,
+      top,
     })
   }, [open])
   const onKeyDown = (event: KeyboardEvent) => {
     if (!open) return
     const entries = Array.from(
-      box.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+      menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
     )
     const index = entries.indexOf(document.activeElement as HTMLElement)
     const next =
@@ -185,6 +196,40 @@ export function Menu({
       next.focus()
     }
   }
+  const menuElement = open && (
+    <ul
+      ref={menu}
+      id={id}
+      role="menu"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      style={
+        menuPosition
+          ? { position: 'fixed', left: menuPosition.left, top: menuPosition.top }
+          : { position: 'fixed', visibility: 'hidden' }
+      }
+      className="z-50 min-w-60 rounded-lg border border-control bg-surface-2 p-1.5 shadow-xl"
+    >
+      {items.map((item) => (
+        <li key={item.label} role="none">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              item.onSelect()
+            }}
+            className={cx(
+              'flex min-h-control-sm w-full items-center rounded-md border-0 bg-transparent px-3 text-left text-body-sm font-semibold',
+              item.tone === 'danger' ? 'text-danger' : 'text-ink-1',
+            )}
+          >
+            {item.label}
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
   return (
     <div ref={box} className="relative inline-flex" onKeyDown={onKeyDown}>
       <button
@@ -201,39 +246,7 @@ export function Menu({
       >
         {children}
       </button>
-      {open && (
-        <ul
-          ref={menu}
-          id={id}
-          role="menu"
-          aria-label={label}
-          style={
-            menuPosition
-              ? { position: 'fixed', left: menuPosition.left, top: menuPosition.top }
-              : undefined
-          }
-          className="z-30 min-w-60 rounded-lg border border-control bg-surface-2 p-1.5 shadow-xl"
-        >
-          {items.map((item) => (
-            <li key={item.label} role="none">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false)
-                  item.onSelect()
-                }}
-                className={cx(
-                  'flex min-h-control-sm w-full items-center rounded-md border-0 bg-transparent px-3 text-left text-body-sm font-semibold',
-                  item.tone === 'danger' ? 'text-danger' : 'text-ink-1',
-                )}
-              >
-                {item.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {menuElement && createPortal(menuElement, document.body)}
     </div>
   )
 }

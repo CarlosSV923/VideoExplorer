@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { I18nextProvider } from 'react-i18next'
+import { vi } from 'vitest'
 
 import { createI18n } from '../i18n'
 import { InputProvider } from '../input'
@@ -78,6 +79,66 @@ describe('UI primitives', () => {
     )
     expect(screen.getAllByRole('link')).toHaveLength(20)
     expect(screen.getByRole('link', { name: 'Title 0' })).toHaveClass(...onePosterClass.split(' '))
+  })
+
+  it('anchors the action menu to its button and flips it above near the viewport edge', () => {
+    const width = window.innerWidth
+    const height = window.innerHeight
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 400 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 300 })
+    const bounds = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.tagName === 'BUTTON')
+          return {
+            x: 300,
+            y: 240,
+            left: 300,
+            right: 350,
+            top: 240,
+            bottom: 264,
+            width: 50,
+            height: 24,
+            toJSON: () => ({}),
+          }
+        if (this.getAttribute('role') === 'menu')
+          return {
+            x: 0,
+            y: 0,
+            left: 0,
+            right: 240,
+            top: 0,
+            bottom: 180,
+            width: 240,
+            height: 180,
+            toJSON: () => ({}),
+          }
+        return {
+          x: 0,
+          y: 0,
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: 0,
+          height: 0,
+          toJSON: () => ({}),
+        }
+      })
+    try {
+      wrap(
+        <Menu label="Acciones" items={[{ label: 'Editar', onSelect: () => undefined }]}>
+          Más acciones
+        </Menu>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Acciones' }))
+      const menu = screen.getByRole('menu')
+      expect(menu).toHaveStyle({ left: '110px', top: '52px' })
+    } finally {
+      bounds.mockRestore()
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+    }
   })
 
   it('exposes progress and dialog focus semantics', async () => {
