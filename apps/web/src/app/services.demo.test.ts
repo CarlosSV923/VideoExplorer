@@ -1,4 +1,5 @@
 import { createDemoServices } from './services'
+import type { EditRequest } from '@/modules/catalog/domain/types'
 
 describe('VideoExplorer demo adapters', () => {
   it('wires every module to in-memory ports and seeds RF-71a titles, entries, and trash', async () => {
@@ -241,5 +242,29 @@ describe('VideoExplorer demo adapters', () => {
     } finally {
       fetchSpy.mockRestore()
     }
+  })
+
+  it('previews a free title linked to TMDB with the canonical tagged folder and video name', async () => {
+    const services = await createDemoServices()
+    const title = await services.catalog.libraryTitle(999)
+    const video = title.videos[0]
+    if (!video) throw new Error('Expected the seeded free title video')
+    const request: EditRequest = {
+      revision: '',
+      title: { source: 'tmdb', tmdbId: 155, kind: 'movie' },
+      videos: [{ fileId: video.id, version: '', part: 0 }],
+      subtitles: [],
+    }
+    const plan = await services.catalog.planTitleEdit(999, request)
+    expect(plan.folder).toContain('The Dark Knight (2008) [tmdbid-155]')
+    expect(plan.videos[0]?.file).toBe('Vacaciones en la playa (2015).mkv')
+    expect(plan.videos[0]?.finalPath).toContain(
+      'The Dark Knight (2008) [tmdbid-155]/The Dark Knight (2008) [tmdbid-155].mkv',
+    )
+    expect(plan.videos[0]?.changed).toBe(true)
+    await services.catalog.commitTitleEdit(999, request)
+    const saved = await services.catalog.libraryTitle(999)
+    expect(saved.tmdbId).toBe(155)
+    expect(saved.videos[0]?.path).toBe(plan.videos[0]?.finalPath)
   })
 })

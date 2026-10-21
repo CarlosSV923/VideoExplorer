@@ -98,6 +98,7 @@ function renderCatalog(
     search?: { orden?: string; genero?: string; incompletas?: string; q?: string }
     random?: () => number
   } = {},
+  metadataOverrides: Partial<MetadataPorts> = {},
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const catalog = {
@@ -125,12 +126,13 @@ function renderCatalog(
       warnings: [],
     }),
     ...overrides,
-  } as unknown as CatalogPorts
+  } as CatalogPorts
   const metadata = {
     searchTitles: vi.fn().mockResolvedValue({ tmdbAvailable: true, library: [], tmdb: [] }),
     refreshTitleMetadata: vi.fn().mockResolvedValue(undefined),
     imageUrl: vi.fn((kind: string, file: string) => `/api/images/${kind}/${file}`),
-  } as unknown as MetadataPorts
+    ...metadataOverrides,
+  }
   const ingestion = { jobs: vi.fn().mockResolvedValue([]) } as unknown as IngestionPorts
   const renderTree = () => (
     <I18nextProvider i18n={createI18n('es')}>
@@ -318,6 +320,47 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
     await waitFor(() => expect(screen.getByText('El título cambió.')).toBeInTheDocument())
     expect(mockCalls(catalog, 'commitTitleEdit').length).toBeGreaterThan(0)
+  })
+
+  it('excludes the edited title from library choices and groups TMDB matches in link search', async () => {
+    renderCatalog(
+      'edit',
+      {},
+      {},
+      {
+        searchTitles: vi.fn().mockResolvedValue({
+          tmdbAvailable: true,
+          library: [
+            { source: 'library', libraryTitleId: 1, kind: 'movie', title: movie.title, year: 2024 },
+          ],
+          tmdb: [
+            {
+              source: 'library',
+              libraryTitleId: 1,
+              tmdbId: 273477,
+              kind: 'movie',
+              title: movie.title,
+              year: 2024,
+            },
+            {
+              source: 'tmdb',
+              tmdbId: 273477,
+              kind: 'movie',
+              title: 'A La Mierda Con Los Zombis',
+              year: 2015,
+            },
+          ],
+        }),
+      },
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Cambiar coincidencia' })).toBeInTheDocument(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar coincidencia' }))
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByText('Resultados de TMDB')).toBeInTheDocument())
+    expect(within(dialog).queryByText(movie.title)).not.toBeInTheDocument()
+    expect(within(dialog).getByText('A La Mierda Con Los Zombis')).toBeInTheDocument()
   })
 
   it('shows the empty home state', async () => {

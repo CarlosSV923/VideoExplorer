@@ -1,7 +1,8 @@
 /* eslint @typescript-eslint/require-await: off */
 import catalog from '@/modules/metadata/infrastructure/demo/catalog.json'
 import type { CatalogPorts } from '@/modules/catalog/application/ports'
-import type { AssignSuggestions, TitleHit } from '@/modules/catalog/domain/types'
+import type { AssignSuggestions, EditRequest, TitleHit } from '@/modules/catalog/domain/types'
+import { chapterPath, moviePath, subtitlePath } from '@/modules/catalog/domain/paths'
 import type { UploadJob } from '@/modules/ingestion/domain/types'
 import type {
   LibrarySeason,
@@ -409,33 +410,90 @@ export function createCatalogDemo(): DemoCatalogAdapter {
     })
     return { entryId, valid: errors.length === 0, videos, subtitles, errors, warnings: [] }
   }
-  const buildEditPlan = (title: LibraryTitle) => ({
-    titleId: title.id,
-    revision: 'demo',
-    valid: true,
-    kind: title.kind,
-    title: title.discTitle,
-    folder: title.discTitle,
-    videos: title.videos.map((video) => ({
-      fileId: video.id,
-      file: video.path,
-      finalPath: video.path,
-      changed: false,
-      duplicates: [],
-      exactCopy: false,
-      allowed: [],
-    })),
-    subtitles: title.videos.flatMap((video) =>
-      video.subtitles.map((subtitle) => ({
-        fileId: subtitle.id,
-        file: subtitle.path,
-        finalPath: subtitle.path,
-        changed: false,
-      })),
-    ),
-    errors: [],
-    warnings: [],
-  })
+  const buildEditPlan = (title: LibraryTitle, request?: EditRequest) => {
+    const choice = request?.title
+    const source =
+      choice?.source === 'tmdb'
+        ? catalog.titles.find((item) => item.tmdbId === choice.tmdbId)
+        : undefined
+    const nextKind: 'movie' | 'series' =
+      source?.type === 'series' || (!source && title.kind === 'series') ? 'series' : 'movie'
+    const nextTitle = source?.discTitle ?? title.discTitle
+    const nextYear = source?.year ?? title.year
+    const nextId = source?.tmdbId ?? title.tmdbId ?? 0
+    const videoPaths = new Map<number, string>()
+    for (const video of title.videos) {
+      const edit = request?.videos.find((item) => item.fileId === video.id)
+      const extension = video.path.slice(video.path.lastIndexOf('.'))
+      const path =
+        nextKind === 'movie'
+          ? moviePath({
+              root: 'Movies',
+              title: { name: nextTitle, year: nextYear, tmdbId: nextId, idTag: nextId > 0 },
+              version: edit?.version ?? video.version,
+              part: edit?.part ?? video.part,
+              extension,
+            })
+          : chapterPath({
+              root: 'TV Shows',
+              title: { name: nextTitle, year: nextYear, tmdbId: nextId, idTag: nextId > 0 },
+              season: edit?.season ?? video.season ?? 0,
+              first: edit?.chapter ?? video.chapter ?? 1,
+              last: edit?.lastChapter ?? video.lastChapter ?? video.chapter ?? 1,
+              chapterTitle: edit?.chapterTitle ?? video.chapterTitle ?? '',
+              version: edit?.version ?? video.version,
+              extension,
+            })
+      videoPaths.set(video.id, path)
+    }
+    const firstPath = videoPaths.values().next().value
+    const folder = firstPath
+      ? firstPath
+          .split('/')
+          .slice(0, nextKind === 'series' ? -2 : -1)
+          .join('/')
+      : title.discTitle
+    return {
+      titleId: title.id,
+      revision: 'demo',
+      valid: true,
+      kind: nextKind,
+      title: nextTitle,
+      folder,
+      videos: title.videos.map((video) => {
+        const finalPath = videoPaths.get(video.id) ?? video.path
+        return {
+          fileId: video.id,
+          file: video.path,
+          finalPath,
+          changed: finalPath !== video.path,
+          duplicates: [],
+          exactCopy: false,
+          allowed: [],
+        }
+      }),
+      subtitles: title.videos.flatMap((video) =>
+        video.subtitles.map((subtitle) => {
+          const edit = request?.subtitles.find((item) => item.fileId === subtitle.id)
+          const videoPath = videoPaths.get(video.id) ?? video.path
+          const finalPath = subtitlePath(videoPath, {
+            language: edit?.language ?? subtitle.language,
+            forced: edit?.forced ?? subtitle.forced,
+            sdh: edit?.sdh ?? subtitle.sdh,
+            extension: subtitle.path.slice(subtitle.path.lastIndexOf('.')),
+          })
+          return {
+            fileId: subtitle.id,
+            file: subtitle.path,
+            finalPath,
+            changed: finalPath !== subtitle.path,
+          }
+        }),
+      ),
+      errors: [],
+      warnings: [],
+    }
+  }
   const editResult = (title: LibraryTitle) => ({
     titleId: title.id,
     folder: title.discTitle,
@@ -558,9 +616,9 @@ export function createCatalogDemo(): DemoCatalogAdapter {
     downloadTitleUrl: () => '#',
     downloadSeasonUrl: () => '#',
     downloadFileUrl: () => '#',
-    planTitleEdit: async (id) => {
+    planTitleEdit: async (id, request) => {
       const title = library.find((item) => item.id === id)
-      return title ? buildEditPlan(title) : missing()
+      return title ? buildEditPlan(title, request) : missing()
     },
     commitTitleEdit: async (id, request) => {
       const title = library.find((item) => item.id === id)
@@ -571,6 +629,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         choice.source === 'tmdb'
           ? catalog.titles.find((item) => item.tmdbId === choice.tmdbId)
           : undefined
+      const preview = source ? buildEditPlan(title, request) : undefined
       if (source) {
         title.title = source.title.es
         title.discTitle = source.discTitle
@@ -586,7 +645,15 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         delete title.tmdbId
         title.idTag = false
       }
-      for (const video of title.videos) video.path = video.path.replace(oldTitle, title.discTitle)
+      for (const video of title.videos) {
+        const planned = preview?.videos.find((item) => item.fileId === video.id)
+        if (planned?.finalPath) video.path = planned.finalPath
+        else video.path = video.path.replace(oldTitle, title.discTitle)
+        for (const subtitle of video.subtitles) {
+          const plannedSubtitle = preview?.subtitles.find((item) => item.fileId === subtitle.id)
+          if (plannedSubtitle?.finalPath) subtitle.path = plannedSubtitle.finalPath
+        }
+      }
       return { ...editResult(title), changed: oldTitle !== title.discTitle }
     },
     planTitleIDTag: async (id) => {

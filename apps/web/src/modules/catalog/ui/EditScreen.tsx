@@ -103,9 +103,30 @@ export function EditScreen({ id }: { id: number }) {
   const [planError, setPlanError] = useState<unknown>(null)
   const commit = useCommitTitleEdit(id)
   const invalidateCatalog = useInvalidateCatalog()
-  const search = useTitleSearch(term)
-  const hits = search.data ? [...search.data.library, ...search.data.tmdb] : []
   const title = query.data
+  const search = useTitleSearch(term, title?.year)
+  const taggedQuery = title?.videos
+    .map((video) => video.path.match(/\[(?:tmdbid-(\d+)|imdbid-(tt\d+))\]|\{tmdb-(\d+)\}/i))
+    .find(Boolean)
+  const tagTerm = taggedQuery
+    ? taggedQuery[2]
+      ? `[imdbid-${taggedQuery[2]}]`
+      : `[tmdbid-${taggedQuery[1] ?? taggedQuery[3] ?? ''}]`
+    : ''
+  const tagSearch = useTitleSearch(tagTerm)
+  const libraryHits = search.data?.library.filter((hit) => hit.libraryTitleId !== id) ?? []
+  const taggedHits = tagSearch.data?.tmdb.filter((hit) => hit.libraryTitleId !== id) ?? []
+  const tmdbHits = [
+    ...taggedHits,
+    ...(search.data?.tmdb.filter(
+      (hit) =>
+        hit.libraryTitleId !== id &&
+        !taggedHits.some(
+          (preferred) => preferred.kind === hit.kind && preferred.tmdbId === hit.tmdbId,
+        ),
+    ) ?? []),
+  ]
+  const hits = [...libraryHits, ...tmdbHits]
 
   useEffect(() => {
     if (!title) return
@@ -125,6 +146,7 @@ export function EditScreen({ id }: { id: number }) {
     )
     setChoice(null)
     setSelectedHit(null)
+    setTerm(title.title)
     setEditDirty(false)
     setPlanned(null)
   }, [title])
@@ -329,25 +351,57 @@ export function EditScreen({ id }: { id: number }) {
             </Button>
           </section>
           {!openMatch && hits.length > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-3">
-              {hits.map((hit) => (
-                <button
-                  key={`inline-${hit.kind}-${String(hit.tmdbId ?? hit.libraryTitleId)}`}
-                  type="button"
-                  className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
-                  onClick={() => {
-                    chooseHit(hit)
-                  }}
-                >
-                  <span>
-                    <strong className="block">{hit.title}</strong>
-                    <small className="text-ink-2">
-                      {hit.year ?? ''} {t('common.separator')}{' '}
-                      {hit.kind === 'movie' ? t('library.movie') : t('library.series')}
-                    </small>
-                  </span>
-                </button>
-              ))}
+            <div className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-3">
+              {libraryHits.length > 0 && (
+                <section className="flex flex-col gap-2">
+                  <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
+                    {t('assign.titlePicker.library')}
+                  </h3>
+                  {libraryHits.map((hit) => (
+                    <button
+                      key={`inline-${hit.kind}-${String(hit.tmdbId ?? hit.libraryTitleId)}`}
+                      type="button"
+                      className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
+                      onClick={() => {
+                        chooseHit(hit)
+                      }}
+                    >
+                      <span>
+                        <strong className="block">{hit.title}</strong>
+                        <small className="text-ink-2">
+                          {hit.year ?? ''} {t('common.separator')}{' '}
+                          {hit.kind === 'movie' ? t('library.movie') : t('library.series')}
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              )}
+              {tmdbHits.length > 0 && (
+                <section className="flex flex-col gap-2">
+                  <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
+                    {t('assign.titlePicker.tmdbResults')}
+                  </h3>
+                  {tmdbHits.map((hit) => (
+                    <button
+                      key={`inline-${hit.kind}-${String(hit.tmdbId ?? hit.libraryTitleId)}`}
+                      type="button"
+                      className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
+                      onClick={() => {
+                        chooseHit(hit)
+                      }}
+                    >
+                      <span>
+                        <strong className="block">{hit.title}</strong>
+                        <small className="text-ink-2">
+                          {hit.year ?? ''} {t('common.separator')}{' '}
+                          {hit.kind === 'movie' ? t('library.movie') : t('library.series')}
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              )}
             </div>
           )}
           {planned?.errors
@@ -606,33 +660,54 @@ export function EditScreen({ id }: { id: number }) {
               setTerm(event.currentTarget.value)
             }}
           />
-          {hits.map((hit) => (
-            <button
-              key={`${hit.kind}-${String(hit.tmdbId ?? hit.libraryTitleId)}`}
-              type="button"
-              className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
-              onClick={() => {
-                chooseHit(hit)
-              }}
-            >
-              {hit.posterFile ? (
-                <img
-                  src={metadata.imageUrl('poster', hit.posterFile)}
-                  alt=""
-                  className="size-12 rounded object-cover"
+          {libraryHits.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
+                {t('assign.titlePicker.library')}
+              </h3>
+              {libraryHits.map((hit) => (
+                <TitleEditHit
+                  key={`library-${String(hit.libraryTitleId)}`}
+                  hit={hit}
+                  onPick={chooseHit}
                 />
-              ) : (
-                <span className="size-12 rounded bg-surface-2" aria-hidden="true" />
-              )}
-              <span>
-                <strong className="block">{hit.title}</strong>
-                <small className="text-ink-2">
-                  {hit.year ?? ''} {t('common.separator')}{' '}
-                  {hit.kind === 'movie' ? t('library.movie') : t('library.series')}
-                </small>
-              </span>
-            </button>
-          ))}
+              ))}
+            </section>
+          )}
+          {tmdbHits.length > 0 && (
+            <section className="flex flex-col gap-2">
+              <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
+                {t('assign.titlePicker.tmdbResults')}
+              </h3>
+              {tmdbHits.map((hit) => (
+                <button
+                  key={`${hit.kind}-${String(hit.tmdbId ?? hit.libraryTitleId)}`}
+                  type="button"
+                  className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
+                  onClick={() => {
+                    chooseHit(hit)
+                  }}
+                >
+                  {hit.posterFile ? (
+                    <img
+                      src={metadata.imageUrl('poster', hit.posterFile)}
+                      alt=""
+                      className="size-12 rounded object-cover"
+                    />
+                  ) : (
+                    <span className="size-12 rounded bg-surface-2" aria-hidden="true" />
+                  )}
+                  <span>
+                    <strong className="block">{hit.title}</strong>
+                    <small className="text-ink-2">
+                      {hit.year ?? ''} {t('common.separator')}{' '}
+                      {hit.kind === 'movie' ? t('library.movie') : t('library.series')}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </section>
+          )}
           <div className="flex flex-col gap-3 border-t border-line pt-4">
             <TextField
               label={t('assign.titlePicker.freeName')}
@@ -749,5 +824,26 @@ function PreviewChange({ before, after, label }: { before: string; after: string
       </span>
       <span className="break-all font-mono-file text-caption text-ink-1">{after}</span>
     </div>
+  )
+}
+
+function TitleEditHit({ hit, onPick }: { hit: TitleHit; onPick: (hit: TitleHit) => void }) {
+  const { t } = useTranslation()
+  return (
+    <button
+      type="button"
+      className="flex min-h-control-md items-center gap-3 rounded-md border border-control p-3 text-left"
+      onClick={() => {
+        onPick(hit)
+      }}
+    >
+      <span>
+        <strong className="block">{hit.title}</strong>
+        <small className="text-ink-2">
+          {hit.year ?? ''} {t('common.separator')}{' '}
+          {hit.kind === 'movie' ? t('library.movie') : t('library.series')}
+        </small>
+      </span>
+    </button>
   )
 }
