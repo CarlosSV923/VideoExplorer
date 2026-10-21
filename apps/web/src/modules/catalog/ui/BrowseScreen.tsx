@@ -208,53 +208,55 @@ export function BrowseScreen({
           subtitle={t('library.titleCount', { count: filtered.length })}
         />
         <div className="flex flex-wrap items-center justify-between gap-4 py-6">
-          <SegmentedControl
-            label={t('library.sort')}
-            options={[
-              { value: 'added', label: t('library.sortAdded') },
-              { value: 'title', label: t('library.sortTitle') },
-              { value: 'year', label: t('library.sortYear') },
-            ]}
-            value={selectedSort}
-            onChange={(value) => {
-              setSelectedSort(value)
-              const search = {
-                sort: value,
-                genre: selectedGenres.length ? selectedGenres.join(',') : undefined,
-              }
-              if (kind === 'movie') void router?.navigate({ to: '/movies', search })
-              else
-                void router?.navigate({
-                  to: '/series',
-                  search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
-                })
-            }}
-          />
-          <MultiSelectMenu
-            label={t('library.genres')}
-            clearLabel={t('library.clearGenreFilter')}
-            multipleLabel={t('library.genreCount', { count: selectedGenres.length })}
-            options={genres.map((value) => ({ value, label: value }))}
-            value={selectedGenres}
-            onChange={(value) => {
-              retainSelection(
-                (title) =>
-                  (!value.length ||
-                    value.some((selected) => title.genres?.includes(selected) === true)) &&
-                  (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
-              )
-              const search = {
-                sort: selectedSort,
-                genre: value.length ? value.join(',') : undefined,
-              }
-              if (kind === 'movie') void router?.navigate({ to: '/movies', search })
-              else
-                void router?.navigate({
-                  to: '/series',
-                  search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
-                })
-            }}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <SegmentedControl
+              label={t('library.sort')}
+              options={[
+                { value: 'added', label: t('library.sortAdded') },
+                { value: 'title', label: t('library.sortTitle') },
+                { value: 'year', label: t('library.sortYear') },
+              ]}
+              value={selectedSort}
+              onChange={(value) => {
+                setSelectedSort(value)
+                const search = {
+                  sort: value,
+                  genre: selectedGenres.length ? selectedGenres.join(',') : undefined,
+                }
+                if (kind === 'movie') void router?.navigate({ to: '/movies', search })
+                else
+                  void router?.navigate({
+                    to: '/series',
+                    search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
+                  })
+              }}
+            />
+            <MultiSelectMenu
+              label={t('library.genres')}
+              clearLabel={t('library.clearGenreFilter')}
+              multipleLabel={t('library.genreCount', { count: selectedGenres.length })}
+              options={genres.map((value) => ({ value, label: value }))}
+              value={selectedGenres}
+              onChange={(value) => {
+                retainSelection(
+                  (title) =>
+                    (!value.length ||
+                      value.some((selected) => title.genres?.includes(selected) === true)) &&
+                    (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
+                )
+                const search = {
+                  sort: selectedSort,
+                  genre: value.length ? value.join(',') : undefined,
+                }
+                if (kind === 'movie') void router?.navigate({ to: '/movies', search })
+                else
+                  void router?.navigate({
+                    to: '/series',
+                    search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
+                  })
+              }}
+            />
+          </div>
           <Button
             size="sm"
             disabled={busy}
