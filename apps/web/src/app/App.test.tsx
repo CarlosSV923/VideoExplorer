@@ -248,9 +248,20 @@ describe('App', () => {
     await waitFor(() => {
       expect(history.location.search).toContain('sort=year')
     })
-    fireEvent.click(screen.getByLabelText('Comedia'))
+    fireEvent.click(screen.getByRole('button', { name: 'Drama' }))
+    expect(screen.getByRole('checkbox', { name: 'Drama' })).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Comedia' }))
     await waitFor(() => {
-      expect(history.location.search).toContain('genre=Comedia')
+      expect(new URLSearchParams(history.location.search).get('genre')).toBe('Drama,Comedia')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar filtro' }))
+    await waitFor(() => {
+      expect(new URLSearchParams(history.location.search).get('genre')).toBeNull()
+    })
+    expect(screen.getByRole('checkbox', { name: 'Comedia' })).not.toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Comedia' }))
+    await waitFor(() => {
+      expect(new URLSearchParams(history.location.search).get('genre')).toBe('Comedia')
     })
     fireEvent.click(screen.getByRole('checkbox', { name: /Solo incomplet/ }))
     await waitFor(() => {

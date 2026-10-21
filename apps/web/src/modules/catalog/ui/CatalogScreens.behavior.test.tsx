@@ -237,19 +237,28 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     expect(await screen.findByText(enrichedMovie.overview)).toBeInTheDocument()
   })
 
-  it('filters movies by genre and applies the selected sort', async () => {
+  it('shows titles matching any selected genre and applies the selected sort', async () => {
     renderCatalog('movies', {
       libraryTitles: vi.fn().mockResolvedValue({
         titles: [
           summary({ id: 1, title: 'Zeta', genres: ['Drama'], addedAt: '2026-10-01T00:00:00Z' }),
           summary({ id: 2, title: 'Alfa', genres: ['Comedia'], addedAt: '2026-10-02T00:00:00Z' }),
+          summary({
+            id: 3,
+            title: 'Ambas',
+            genres: ['Drama', 'Comedia'],
+            addedAt: '2026-10-03T00:00:00Z',
+          }),
         ],
       }),
     })
     await waitFor(() => expect(screen.getByRole('link', { name: /Zeta/ })).toBeInTheDocument())
-    fireEvent.click(screen.getByLabelText('Comedia'))
+    fireEvent.click(screen.getByRole('button', { name: 'Géneros' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Drama' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Comedia' }))
     expect(screen.getByRole('link', { name: /Alfa/ })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Zeta/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Zeta/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Ambas/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Título' }))
     expect(screen.getByRole('link', { name: /Alfa/ })).toBeInTheDocument()
   })
@@ -274,7 +283,8 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Título' }))
     expect(screen.getByRole('checkbox', { name: /Zeta/ })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('1 seleccionado')).toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('Comedia'))
+    fireEvent.click(screen.getByRole('button', { name: /Géneros/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Comedia' }))
     expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByText('0 seleccionados')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mandar a la papelera' })).toHaveAttribute(

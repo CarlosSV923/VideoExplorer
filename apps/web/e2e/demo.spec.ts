@@ -289,6 +289,28 @@ test('selection mode keeps every movie poster frame in the same top-aligned posi
   }
 })
 
+test('filters the demo grid by two genres on desktop and touch mobile', async ({ page }) => {
+  await page.goto('/movies')
+  await expect(page.getByRole('link', { name: /El rey le.n/ }).first()).toBeVisible()
+  const menu = page.getByRole('button', { name: 'Géneros', exact: true })
+  await menu.click()
+  await page.getByRole('checkbox', { name: 'Animación' }).check()
+  await page.getByRole('checkbox', { name: 'Drama' }).check()
+  await expect(page.getByRole('button', { name: 'Géneros · 2' })).toBeVisible()
+  await expect(page).toHaveURL(/genre=Animaci%C3%B3n%2CDrama/)
+  await expect(page.getByRole('link', { name: /El rey le.n/ }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /Duna/ })).toHaveCount(0)
+  if ((page.viewportSize()?.width ?? 1024) < 768) {
+    const panelId = await page
+      .getByRole('button', { name: 'Géneros · 2' })
+      .getAttribute('aria-controls')
+    if (!panelId) throw new Error('The genre button must control its open panel')
+    const panel = page.locator(`#${panelId}`)
+    const box = await panel.boundingBox()
+    expect(box?.width).toBeCloseTo((page.viewportSize()?.width ?? 390) - 32, 0)
+  }
+})
+
 test('demo examples ask for a relation, unlock multipart archives, and reach Unassigned', async ({
   page,
 }) => {

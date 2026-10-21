@@ -12,6 +12,7 @@ export {
   TextField,
 } from './Field'
 export { Chip, ChipGroup, SegmentedControl, StatusChip, type StatusTone } from './Choice'
+export { MultiSelectMenu } from './MultiSelectMenu'
 export {
   Banner,
   EmptyState,

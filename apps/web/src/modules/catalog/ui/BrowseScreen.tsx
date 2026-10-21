@@ -11,7 +11,7 @@ import { LibraryLayout } from '@/app/LibraryLayout'
 import {
   Banner,
   Button,
-  ChipGroup,
+  MultiSelectMenu,
   ConfirmDialog,
   EmptyState,
   HelpBar,
@@ -53,24 +53,28 @@ export function BrowseScreen({
   const [selectedSort, setSelectedSort] = useState<Sort>(
     sort === 'title' || sort === 'year' ? sort : 'added',
   )
-  const [selectedGenre, setSelectedGenre] = useState(genre ?? '')
+  const selectedGenres = useMemo(() => genre?.split(',').filter(Boolean) ?? [], [genre])
   const [onlyIncomplete, setOnlyIncomplete] = useState(incomplete)
   const all = useMemo<LibraryTitleSummary[]>(
     () => query.data?.titles.filter((title) => title.kind === kind) ?? [],
     [kind, query.data],
   )
-  const genres = [...new Set(all.flatMap((title) => title.genres ?? []))]
+  const language = document.documentElement.lang || 'es'
+  const genres = [...new Set(all.flatMap((title) => title.genres ?? []))].sort((a, b) =>
+    a.localeCompare(b, language),
+  )
   const filtered = useMemo(
     () =>
       sortTitles(
         all.filter(
           (title) =>
-            (!selectedGenre || title.genres?.includes(selectedGenre)) &&
+            (!selectedGenres.length ||
+              selectedGenres.some((selected) => title.genres?.includes(selected))) &&
             (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
         ),
         selectedSort,
       ),
-    [all, onlyIncomplete, selectedGenre, selectedSort],
+    [all, onlyIncomplete, selectedGenres, selectedSort],
   )
   const selectedTitles = useMemo(
     () => filtered.filter((title) => selectedIds.has(title.id)),
@@ -214,7 +218,10 @@ export function BrowseScreen({
             value={selectedSort}
             onChange={(value) => {
               setSelectedSort(value)
-              const search = { sort: value, genre: selectedGenre || undefined }
+              const search = {
+                sort: value,
+                genre: selectedGenres.length ? selectedGenres.join(',') : undefined,
+              }
               if (kind === 'movie') void router?.navigate({ to: '/movies', search })
               else
                 void router?.navigate({
@@ -223,22 +230,23 @@ export function BrowseScreen({
                 })
             }}
           />
-          <ChipGroup
-            legend={t('library.genre')}
-            name="genre"
-            options={[
-              { value: '', label: t('library.allGenres') },
-              ...genres.map((value) => ({ value, label: value })),
-            ]}
-            value={selectedGenre}
+          <MultiSelectMenu
+            label={t('library.genres')}
+            clearLabel={t('library.clearGenreFilter')}
+            multipleLabel={t('library.genreCount', { count: selectedGenres.length })}
+            options={genres.map((value) => ({ value, label: value }))}
+            value={selectedGenres}
             onChange={(value) => {
-              setSelectedGenre(value)
               retainSelection(
                 (title) =>
-                  (!value || title.genres?.includes(value) === true) &&
+                  (!value.length ||
+                    value.some((selected) => title.genres?.includes(selected) === true)) &&
                   (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
               )
-              const search = { sort: selectedSort, genre: value || undefined }
+              const search = {
+                sort: selectedSort,
+                genre: value.length ? value.join(',') : undefined,
+              }
               if (kind === 'movie') void router?.navigate({ to: '/movies', search })
               else
                 void router?.navigate({
@@ -269,14 +277,17 @@ export function BrowseScreen({
                 setOnlyIncomplete(incomplete)
                 retainSelection(
                   (title) =>
-                    (!selectedGenre || title.genres?.includes(selectedGenre) === true) &&
+                    (!selectedGenres.length ||
+                      selectedGenres.some(
+                        (selected) => title.genres?.includes(selected) === true,
+                      )) &&
                     (!incomplete || (title.missingEpisodes ?? 0) > 0),
                 )
                 void router?.navigate({
                   to: '/series',
                   search: {
                     sort: selectedSort,
-                    genre: selectedGenre || undefined,
+                    genre: selectedGenres.length ? selectedGenres.join(',') : undefined,
                     incomplete: incomplete ? 1 : undefined,
                   },
                 })
