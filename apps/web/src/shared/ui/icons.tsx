@@ -70,6 +70,20 @@ export const FileIcon = icon([
   'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z',
   'M14 3v6h6',
 ])
+export const PartsIcon = icon([
+  'M4 5h16v14H4z',
+  'M8 5v14',
+  'M16 5v14',
+  'M2 9h2',
+  'M20 9h2',
+  'M2 15h2',
+  'M20 15h2',
+])
+export const SeriesIcon = icon(['M4 5h16v14H4z', 'M8 9h8', 'M8 13h8', 'M8 17h5'])
+export const FilesIcon = icon([
+  'M9 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z',
+  'M15 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2',
+])
 export const PauseIcon = icon(['M8 5v14', 'M16 5v14'])
 export const PlayIcon = icon(['M8 5v14l11-7z'])
 export const EyeIcon = icon([

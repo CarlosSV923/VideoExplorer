@@ -23,8 +23,11 @@ import {
   Dialog,
   EmptyState,
   FileIcon,
+  FilesIcon,
   PasswordField,
+  PartsIcon,
   ProgressBar,
+  SeriesIcon,
   SidePanel,
   Sheet,
   StatusChip,
@@ -43,6 +46,16 @@ function fileGroupName(files: readonly File[]): string | undefined {
 function relationLabelKey(relation: 'parts' | 'episodes' | 'none') {
   return `uploads.relation.${relation}` as const
 }
+
+function relationHelpKey(relation: 'parts' | 'episodes' | 'none') {
+  return `uploads.relation.${relation}Help` as const
+}
+
+const relationIcons = {
+  parts: PartsIcon,
+  episodes: SeriesIcon,
+  none: FilesIcon,
+} as const
 
 async function filesFromDrop(dataTransfer: DataTransfer): Promise<File[]> {
   const entries = Array.from(dataTransfer.items)
@@ -98,22 +111,37 @@ function UploadRelationDialog({
 }) {
   const { t } = useTranslation()
   return (
-    <Dialog title={t('uploads.relation.title')} onClose={onClose}>
-      <p className="m-0 text-body-sm text-ink-2">
-        {t('uploads.relation.body', { count: files.length })}
-      </p>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {(['parts', 'episodes', 'none'] as const).map((relation) => (
-          <Button
-            key={relation}
-            variant="secondary"
-            onClick={() => {
-              onChoose(relation)
-            }}
-          >
-            {t(relationLabelKey(relation))}
-          </Button>
-        ))}
+    <Dialog
+      title={t('uploads.relation.title', { count: files.length })}
+      onClose={onClose}
+      initialFocus="first"
+      placement="responsive-bottom"
+    >
+      <p className="m-0 text-body-sm text-ink-2">{t('uploads.relation.body')}</p>
+      <div className="flex flex-col gap-3">
+        {(['parts', 'episodes', 'none'] as const).map((relation) => {
+          const Icon = relationIcons[relation]
+          return (
+            <button
+              key={relation}
+              type="button"
+              onClick={() => {
+                onChoose(relation)
+              }}
+              className="group flex min-h-16 w-full items-center gap-4 rounded-md border border-control bg-surface-2 p-4 text-left text-ink-1 transition duration-120 ease-out hover:border-accent hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <Icon className="size-6 shrink-0 text-accent" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-body font-semibold">
+                  {t(relationLabelKey(relation))}
+                </span>
+                <span className="mt-1 block text-body-sm text-ink-2">
+                  {t(relationHelpKey(relation))}
+                </span>
+              </span>
+            </button>
+          )
+        })}
       </div>
     </Dialog>
   )

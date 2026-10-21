@@ -431,11 +431,15 @@
     "emptyTitle": "No uploads",
     "emptyBody": "Files you upload will appear here with their progress.",
     "relation": {
-      "title": "How are these files related?",
+      "title_one": "How is this file related?",
+      "title_other": "How are these {{count}} files related?",
       "body": "Choose an option to start the upload.",
       "parts": "Parts of one movie or series",
+      "partsHelp": "One title split across several files (CD1, CD2…)",
       "episodes": "Chapters from one series",
-      "none": "No relation"
+      "episodesHelp": "Each file contains one or more episodes",
+      "none": "No relation",
+      "noneHelp": "Each file or archive is independent"
     },
     "resume": "Choose the same file",
     "resumeMismatch": "The file must have the same name and size.",

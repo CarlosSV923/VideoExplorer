@@ -80,8 +80,8 @@ test('internal navigation preserves demo state and active upload progress withou
     await page.getByRole('button', { name: 'Probar con archivos de ejemplo' }).click()
   }
   await page
-    .getByRole('dialog', { name: '¿Cómo se relacionan estos archivos?' })
-    .getByRole('button', { name: 'Sin relación' })
+    .getByRole('dialog', { name: '¿Cómo se relacionan estos 2 archivos?' })
+    .getByRole('button', { name: /Sin relación/ })
     .click()
   const panel = mobile
     ? page.getByRole('dialog', { name: 'Subidas' })
@@ -323,9 +323,36 @@ test('demo examples ask for a relation, unlock multipart archives, and reach Una
       .getByRole('button', { name: 'Probar con archivos de ejemplo' })
       .click()
   } else await page.getByRole('button', { name: 'Probar con archivos de ejemplo' }).click()
-  const relation = page.getByRole('dialog', { name: '¿Cómo se relacionan estos archivos?' })
+  const relation = page.getByRole('dialog', { name: '¿Cómo se relacionan estos 2 archivos?' })
   await expect(relation).toBeVisible()
-  await relation.getByRole('button', { name: 'Capítulos de una misma serie' }).click()
+  await expect(
+    relation.getByText('Un título dividido en varios archivos (CD1, CD2…)'),
+  ).toBeVisible()
+  await expect(relation.getByText('Cada archivo es uno o varios capítulos')).toBeVisible()
+  await expect(relation.getByText('Cada archivo o comprimido es independiente')).toBeVisible()
+  const cards = relation
+    .getByRole('button')
+    .filter({ hasText: /Partes de una misma|Capítulos de una misma|Sin relación/ })
+  await expect(cards).toHaveCount(3)
+  const cardBoxes = await cards.evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const { x, y, width, height } = button.getBoundingClientRect()
+      return { x, y, width, height }
+    }),
+  )
+  expect(cardBoxes[0]?.width).toBeGreaterThan(0)
+  expect(cardBoxes[1]?.y).toBeGreaterThan(cardBoxes[0]?.y ?? 0)
+  expect(cardBoxes[2]?.y).toBeGreaterThan(cardBoxes[1]?.y ?? 0)
+  const partsCard = relation.getByRole('button', { name: /Partes de una misma película o serie/ })
+  const episodesCard = relation.getByRole('button', { name: /Capítulos de una misma serie/ })
+  expect(await partsCard.evaluate((element) => element === document.activeElement)).toBe(true)
+  await partsCard.press('ArrowDown')
+  expect(await episodesCard.evaluate((element) => element === document.activeElement)).toBe(true)
+  await episodesCard.press('ArrowDown')
+  await relation.getByRole('button', { name: 'Sin relación' }).focus()
+  await relation.getByRole('button', { name: 'Sin relación' }).press('ArrowUp')
+  expect(await episodesCard.evaluate((element) => element === document.activeElement)).toBe(true)
+  await episodesCard.click()
 
   const firstPartPassword = page
     .locator('article')
@@ -355,6 +382,31 @@ test('demo examples ask for a relation, unlock multipart archives, and reach Una
   await expect(page.getByRole('heading', { name: 'No asignados', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Volver a leer' }).click()
   await expect(page.locator('article').filter({ hasText: 'Inception.2010' })).toBeVisible()
+})
+
+test('shows the stacked relation choices in English', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ve.lang', 'en')
+  })
+  await page.goto('/')
+  if ((page.viewportSize()?.width ?? 1024) < 768) {
+    await page.getByRole('button', { name: /Uploads/ }).click()
+    await page
+      .getByRole('dialog', { name: 'Uploads' })
+      .getByRole('button', { name: 'Try sample files' })
+      .click()
+  } else await page.getByRole('button', { name: 'Try sample files' }).click()
+
+  const relation = page.getByRole('dialog', { name: 'How are these 2 files related?' })
+  await expect(relation).toBeVisible()
+  await expect(relation.getByText('One title split across several files (CD1, CD2…)')).toBeVisible()
+  await expect(relation.getByText('Each file contains one or more episodes')).toBeVisible()
+  await expect(relation.getByText('Each file or archive is independent')).toBeVisible()
+  expect(
+    await relation
+      .getByRole('button', { name: /Parts of one movie or series/ })
+      .evaluate((element) => element === document.activeElement),
+  ).toBe(true)
 })
 
 test('assigns the seeded Dark Knight duplicate through save', async ({ page }) => {

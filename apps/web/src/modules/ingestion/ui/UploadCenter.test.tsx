@@ -153,26 +153,66 @@ describe('UploadCenter', () => {
     expect(screen.getByText('Subidas · 2 activas')).toBeInTheDocument()
   })
 
-  it('asks once for the relation and sends partsTotal for each multipart volume', async () => {
+  it.each([
+    [
+      'parts',
+      'Partes de una misma película o serie',
+      'Un título dividido en varios archivos (CD1, CD2…)',
+    ],
+    ['episodes', 'Capítulos de una misma serie', 'Cada archivo es uno o varios capítulos'],
+    ['none', 'Sin relación', 'Cada archivo o comprimido es independiente'],
+  ] as const)('starts both uploads with the %s relation', async (relation, label, help) => {
     const upload = vi
       .fn<NonNullable<IngestionPorts['upload']>>()
       .mockReturnValue({ abort: vi.fn() })
-    const ports = { upload }
+    const createBatch = vi.fn().mockResolvedValue({
+      id: 'batch-1',
+      name: 'batch',
+      relation,
+      createdAt: '2026-01-01T00:00:00Z',
+    })
+    const ports = { upload, createBatch }
     const { container } = renderCenter(ports)
     const input = container.querySelector('input[type="file"]')
-    const files = [new File(['a'], 'film.part1.rar'), new File(['b'], 'film.part2.rar')]
+    const files = [new File(['a'], 'first.mkv'), new File(['b'], 'second.mkv')]
     fireEvent.change(input as HTMLInputElement, { target: { files } })
-    expect(
-      screen.getByRole('dialog', { name: '¿Cómo se relacionan estos archivos?' }),
-    ).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Partes de una misma película o serie' }))
+    const dialog = screen.getByRole('dialog', { name: '¿Cómo se relacionan estos 2 archivos?' })
+    expect(dialog).toBeInTheDocument()
+    for (const [optionLabel, optionHelp] of [
+      ['Partes de una misma película o serie', 'Un título dividido en varios archivos (CD1, CD2…)'],
+      ['Capítulos de una misma serie', 'Cada archivo es uno o varios capítulos'],
+      ['Sin relación', 'Cada archivo o comprimido es independiente'],
+    ] as const) {
+      expect(within(dialog).getByRole('button', { name: new RegExp(optionLabel) })).toBeVisible()
+      expect(within(dialog).getByText(optionHelp)).toBeVisible()
+    }
+    expect(within(dialog).getByText(help)).toBeVisible()
+    const cards = within(dialog).getAllByRole('button')
+    expect(cards.slice(1)).toHaveLength(3)
+    expect(cards[1]).toHaveFocus()
+    for (const card of cards.slice(1)) {
+      expect(card).toHaveClass('w-full')
+      expect(card.className.split(/\s+/).some((token) => /^w-(?!full$)/.test(token))).toBe(false)
+      expect(card).not.toHaveClass('whitespace-nowrap')
+    }
+    fireEvent.click(within(dialog).getByRole('button', { name: new RegExp(label) }))
     await waitFor(() => {
       expect(ports.upload).toHaveBeenCalledTimes(2)
     })
-    expect(ports.upload.mock.calls.map((call) => call[1])).toEqual([
-      expect.objectContaining({ partsTotal: 2 }),
-      expect.objectContaining({ partsTotal: 2 }),
-    ])
+    expect(createBatch).toHaveBeenCalledWith(expect.objectContaining({ relation }))
+    expect(ports.upload.mock.calls.map((call) => call[1].relation)).toEqual([relation, relation])
+  })
+
+  it('cancels the relation dialog with Escape', () => {
+    const { container } = renderCenter()
+    const input = container.querySelector('input[type="file"]')
+    fireEvent.change(input as HTMLInputElement, {
+      target: { files: [new File(['a'], 'one.mkv'), new File(['b'], 'two.mkv')] },
+    })
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getAllByRole('button')[1]).toHaveFocus()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /¿Cómo se relacionan/ })).not.toBeInTheDocument()
   })
 
   it('shows a password field for needs_password and sends it through the port', async () => {

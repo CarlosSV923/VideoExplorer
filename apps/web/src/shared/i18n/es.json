@@ -431,11 +431,15 @@
     "emptyTitle": "No hay subidas",
     "emptyBody": "Los archivos que subas aparecerán aquí con su progreso.",
     "relation": {
-      "title": "¿Cómo se relacionan estos archivos?",
+      "title_one": "¿Cómo se relaciona este archivo?",
+      "title_other": "¿Cómo se relacionan estos {{count}} archivos?",
       "body": "Elige una opción para empezar la subida.",
       "parts": "Partes de una misma película o serie",
+      "partsHelp": "Un título dividido en varios archivos (CD1, CD2…)",
       "episodes": "Capítulos de una misma serie",
-      "none": "Sin relación"
+      "episodesHelp": "Cada archivo es uno o varios capítulos",
+      "none": "Sin relación",
+      "noneHelp": "Cada archivo o comprimido es independiente"
     },
     "resume": "Elegir el mismo archivo",
     "resumeMismatch": "El archivo debe tener el mismo nombre y tamaño.",

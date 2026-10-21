@@ -23,7 +23,7 @@ interface DialogProps {
   initialFocus?: 'action' | 'cancel' | 'first' | 'field'
   subtitle?: string
   size?: 'md' | 'lg'
-  placement?: 'center' | 'bottom'
+  placement?: 'center' | 'bottom' | 'responsive-bottom'
   children?: ReactNode
 }
 
@@ -79,7 +79,7 @@ export function Dialog({
         : initialFocus === 'cancel'
           ? (actionButtons[0] ?? items[0])
           : initialFocus === 'first'
-            ? items[0]
+            ? (items.find((element) => !element.hasAttribute('data-dialog-close')) ?? items[0])
             : (buttons.at(-1) ?? items[0])
     target?.focus()
   }, [initialFocus])
@@ -103,7 +103,11 @@ export function Dialog({
     <div
       className={cx(
         'fixed inset-0 z-50 flex bg-overlay p-4 sm:p-6',
-        placement === 'bottom' ? 'items-end' : 'items-center justify-center',
+        placement === 'bottom'
+          ? 'items-end'
+          : placement === 'responsive-bottom'
+            ? 'items-end sm:items-center sm:justify-center'
+            : 'items-center justify-center',
       )}
     >
       <div
@@ -114,7 +118,11 @@ export function Dialog({
         onKeyDown={onKeyDown}
         className={cx(
           'flex max-h-full w-full flex-col gap-5 overflow-y-auto border border-control bg-surface p-6',
-          placement === 'bottom' ? 'animate-sheet-in rounded-t-xl' : 'animate-dialog-in rounded-xl',
+          placement === 'bottom'
+            ? 'animate-sheet-in rounded-t-xl'
+            : placement === 'responsive-bottom'
+              ? 'animate-sheet-in rounded-t-xl sm:animate-dialog-in sm:rounded-xl'
+              : 'animate-dialog-in rounded-xl',
           size === 'lg' ? 'max-w-[720px]' : 'max-w-[560px]',
         )}
       >
