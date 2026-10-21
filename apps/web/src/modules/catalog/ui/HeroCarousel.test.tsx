@@ -68,10 +68,12 @@ describe('HeroCarousel', () => {
       detail(summary(1, 'Logo ancho'), { logo: '/logo-wide.svg' }),
       detail(summary(2, 'Logo alto'), { logo: '/logo-tall.svg' }),
       detail(summary(3, 'Sin logo')),
-      detail(summary(4, 'Sinopsis larga'), {
+      detail(summary(4, 'Los juegos del hambre: Sinsajo - Parte 1')),
+      detail(summary(5, 'Sinopsis larga'), {
         overview:
           'Una sinopsis deliberadamente larga para comprobar que el contenido se limita a tres líneas y no desplaza los controles del hero.',
       }),
+      detail(summary(6, 'La vida secreta de Walter Mitty')),
     ]
     renderHero(titles)
 
@@ -83,6 +85,7 @@ describe('HeroCarousel', () => {
     const sizeClasses = () => ({
       hero: hero.className,
       title: hero.querySelector('h2')?.className,
+      titleText: hero.querySelector('h2 span')?.className,
       metadata: hero.querySelector('p.text-body-sm')?.className,
       overview: hero.querySelector('p.text-body-lg')?.className,
       controls: hero.querySelector('div.h-11')?.className,
@@ -110,6 +113,43 @@ describe('HeroCarousel', () => {
       'w-[min(300px,70vw)]',
       'md:h-40',
       'md:w-[min(520px,70vw)]',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Ir al destacado 4' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Los juegos del hambre: Sinsajo - Parte 1' }),
+      ).toBeInTheDocument(),
+    )
+    const longTitle = screen.getByRole('heading', {
+      name: 'Los juegos del hambre: Sinsajo - Parte 1',
+    })
+    expect(longTitle).toHaveAttribute('title', 'Los juegos del hambre: Sinsajo - Parte 1')
+    expect(longTitle.querySelector('span')).toHaveClass(
+      'text-[calc(var(--text-display-hero)*0.55)]',
+      'leading-[0.9]',
+      'line-clamp-3',
+    )
+    expect(longTitle.querySelector('span')).toHaveTextContent(
+      'Los juegos del hambre: Sinsajo - Parte 1',
+    )
+    expect(screen.queryByText('Destacado')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Ir al destacado 6' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'La vida secreta de Walter Mitty' }),
+      ).toBeInTheDocument(),
+    )
+    expect(
+      screen
+        .getByRole('heading', { name: 'La vida secreta de Walter Mitty' })
+        .querySelector('span'),
+    ).toHaveClass('text-[calc(var(--text-display-hero)*0.75)]')
+    fireEvent.click(screen.getByRole('button', { name: 'Ir al destacado 3' }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Sin logo' })).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('heading', { name: 'Sin logo' }).querySelector('span')).toHaveClass(
+      'text-display-hero',
     )
     expect(hero.querySelector('p.text-body-lg')).toHaveClass('h-[81px]', 'line-clamp-3')
   })

@@ -57,6 +57,14 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
     }
   }, [paused, reduced, titles.length])
   if (!current) return null
+  const title = detail?.title ?? current.title
+  const titleLength = Array.from(title).length
+  const titleSizeClass =
+    titleLength <= 18
+      ? 'text-display-hero'
+      : titleLength <= 32
+        ? 'text-[calc(var(--text-display-hero)*0.75)]'
+        : 'text-[calc(var(--text-display-hero)*0.55)]'
   const move = (delta: number) => {
     setIndex((value) => (value + delta + titles.length) % titles.length)
   }
@@ -89,10 +97,11 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
       )}
       <div className="absolute inset-0 bg-scrim" />
       <div className="relative flex h-full max-w-3xl flex-col justify-end gap-2 px-[var(--page-x,16px)] py-6 md:gap-4 md:py-12">
-        <span className="text-label font-bold uppercase tracking-label text-accent">
-          {t('library.featured')}
-        </span>
-        <h2 className="m-0 flex h-[110px] w-[min(300px,70vw)] max-w-full shrink-0 items-end overflow-hidden text-display-hero font-display uppercase md:h-40 md:w-[min(520px,70vw)]">
+        <h2
+          aria-label={title}
+          title={title}
+          className="m-0 flex h-[110px] w-[min(300px,70vw)] max-w-full shrink-0 items-end overflow-hidden text-display-hero font-display uppercase md:h-40 md:w-[min(520px,70vw)]"
+        >
           {detail?.logo ? (
             <img
               src={detail.logo}
@@ -103,7 +112,7 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
               }}
             />
           ) : (
-            (detail?.title ?? current.title)
+            <span className={`${titleSizeClass} leading-[0.9] line-clamp-3 w-full`}>{title}</span>
           )}
         </h2>
         <p className="m-0 h-[42px] max-h-[42px] shrink-0 overflow-hidden text-body-sm text-ink-2">
