@@ -217,7 +217,7 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 		}
 		text := foldText(t.Title + " " + t.DiscTitle)
 		if containsAllWords(text, words) {
-			out.Library = append(out.Library, libraryHit(t))
+			out.Library = append(out.Library, a.searchLibraryHit(ctx, t))
 		}
 	}
 	slices.SortStableFunc(out.Library, func(x, y TitleHit) int {
@@ -227,7 +227,7 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 	if tmdbID > 0 {
 		for _, title := range titles {
 			if title.TMDBID == tmdbID && (kindFilter == "" || title.Kind == kindFilter) && !libraryIDMatches[title.Kind] {
-				out.TMDB = append(out.TMDB, libraryHit(title))
+				out.TMDB = append(out.TMDB, a.searchLibraryHit(ctx, title))
 				libraryIDMatches[title.Kind] = true
 			}
 		}
@@ -250,6 +250,7 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 				hit.LibraryID = libraryIDOf(titles, kind, t.ID)
 				if hit.LibraryID != 0 {
 					hit.Source = "library"
+					hit.PosterFile = a.storedPoster(ctx, kind, hit.TMDBID)
 				}
 				out.TMDB = append(out.TMDB, hit)
 			} else if !errors.Is(err, ErrTMDBNotFound) {
@@ -277,6 +278,7 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 				hit.LibraryID = libraryIDOf(titles, kind, t.ID)
 				if hit.LibraryID != 0 {
 					hit.Source = "library"
+					hit.PosterFile = a.storedPoster(ctx, kind, hit.TMDBID)
 				}
 				out.TMDB = append(out.TMDB, hit)
 			}
@@ -293,6 +295,7 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 			hit.LibraryID = libraryIDOf(titles, kind, h.ID)
 			if hit.LibraryID != 0 {
 				hit.Source = "library"
+				hit.PosterFile = a.storedPoster(ctx, kind, hit.TMDBID)
 			}
 			out.TMDB = append(out.TMDB, hit)
 		}
@@ -364,6 +367,31 @@ func parseTitleSearchID(input string) (kindFilter domain.TitleKind, tmdbID int64
 // libraryHit is a registry title as a search result.
 func libraryHit(t domain.LibraryTitle) TitleHit {
 	return TitleHit{Source: "library", LibraryID: t.ID, TMDBID: t.TMDBID, Kind: t.Kind, Title: t.Title, Year: t.Year}
+}
+
+func (a *Assignments) searchLibraryHit(ctx context.Context, title domain.LibraryTitle) TitleHit {
+	hit := libraryHit(title)
+	hit.PosterFile = a.storedPoster(ctx, title.Kind, title.TMDBID)
+	return hit
+}
+
+func (a *Assignments) storedPoster(ctx context.Context, kind domain.TitleKind, tmdbID int64) string {
+	if tmdbID <= 0 {
+		return ""
+	}
+	reader, ok := a.d.TMDB.(LibraryMetadataSummary)
+	if !ok {
+		return ""
+	}
+	metadata, found, err := reader.StoredSummary(ctx, kind, tmdbID)
+	if err != nil {
+		a.log.WarnContext(ctx, "could not read stored title poster", "kind", kind, "tmdb_id", tmdbID, "error", err)
+		return ""
+	}
+	if !found {
+		return ""
+	}
+	return metadata.Poster
 }
 
 // libraryIDOf returns the id of the registry title of kind with TMDB id tmdbID, or 0.

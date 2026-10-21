@@ -23,6 +23,7 @@ type fakeTMDB struct {
 	series     map[int64]application.TMDBTitle
 	hits       map[string][]application.TMDBTitle
 	byIMDb     map[string][]application.TMDBTitle
+	posters    map[int64]string
 	// seasons holds, per series and season, the title of each chapter; a season missing here is unknown.
 	seasons map[int64]map[int]map[int]string
 }
@@ -56,6 +57,11 @@ func (f *fakeTMDB) FindIMDb(_ context.Context, kind domain.TitleKind, imdbID str
 		return nil, application.ErrTMDBUnavailable
 	}
 	return f.byIMDb[string(kind)+"|"+imdbID], nil
+}
+
+func (f *fakeTMDB) StoredSummary(_ context.Context, _ domain.TitleKind, id int64) (application.TitleSummaryMetadata, bool, error) {
+	poster, ok := f.posters[id]
+	return application.TitleSummaryMetadata{Poster: poster}, ok, nil
 }
 
 func (f *fakeTMDB) Chapters(_ context.Context, seriesID int64, season, first, last int) (application.TMDBChapters, error) {
@@ -118,6 +124,7 @@ func newAssignEnv(t *testing.T, files func(root string) application.Files) *assi
 		tmdb: &fakeTMDB{
 			configured: true, movies: map[int64]application.TMDBTitle{}, series: map[int64]application.TMDBTitle{},
 			hits: map[string][]application.TMDBTitle{}, byIMDb: map[string][]application.TMDBTitle{}, seasons: map[int64]map[int]map[int]string{},
+			posters: map[int64]string{},
 		},
 		names: map[string]application.NameReading{}, media: mediaByName{},
 	}
@@ -138,6 +145,43 @@ func newAssignEnv(t *testing.T, files func(root string) application.Files) *assi
 		},
 	})
 	return e
+}
+
+func TestSearchLibraryResultsIncludeTheirStoredPoster(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name       string
+		poster     string
+		wantPoster string
+	}{
+		{name: "saved poster", poster: "iron-man.jpg", wantPoster: "iron-man.jpg"},
+		{name: "no saved poster"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+			e.registerTitle(domain.LibraryTitle{
+				Kind: domain.KindMovie, Title: "Iron Man", DiscTitle: "Iron Man", Year: 2008,
+				TMDBID: 1726, Folder: "Movies/Iron Man (2008) [tmdbid-1726]",
+			}, nil)
+			if tt.poster != "" {
+				e.tmdb.posters[1726] = tt.poster
+			}
+			e.tmdb.hits["movie|iron"] = []application.TMDBTitle{{
+				ID: 1726, Title: "Iron Man", Year: 2008, PosterFile: "tmdb-poster.jpg",
+			}}
+			got, err := e.svc.Search(t.Context(), "iron", 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got.Library) != 1 || got.Library[0].PosterFile != tt.wantPoster {
+				t.Errorf("library results = %+v, want posterFile %q", got.Library, tt.wantPoster)
+			}
+			if len(got.TMDB) != 1 || got.TMDB[0].Source != "library" || got.TMDB[0].PosterFile != tt.wantPoster {
+				t.Errorf("TMDB results = %+v, want library posterFile %q", got.TMDB, tt.wantPoster)
+			}
+		})
+	}
 }
 
 // nameTable reads the names the test set for each path.
