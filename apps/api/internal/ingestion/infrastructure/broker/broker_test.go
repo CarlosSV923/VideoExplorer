@@ -166,6 +166,23 @@ func TestEverySubscriberGetsEveryPublishedEventInOrder(t *testing.T) {
 	}
 }
 
+func TestCatalogChangesFanOutWithoutBlocking(t *testing.T) {
+	t.Parallel()
+	b := broker.New(nil)
+	first, stopFirst := b.SubscribeCatalog()
+	defer stopFirst()
+	second, stopSecond := b.SubscribeCatalog()
+	defer stopSecond()
+	b.PublishCatalogChanged()
+	for i, ch := range []<-chan struct{}{first, second} {
+		select {
+		case <-ch:
+		case <-time.After(time.Second):
+			t.Fatalf("subscriber %d did not receive catalog change", i)
+		}
+	}
+}
+
 func TestUnsubscribeStopsDeliveryAndClosesTheChannel(t *testing.T) {
 	t.Parallel()
 

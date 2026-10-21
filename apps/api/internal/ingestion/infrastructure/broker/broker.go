@@ -28,10 +28,11 @@ type sent struct {
 
 // Broker is an in-memory publish/subscribe hub for job changes.
 type Broker struct {
-	mu   sync.Mutex
-	now  func() time.Time
-	subs map[chan domain.JobView]struct{}
-	last map[domain.JobID]sent
+	mu          sync.Mutex
+	now         func() time.Time
+	subs        map[chan domain.JobView]struct{}
+	catalogSubs map[chan struct{}]struct{}
+	last        map[domain.JobID]sent
 }
 
 var _ application.Publisher = (*Broker)(nil)
@@ -41,7 +42,35 @@ func New(now func() time.Time) *Broker {
 	if now == nil {
 		now = time.Now
 	}
-	return &Broker{now: now, subs: map[chan domain.JobView]struct{}{}, last: map[domain.JobID]sent{}}
+	return &Broker{now: now, subs: map[chan domain.JobView]struct{}{}, catalogSubs: map[chan struct{}]struct{}{}, last: map[domain.JobID]sent{}}
+}
+
+// SubscribeCatalog returns notifications that the library or No asignados changed.
+func (b *Broker) SubscribeCatalog() (<-chan struct{}, func()) {
+	ch := make(chan struct{}, subscriberBuffer)
+	b.mu.Lock()
+	b.catalogSubs[ch] = struct{}{}
+	b.mu.Unlock()
+	return ch, func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		if _, ok := b.catalogSubs[ch]; ok {
+			delete(b.catalogSubs, ch)
+			close(ch)
+		}
+	}
+}
+
+// PublishCatalogChanged asks connected clients to refresh catalog queries.
+func (b *Broker) PublishCatalogChanged() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for ch := range b.catalogSubs {
+		select {
+		case ch <- struct{}{}:
+		default: // a queued catalog invalidation already covers this change
+		}
+	}
 }
 
 // Subscribe returns the channel of job changes and a function that stops the

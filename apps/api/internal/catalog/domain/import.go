@@ -105,6 +105,8 @@ type ImportInput struct {
 	Archives map[string]bool
 	// Seen holds the stamp each file had when the last scan read it, by library path in lower case.
 	Seen map[string]Stamp
+	// SettledFolders are folders whose files passed RF-28a's event-driven stability window.
+	SettledFolders map[string]bool
 	// Lookups holds what TMDB answered, by the folder's library path in lower case.
 	Lookups map[string]Lookup
 	Media   MediaExts
@@ -324,7 +326,7 @@ func (p *importPlanner) looseFile(root ImportRoot, f Folder) {
 		return
 	}
 	c.rel = ""
-	if p.waiting([]*candidate{c}) {
+	if p.waiting([]*candidate{c}, lib) {
 		return
 	}
 	p.plan.Moves = append(p.plan.Moves, UnassignedMove{
@@ -354,7 +356,7 @@ func (p *importPlanner) folder(root ImportRoot, f Folder) {
 		return
 	}
 	slices.SortFunc(cands, func(a, b *candidate) int { return strings.Compare(a.rel, b.rel) })
-	if p.waiting(cands) {
+	if p.waiting(cands, folderLib) {
 		return
 	}
 	p.place(root, f, folderLib, cands)
@@ -379,7 +381,11 @@ func (p *importPlanner) candidateOf(rel, lib string, it Item) *candidate {
 // waiting reports whether the files of a folder are still being copied (RF-28): when one of them changed
 // since the last scan or was modified less than a minute ago, the whole folder waits for a later scan, and
 // its stamps are kept.
-func (p *importPlanner) waiting(cands []*candidate) bool {
+
+func (p *importPlanner) waiting(cands []*candidate, folder string) bool {
+	if p.in.SettledFolders[strings.ToLower(folder)] {
+		return false
+	}
 	copying := false
 	for _, c := range cands {
 		var prev *Stamp

@@ -13,7 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/application"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
@@ -31,7 +33,9 @@ type FS struct {
 	trash string
 	ops   string
 	// rename is os.Rename; a test replaces it to simulate a move across file systems.
-	rename func(from, to string) error
+	rename     func(from, to string) error
+	selfMu     sync.Mutex
+	selfWrites map[string]time.Time
 }
 
 var (
@@ -44,10 +48,41 @@ var (
 func New(root string) *FS {
 	root = filepath.Clean(root)
 	return &FS{
-		root:   root,
-		trash:  filepath.Join(root, metaDir, "trash"),
-		ops:    filepath.Join(root, metaDir, "ops"),
-		rename: os.Rename,
+		root:       root,
+		trash:      filepath.Join(root, metaDir, "trash"),
+		ops:        filepath.Join(root, metaDir, "ops"),
+		rename:     os.Rename,
+		selfWrites: map[string]time.Time{},
+	}
+}
+
+// IsAppWrite reports paths recently changed by the journaled operation engine.
+func (f *FS) IsAppWrite(p string) bool {
+	p, _ = filepath.Abs(p)
+	f.selfMu.Lock()
+	defer f.selfMu.Unlock()
+	now := time.Now()
+	for path, until := range f.selfWrites {
+		if now.After(until) {
+			delete(f.selfWrites, path)
+			continue
+		}
+		if p == path || strings.HasPrefix(p, path+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *FS) markAppWrite(paths ...string) {
+	f.selfMu.Lock()
+	defer f.selfMu.Unlock()
+	until := time.Now().Add(time.Minute)
+	for _, p := range paths {
+		abs, err := filepath.Abs(p)
+		if err == nil {
+			f.selfWrites[abs] = until
+		}
 	}
 }
 
@@ -222,6 +257,7 @@ func (f *FS) RemoveAll(p string) error {
 	if err := f.inside(p); err != nil {
 		return err
 	}
+	f.markAppWrite(p)
 	return os.RemoveAll(p)
 }
 
@@ -231,6 +267,7 @@ func (f *FS) RemoveCopy(p string) error {
 		return err
 	}
 	partial := p + partialSuffix
+	f.markAppWrite(partial)
 	if _, err := os.Lstat(partial); errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -293,6 +330,7 @@ func (f *FS) Mkdir(dir string) error {
 	if err := f.inside(dir); err != nil {
 		return err
 	}
+	f.markAppWrite(dir)
 	return os.Mkdir(dir, 0o750)
 }
 
@@ -308,6 +346,7 @@ func (f *FS) RemoveDir(dir string) error {
 	if len(entries) > 0 {
 		return fmt.Errorf("%w: %s", application.ErrNotEmpty, dir)
 	}
+	f.markAppWrite(dir)
 	return os.Remove(dir)
 }
 
@@ -327,6 +366,7 @@ func (f *FS) Move(from, to string) error {
 	if _, err := os.Lstat(to); err == nil {
 		return fmt.Errorf("%w: %s", fs.ErrExist, to)
 	}
+	f.markAppWrite(from, to)
 	err = f.rename(from, to)
 	if !errors.Is(err, syscall.EXDEV) {
 		return err

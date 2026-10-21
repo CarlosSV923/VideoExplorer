@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
@@ -62,7 +64,8 @@ type ImportDeps struct {
 
 // LibraryImport scans Movies/ and TV Shows/ (RF-29). It is the library scan of the scanner (LibraryScan).
 type LibraryImport struct {
-	d ImportDeps
+	d  ImportDeps
+	mu sync.Mutex
 }
 
 var _ LibraryScan = (*LibraryImport)(nil)
@@ -89,11 +92,30 @@ func NewLibraryImport(d ImportDeps) (*LibraryImport, error) {
 // Scan implements LibraryScan. The TMDB lookups happen before the change, outside the library lock: the
 // first pass says which folders need them, the second decides under the lock with the answers in hand.
 func (im *LibraryImport) Scan(ctx context.Context) error {
+	im.mu.Lock()
+	defer im.mu.Unlock()
+	return im.scan(ctx, "")
+}
+
+// ScanTitle imports or forgets only one title folder, reusing the RF-29 planner and operation engine.
+func (im *LibraryImport) ScanTitle(ctx context.Context, folder string) error {
+	if folder == "" || strings.Contains(folder, "..") || strings.HasPrefix(folder, "/") {
+		return errors.New("catalog: invalid title folder")
+	}
+	im.mu.Lock()
+	defer im.mu.Unlock()
+	return im.scan(ctx, folder)
+}
+
+func (im *LibraryImport) scan(ctx context.Context, folder string) error {
 	var wanted []domain.Wanted
 	err := im.d.Engine.Locked(func() error {
 		in, err := im.snapshot(ctx)
 		if err != nil {
 			return err
+		}
+		if folder != "" {
+			in = scopeImport(in, folder)
 		}
 		wanted = domain.PlanImport(in).Wanted
 		return nil
@@ -108,10 +130,52 @@ func (im *LibraryImport) Scan(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		allSeen := in.Seen
+		if folder != "" {
+			in = scopeImport(in, folder)
+		}
 		in.Lookups = lookups
 		plan := domain.PlanImport(in)
+		if folder != "" {
+			plan.Waiting = mergeScopedWaiting(allSeen, plan.Waiting, folder)
+		}
 		return im.apply(ctx, b, in, plan)
 	})
+}
+
+func mergeScopedWaiting(previous map[string]domain.Stamp, current []domain.SeenFile, folder string) []domain.SeenFile {
+	prefix := strings.ToLower(strings.Trim(folder, "/")) + "/"
+	out := make([]domain.SeenFile, 0, len(previous)+len(current))
+	for rel, stamp := range previous {
+		if !strings.HasPrefix(strings.ToLower(rel), prefix) {
+			out = append(out, domain.SeenFile{Rel: rel, Stamp: stamp})
+		}
+	}
+	out = append(out, current...)
+	slices.SortFunc(out, func(a, b domain.SeenFile) int { return strings.Compare(strings.ToLower(a.Rel), strings.ToLower(b.Rel)) })
+	return out
+}
+
+func scopeImport(in domain.ImportInput, folder string) domain.ImportInput {
+	key := strings.ToLower(strings.Trim(folder, "/"))
+	in.SettledFolders = map[string]bool{key: true}
+	for i := range in.Roots {
+		root := &in.Roots[i]
+		root.Entries = slices.DeleteFunc(root.Entries, func(entry domain.Folder) bool {
+			return entry.Loose || !strings.EqualFold(root.Root.Name+"/"+entry.Name, key)
+		})
+	}
+	in.Titles = slices.DeleteFunc(in.Titles, func(title domain.RegisteredTitle) bool {
+		return !strings.EqualFold(title.Title.Folder, key)
+	})
+	seen := make(map[string]domain.Stamp)
+	for rel, stamp := range in.Seen {
+		if strings.HasPrefix(strings.ToLower(rel), key+"/") {
+			seen[rel] = stamp
+		}
+	}
+	in.Seen = seen
+	return in
 }
 
 // snapshot reads the library as it is now: the two roots, the registry, the waiting files and the archives

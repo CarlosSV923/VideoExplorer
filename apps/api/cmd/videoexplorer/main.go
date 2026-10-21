@@ -24,11 +24,14 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	catalogdomain "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
+	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/infrastructure/fswatch"
 	catalogshttp "github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/interfaces/http"
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/ingestion/application"
@@ -125,6 +128,9 @@ func run(cfg config.Config, log *slog.Logger) error {
 	} else if n > 0 {
 		log.Info("interrupted library changes undone", "operations", n)
 	}
+	if err := ensureUnassignedDir(cfg.LibraryPath); err != nil {
+		return fmt.Errorf("create %s: %w", catalogdomain.UnassignedDir, err)
+	}
 	mediaServer, err := newMediaServer(cfg, log)
 	if err != nil {
 		return fmt.Errorf("configure media server: %w", err)
@@ -186,7 +192,66 @@ func run(cfg config.Config, log *slog.Logger) error {
 	go func() { serveErr <- httpserver.Serve(ctx, srv, ln, shutdownTimeout) }()
 	// The scans start once the server serves: the first run of each does not delay the start (RF-28).
 	// They are stopped and awaited before the database closes.
-	defer stopScans(cancelScans, scans.Scanner.Start(), log)
+	scansDone := scans.Scanner.Start()
+	defer stopScans(cancelScans, scansDone, log)
+	watchCtx, cancelWatch := context.WithCancel(scansCtx)
+	watchDone := make(chan struct{})
+	go func() {
+		defer close(watchDone)
+		w := fswatch.NewWithIgnore([]fswatch.Root{
+			{Path: filepath.Join(cfg.LibraryPath, catalogdomain.UnassignedDir), Area: "unassigned"},
+			{Path: filepath.Join(cfg.LibraryPath, cfg.MoviesDir), Area: "library"},
+			{Path: filepath.Join(cfg.LibraryPath, cfg.SeriesDir), Area: "library"},
+		}, catalog.Files.IsAppWrite)
+		err := w.Run(watchCtx, func(change fswatch.Change) {
+			if change.Area == "unassigned" && !change.Stable {
+				catalog.Section.MarkCopyingEntry(change.Group)
+				ingest.Events.PublishCatalogChanged()
+				return
+			}
+			if change.Stable {
+				log.InfoContext(watchCtx, "stable filesystem change detected", "area", change.Area, "group", change.Group)
+			}
+			var kind catalogdomain.ScanKind
+			folder := ""
+			switch change.Area {
+			case "unassigned":
+				kind = catalogdomain.ScanUnassigned
+			case "library":
+				kind = catalogdomain.ScanLibrary
+				folder = filepath.ToSlash(filepath.Join(change.Root, change.Group))
+			default:
+				return
+			}
+			if kind == catalogdomain.ScanUnassigned {
+				if err := catalog.Section.MarkSettledEntry(change.Group); err != nil {
+					log.WarnContext(watchCtx, "stable No asignados entry could not be stamped", "entry", change.Group, "error", err)
+				}
+			}
+			if err := scans.Scanner.Changed(watchCtx, kind, folder); err != nil {
+				log.WarnContext(watchCtx, "automatic library update failed", "area", change.Area, "folder", folder, "error", err)
+				return
+			}
+			if kind == catalogdomain.ScanUnassigned {
+				if err := catalog.Section.MarkSettledEntry(change.Group); err != nil {
+					log.WarnContext(watchCtx, "stable No asignados entry could not be stamped", "entry", change.Group, "error", err)
+				}
+			}
+			ingest.Events.PublishCatalogChanged()
+		})
+		if err != nil && watchCtx.Err() == nil {
+			log.Warn("automatic filesystem detection stopped; running backup scans", "error", err)
+			scans.Scanner.Trigger()
+		}
+	}()
+	defer func() {
+		cancelWatch()
+		select {
+		case <-watchDone:
+		case <-time.After(shutdownTimeout):
+			log.Warn("filesystem watcher still running at shutdown")
+		}
+	}()
 
 	select {
 	case err := <-serveErr:
@@ -205,6 +270,22 @@ func closeDatabase(conn *sql.DB, log *slog.Logger) {
 	if err := conn.Close(); err != nil {
 		log.Warn("close database", "error", err)
 	}
+}
+
+func ensureUnassignedDir(libraryPath string) error {
+	path := filepath.Join(libraryPath, catalogdomain.UnassignedDir)
+	err := os.Mkdir(path, 0o750)
+	if errors.Is(err, os.ErrExist) {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			return statErr
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("%s is not a directory", path)
+		}
+		return nil
+	}
+	return err
 }
 
 // hashPassword reads one line from in and writes its argon2id PHC hash to out.

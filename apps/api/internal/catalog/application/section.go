@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/CarlosSV923/VideoExplorer/apps/api/internal/catalog/domain"
@@ -54,11 +55,14 @@ type Section struct {
 	videoExt map[string]bool
 	subExt   map[string]bool
 	now      func() time.Time
+	copyMu   sync.RWMutex
+	pending  map[string]bool
+	settled  map[string]map[string]domain.Stamp
 }
 
 // NewSection builds the section over its ports.
 func NewSection(d SectionDeps) *Section {
-	s := &Section{d: d, now: d.Now}
+	s := &Section{d: d, now: d.Now, pending: map[string]bool{}, settled: map[string]map[string]domain.Stamp{}}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -68,6 +72,62 @@ func NewSection(d SectionDeps) *Section {
 	s.videoExt = extSet(d.VideoExts)
 	s.subExt = extSet(d.SubtitleExts)
 	return s
+}
+
+// MarkCopyingEntry makes the watcher state visible while Samba is writing an entry.
+func (s *Section) MarkCopyingEntry(name string) {
+	s.copyMu.Lock()
+	defer s.copyMu.Unlock()
+	key := strings.ToLower(name)
+	s.pending[key] = true
+	delete(s.settled, key)
+}
+
+// MarkSettledEntry records the current stamps so the RF-28a ten-second window supersedes RF-27's
+// one-minute heuristic for this filesystem-detected entry.
+func (s *Section) MarkSettledEntry(name string) error {
+	stamps := map[string]domain.Stamp{}
+	path := s.d.Files.UnassignedPath(name)
+	info, infoErr := s.d.Downloads.Info(path)
+	if infoErr == nil {
+		stamps[""] = domain.Stamp{Size: info.Size, ModTime: info.Modified}
+	} else {
+		tree, err := s.d.Files.Tree(path)
+		if err != nil {
+			return err
+		}
+		for _, item := range domain.Files(tree) {
+			stamps[strings.ToLower(item.Rel)] = stampOf(item)
+		}
+	}
+	s.copyMu.Lock()
+	defer s.copyMu.Unlock()
+	key := strings.ToLower(name)
+	delete(s.pending, key)
+	s.settled[key] = stamps
+	return nil
+}
+
+func (s *Section) applyWatcherState(e *sectionEntry) {
+	s.copyMu.RLock()
+	defer s.copyMu.RUnlock()
+	key := strings.ToLower(e.Name)
+	if s.pending[key] {
+		for _, f := range e.Files {
+			e.copying[f.Rel] = true
+		}
+		return
+	}
+	stamps, ok := s.settled[key]
+	if !ok {
+		return
+	}
+	for _, file := range e.Files {
+		stamp, exists := stamps[strings.ToLower(file.Rel)]
+		if exists && stamp.Size == file.Size && stamp.ModTime.UnixMilli() == file.Mtime {
+			e.copying[file.Rel] = false
+		}
+	}
 }
 
 // DownloadFiles returns the safe filesystem port used by the download
@@ -562,6 +622,7 @@ func (s *Section) read(ctx context.Context) ([]*sectionEntry, error) {
 			if err != nil {
 				return err
 			}
+			s.applyWatcherState(e)
 			out = append(out, e)
 		}
 		for _, f := range folders {
@@ -584,6 +645,7 @@ func (s *Section) read(ctx context.Context) ([]*sectionEntry, error) {
 			}
 			entry.ID = id
 			e.UnassignedEntry = entry
+			s.applyWatcherState(e)
 			out = append(out, e)
 		}
 		return nil

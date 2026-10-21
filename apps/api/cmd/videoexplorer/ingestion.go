@@ -23,6 +23,7 @@ type ingestionWiring struct {
 	Service *application.Service
 	// Handler answers the batch, job and event operations of the generated contract.
 	Handler *ingestionhttp.Handler
+	Events  *broker.Broker
 }
 
 // newIngestion wires the batches, the upload jobs and their event stream (phase 3)
@@ -31,7 +32,7 @@ type ingestionWiring struct {
 func newIngestion(conn *sql.DB, log *slog.Logger, shutdown <-chan struct{}) ingestionWiring {
 	events := broker.New(time.Now)
 	svc := application.NewService(sqlite.NewBatchRepository(conn), sqlite.NewJobRepository(conn), events, log, time.Now)
-	return ingestionWiring{Service: svc, Handler: ingestionhttp.NewHandler(svc, events, shutdown, log)}
+	return ingestionWiring{Service: svc, Handler: ingestionhttp.NewHandler(svc, events, shutdown, log), Events: events}
 }
 
 // settleInBackground decides, in a goroutine, the batches that a previous run left complete

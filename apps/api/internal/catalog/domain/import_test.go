@@ -566,6 +566,21 @@ func TestPlanImportMovies(t *testing.T) {
 	})
 }
 
+func TestPlanImportTreatsEventSettledFolderAsStable(t *testing.T) {
+	t.Parallel()
+	in := baseInput(movieRoot, folderOf("Arrival (2016)", "Arrival.mkv"))
+	in.Roots[0].Entries[0].Items[0].ModTime = importNow.Add(-10 * time.Second)
+	in.SettledFolders = map[string]bool{"movies/arrival (2016)": true}
+
+	plan := domain.PlanImport(in)
+	if len(plan.Waiting) != 0 {
+		t.Fatalf("stable folder remains waiting: %+v", plan.Waiting)
+	}
+	if len(plan.NewTitles) != 1 {
+		t.Fatalf("stable folder was not imported: %+v", plan.NewTitles)
+	}
+}
+
 func TestPlanImportSeries(t *testing.T) {
 	t.Parallel()
 	runImportCases(t, []importCase{

@@ -16,6 +16,7 @@ import (
 
 // catalogWiring is the catalog context as the composition root builds it.
 type catalogWiring struct {
+	Files *libraryfs.FS
 	// Engine performs every change of the library, through its journal (RNF-04). Recover
 	// undoes what a restart interrupted, and must run before anything else touches the library.
 	Engine *catalogapplication.Engine
@@ -35,6 +36,7 @@ func newCatalog(conn *sql.DB, cfg config.Config, log *slog.Logger) catalogWiring
 	engine := catalogapplication.NewEngine(files, catalogsqlite.NewJournal(conn), time.Now, log)
 	unassigned := catalogsqlite.NewUnassignedRepository(conn)
 	return catalogWiring{
+		Files:      files,
 		Engine:     engine,
 		Trash:      catalogapplication.NewTrash(catalogsqlite.NewTrashRepository(conn), files, engine, time.Now),
 		Unassigned: catalogapplication.NewUnassigned(unassigned, files, engine, time.Now),

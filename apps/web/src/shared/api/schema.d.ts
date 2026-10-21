@@ -178,7 +178,9 @@ export interface paths {
          *     is never dropped. A client that falls too far behind is disconnected, and
          *     its `EventSource` reconnects and receives the snapshot again. A comment
          *     line (`: ping`) is sent every 25 seconds to keep proxies from closing the
-         *     connection. The stream ends when the server shuts down.
+         *     connection. The stream also sends `catalog` events with `{}` to ask the
+         *     client to invalidate No asignados and library queries after a stable
+         *     filesystem change (RF-28a). The stream ends when the server shuts down.
          */
         get: operations["streamJobEvents"];
         put?: never;

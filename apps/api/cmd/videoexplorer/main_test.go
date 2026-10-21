@@ -12,6 +12,21 @@ import (
 	identityinfra "github.com/CarlosSV923/VideoExplorer/apps/api/internal/identity/infrastructure"
 )
 
+func TestEnsureUnassignedDirCreatesExpectedFolderAndAcceptsExistingDirectory(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := ensureUnassignedDir(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureUnassignedDir(root); err != nil {
+		t.Fatalf("existing directory: %v", err)
+	}
+	info, err := os.Stat(filepath.Join(root, "_unassigned"))
+	if err != nil || !info.IsDir() {
+		t.Fatalf("_unassigned = %v, err = %v", info, err)
+	}
+}
+
 func TestHashPassword(t *testing.T) {
 	t.Parallel()
 

@@ -25,6 +25,10 @@ type Subscriber interface {
 	Subscribe() (<-chan domain.JobView, func())
 }
 
+type catalogSubscriber interface {
+	SubscribeCatalog() (<-chan struct{}, func())
+}
+
 // Handler implements the batch and job operations of httpapi.StrictServerInterface.
 // The uploads themselves go through the tus endpoint, not through here.
 type Handler struct {
@@ -90,19 +94,29 @@ func (h *Handler) ListJobs(ctx context.Context, _ httpapi.ListJobsRequestObject)
 func (h *Handler) StreamJobEvents(ctx context.Context, _ httpapi.StreamJobEventsRequestObject) (httpapi.StreamJobEventsResponseObject, error) {
 	// Subscribe before reading the snapshot, so no change falls between the two.
 	events, unsubscribe := h.sub.Subscribe()
+	var catalog <-chan struct{}
+	var unsubscribeCatalog func()
+	if sub, ok := h.sub.(catalogSubscriber); ok {
+		catalog, unsubscribeCatalog = sub.SubscribeCatalog()
+	}
 	views, err := h.svc.List(ctx)
 	if err != nil {
 		unsubscribe()
+		if unsubscribeCatalog != nil {
+			unsubscribeCatalog()
+		}
 		return nil, err
 	}
 	return eventStream{
-		ctx:         ctx,
-		shutdown:    h.shutdown,
-		heartbeat:   h.heartbeat,
-		events:      events,
-		unsubscribe: unsubscribe,
-		snapshot:    views,
-		log:         h.log,
+		ctx:                ctx,
+		shutdown:           h.shutdown,
+		heartbeat:          h.heartbeat,
+		events:             events,
+		catalog:            catalog,
+		unsubscribe:        unsubscribe,
+		unsubscribeCatalog: unsubscribeCatalog,
+		snapshot:           views,
+		log:                h.log,
 	}, nil
 }
 
@@ -110,13 +124,15 @@ func (h *Handler) StreamJobEvents(ctx context.Context, _ httpapi.StreamJobEvents
 // response type, which only flushes when the writer itself is an http.Flusher:
 // the logging middleware wraps the writer, and http.ResponseController sees through it.
 type eventStream struct {
-	ctx         context.Context
-	shutdown    <-chan struct{}
-	heartbeat   time.Duration
-	events      <-chan domain.JobView
-	unsubscribe func()
-	snapshot    []domain.JobView
-	log         *slog.Logger
+	ctx                context.Context
+	shutdown           <-chan struct{}
+	heartbeat          time.Duration
+	events             <-chan domain.JobView
+	catalog            <-chan struct{}
+	unsubscribe        func()
+	unsubscribeCatalog func()
+	snapshot           []domain.JobView
+	log                *slog.Logger
 }
 
 // VisitStreamJobEventsResponse implements httpapi.StreamJobEventsResponseObject.
@@ -125,6 +141,9 @@ type eventStream struct {
 // the server, and the client reconnects when it needs the events again.
 func (s eventStream) VisitStreamJobEventsResponse(w http.ResponseWriter) error {
 	defer s.unsubscribe()
+	if s.unsubscribeCatalog != nil {
+		defer s.unsubscribeCatalog()
+	}
 	header := w.Header()
 	header.Set("Content-Type", "text/event-stream")
 	header.Set("Cache-Control", "no-store")
@@ -160,11 +179,23 @@ func (s eventStream) VisitStreamJobEventsResponse(w http.ResponseWriter) error {
 			if err := writeEvent(w, v); err != nil {
 				return nil //nolint:nilerr // the client went away
 			}
+		case _, ok := <-s.catalog:
+			if !ok {
+				return nil
+			}
+			if err := writeCatalogEvent(w); err != nil {
+				return nil
+			}
 		}
 		if err := rc.Flush(); err != nil {
 			return nil //nolint:nilerr // the client went away
 		}
 	}
+}
+
+func writeCatalogEvent(w io.Writer) error {
+	_, err := io.WriteString(w, "event: catalog\ndata: {}\n\n")
+	return err
 }
 
 // writeEvent writes one job as an event named job, with the whole job as data.

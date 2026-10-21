@@ -23,6 +23,10 @@ type LibraryScan interface {
 	Scan(ctx context.Context) error
 }
 
+type titleLibraryScan interface {
+	ScanTitle(ctx context.Context, folder string) error
+}
+
 // LibraryMetadataRefresh recalculates cached library metadata after a library scan. It runs in the
 // background so TMDB latency or failure never blocks the scan (RF-28, RF-43a).
 type LibraryMetadataRefresh interface {
@@ -82,7 +86,9 @@ type Scanner struct {
 	running  map[domain.ScanKind]bool
 	finished map[domain.ScanKind]time.Time
 	// wg counts the loops and the scans started on demand, so that the end of the scans can be awaited.
-	wg sync.WaitGroup
+	wg           sync.WaitGroup
+	unassignedMu sync.Mutex
+	libraryMu    sync.Mutex
 }
 
 // NewScanner builds the scanner and reads the times that the scans finished before (RF-28). ctx is the
@@ -224,12 +230,16 @@ func (s *Scanner) execute(kind domain.ScanKind) {
 func (s *Scanner) scan(ctx context.Context, kind domain.ScanKind) error {
 	switch kind {
 	case domain.ScanUnassigned:
+		s.unassignedMu.Lock()
+		defer s.unassignedMu.Unlock()
 		_, err := s.d.Section.Sync(ctx, s.d.Arrivals)
 		return err
 	case domain.ScanLibrary:
 		if s.d.Library == nil {
 			return nil
 		}
+		s.libraryMu.Lock()
+		defer s.libraryMu.Unlock()
 		if err := s.d.Library.Scan(ctx); err != nil {
 			return err
 		}
@@ -243,6 +253,37 @@ func (s *Scanner) scan(ctx context.Context, kind domain.ScanKind) error {
 		return nil
 	default:
 		return fmt.Errorf("catalog: unknown scan %q", kind)
+	}
+}
+
+// Changed processes one stable filesystem group without overlapping the corresponding full scan.
+func (s *Scanner) Changed(ctx context.Context, kind domain.ScanKind, folder string) error {
+	switch kind {
+	case domain.ScanUnassigned:
+		s.unassignedMu.Lock()
+		defer s.unassignedMu.Unlock()
+		_, err := s.d.Section.Sync(ctx, s.d.Arrivals)
+		return err
+	case domain.ScanLibrary:
+		target, ok := s.d.Library.(titleLibraryScan)
+		if !ok {
+			return errors.New("catalog: targeted title scan is unavailable")
+		}
+		s.libraryMu.Lock()
+		defer s.libraryMu.Unlock()
+		if err := target.ScanTitle(ctx, folder); err != nil {
+			return err
+		}
+		if s.d.LibraryMetadataRefresh != nil {
+			go func() {
+				if err := s.d.LibraryMetadataRefresh.RefreshMissingEpisodes(ctx); err != nil {
+					s.d.Log.WarnContext(ctx, "library metadata refresh failed", "error", err)
+				}
+			}()
+		}
+		return nil
+	default:
+		return fmt.Errorf("catalog: unknown changed scan %q", kind)
 	}
 }
 
