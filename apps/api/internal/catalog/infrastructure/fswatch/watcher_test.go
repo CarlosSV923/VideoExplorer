@@ -65,9 +65,9 @@ func TestWatcherFindsNestedDirectoriesAndIgnoresJunk(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- w.Run(ctx, func(change Change) { events <- change }) }()
 	select {
-	case <-watched:
+	case <-w.Ready():
 	case <-time.After(10 * time.Second):
-		t.Fatal("root watch was not installed")
+		t.Fatal("initial watches were not installed")
 	}
 
 	entry := filepath.Join(root, "Slow Copy")
@@ -167,6 +167,11 @@ func TestWatcherCoalescesManyWritesIntoOneStableChange(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- w.Run(ctx, func(change Change) { changes <- change }) }()
+	select {
+	case <-w.Ready():
+	case <-time.After(10 * time.Second):
+		t.Fatal("initial watches were not installed")
+	}
 
 	file := filepath.Join(root, "Godzilla (2014)", "Godzilla.mkv")
 	if err := os.Mkdir(filepath.Dir(file), 0o750); err != nil {
@@ -222,5 +227,47 @@ func TestWatcherCoalescesManyWritesIntoOneStableChange(t *testing.T) {
 			}
 			return
 		}
+	}
+}
+
+func TestWatcherFindsFileCreatedImmediatelyInsideNewNestedDirectory(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	changes := make(chan Change, 16)
+	w := newWith([]Root{{Path: root, Area: "library"}}, 50*time.Millisecond, time.Now, func() (watchFS, error) {
+		fsw, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil, err
+		}
+		return nativeFS{fsw}, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- w.Run(ctx, func(change Change) { changes <- change }) }()
+	select {
+	case <-w.Ready():
+	case <-time.After(10 * time.Second):
+		t.Fatal("initial watches were not installed")
+	}
+
+	file := filepath.Join(root, "Godzilla (2014)", "disc", "Godzilla.mkv")
+	if err := os.MkdirAll(filepath.Dir(file), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("complete copy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case change := <-changes:
+		if !change.Stable || change.Group != "Godzilla (2014)" {
+			t.Fatalf("change = %+v, want stable Godzilla title change", change)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("watcher did not report a stable change for the pre-existing nested file")
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("watcher: %v", err)
 	}
 }

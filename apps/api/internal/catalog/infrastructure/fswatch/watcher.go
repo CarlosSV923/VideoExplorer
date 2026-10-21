@@ -37,12 +37,14 @@ type Root struct{ Path, Area string }
 
 // Watcher delivers grouped stable filesystem changes from inotify.
 type Watcher struct {
-	roots    []Root
-	settle   time.Duration
-	now      func() time.Time
-	newFS    func() (watchFS, error)
-	ignore   func(string) bool
-	watching func(string)
+	roots     []Root
+	settle    time.Duration
+	now       func() time.Time
+	newFS     func() (watchFS, error)
+	ignore    func(string) bool
+	watching  func(string)
+	ready     chan struct{}
+	readyOnce sync.Once
 }
 
 type watchFS interface {
@@ -86,8 +88,11 @@ func newWith(roots []Root, settle time.Duration, now func() time.Time, factory f
 	if now == nil {
 		now = time.Now
 	}
-	return &Watcher{roots: roots, settle: settle, now: now, newFS: factory}
+	return &Watcher{roots: roots, settle: settle, now: now, newFS: factory, ready: make(chan struct{})}
 }
+
+// Ready returns a channel that closes after Run has installed the initial watches.
+func (w *Watcher) Ready() <-chan struct{} { return w.ready }
 
 // Run watches each tree recursively, extending watches as directories are created.
 // Watcher failures are returned to the caller, which launches the RF-28 backup scan.
@@ -101,14 +106,16 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 	if err != nil {
 		return fmt.Errorf("create close-write watcher: %w", err)
 	}
-	defer unix.Close(closeFD)
+	closeFile := os.NewFile(uintptr(closeFD), "inotify-close-write")
+	defer closeFile.Close()
 	writeStates := make(chan writeState, 256)
 	closeErrors := make(chan error, 1)
 	var closeDirs sync.Map
-	go readCloseWrites(ctx, closeFD, writeStates, closeErrors, &closeDirs)
+	go readCloseWrites(ctx, closeFile, writeStates, closeErrors, &closeDirs)
 	var mu sync.Mutex
 	watched := map[string]bool{}
 	closeWatched := map[string]uint32{}
+	var onExisting func(Root, string)
 	addTree := func(root Root, start string) error {
 		return filepath.WalkDir(start, func(p string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -120,6 +127,9 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 			if !d.IsDir() || ignored(root, p) {
 				if d.IsDir() {
 					return filepath.SkipDir
+				}
+				if !d.IsDir() && p != start && onExisting != nil {
+					onExisting(root, p)
 				}
 				return nil
 			}
@@ -154,6 +164,9 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 			mu.Unlock()
 			if w.watching != nil {
 				w.watching(p)
+			}
+			if p != start && onExisting != nil {
+				onExisting(root, p)
 			}
 			return nil
 		})
@@ -195,6 +208,7 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 			return fmt.Errorf("watch %s: %w", root.Path, err)
 		}
 	}
+	w.readyOnce.Do(func() { close(w.ready) })
 	type pending struct {
 		change    Change
 		at        time.Time
@@ -216,6 +230,38 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 		group := parts[0]
 		return root.Area + string(filepath.Separator) + group, group
 	}
+	noteChange := func(root Root, path string) {
+		if ignored(root, path) || (w.ignore != nil && w.ignore(path)) {
+			return
+		}
+		key, group := keyFor(root, path)
+		if key == "" {
+			return
+		}
+		p := items[key]
+		if p == nil {
+			p = &pending{writing: map[string]bool{}}
+			items[key] = p
+			for openPath, count := range activeWrites {
+				if count > 0 {
+					openRoot, inRoot := w.rootFor(openPath)
+					openKey, _ := keyFor(openRoot, openPath)
+					if inRoot && openKey == key {
+						p.writing[openPath] = true
+					}
+				}
+			}
+		}
+		p.change = Change{Area: root.Area, Root: filepath.Base(root.Path), Group: group, Path: path}
+		p.at, p.signature, p.sampled = w.now(), "", false
+		if activeWrites[path] > 0 {
+			p.writing[path] = true
+		}
+		if root.Area == "unassigned" {
+			onChange(p.change)
+		}
+	}
+	onExisting = noteChange
 	tick := time.NewTicker(200 * time.Millisecond)
 	defer tick.Stop()
 	for {
@@ -277,38 +323,11 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 			if w.ignore != nil && w.ignore(path) {
 				continue
 			}
-			key, group := keyFor(root, path)
-			if key == "" {
-				continue
-			}
-			p := items[key]
-			if p == nil {
-				p = &pending{writing: map[string]bool{}}
-				items[key] = p
-				for openPath, count := range activeWrites {
-					if count > 0 {
-						openRoot, inRoot := w.rootFor(openPath)
-						openKey, _ := keyFor(openRoot, openPath)
-						if inRoot && openKey == key {
-							p.writing[openPath] = true
-						}
-					}
-				}
-			}
-			p.change = Change{Area: root.Area, Root: filepath.Base(root.Path), Group: group, Path: path}
-			p.at, p.signature, p.sampled = w.now(), "", false
-			if event.Op&fsnotify.Write != 0 {
-				if activeWrites[path] > 0 {
-					p.writing[path] = true
-				}
-			}
-			// Only No asignados needs copying-state updates. Library changes are consumed only after
-			// the title folder has settled, so a large copy cannot trigger one import per write event.
-			if root.Area == "unassigned" {
-				onChange(p.change)
-			}
+			noteChange(root, path)
 			if event.Op&(fsnotify.Remove|fsnotify.Rename) != 0 {
-				delete(p.writing, path)
+				if key, _ := keyFor(root, path); items[key] != nil {
+					delete(items[key].writing, path)
+				}
 				removeTree(path)
 			}
 		case <-tick.C:
@@ -337,8 +356,7 @@ func (w *Watcher) Run(ctx context.Context, onChange func(Change)) error {
 	}
 }
 
-func readCloseWrites(ctx context.Context, fd int, out chan<- writeState, errs chan<- error, dirs *sync.Map) {
-	file := os.NewFile(uintptr(fd), "inotify-close-write")
+func readCloseWrites(ctx context.Context, file *os.File, out chan<- writeState, errs chan<- error, dirs *sync.Map) {
 	buf := make([]byte, 64*1024)
 	for {
 		n, err := file.Read(buf)
