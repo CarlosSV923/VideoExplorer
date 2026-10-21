@@ -2,7 +2,7 @@ module github.com/CarlosSV923/VideoExplorer/apps/api
 
 go 1.27.0
 
-toolchain go1.27.2
+toolchain go1.27.3
 
 require (
 	github.com/caarlos0/env/v11 v11.4.1

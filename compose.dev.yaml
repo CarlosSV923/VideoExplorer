@@ -8,7 +8,7 @@
 services:
   api:
     # Go toolchain + 7-Zip + ffprobe; same tag as GO_IMAGE in Taskfile.yml (`task dev:image`).
-    image: videoexplorer-dev:1
+    image: videoexplorer-dev:2
     build:
       context: .
       dockerfile: deploy/dev/Dockerfile

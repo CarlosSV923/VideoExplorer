@@ -14,7 +14,7 @@ ENV VITE_DATA_SOURCE=http
 RUN pnpm --filter @videoexplorer/web build
 
 # --- 2. Go binary with the SPA embedded ---
-FROM golang:1.27.2 AS api
+FROM golang:1.27.3 AS api
 WORKDIR /src/apps/api
 COPY apps/api/go.mod apps/api/go.sum ./
 RUN go mod download
