@@ -295,6 +295,8 @@
       "dialogTitle": "Choose title",
       "dialogSubtitle": "Titles already in your library appear first.",
       "search": "Search title",
+      "searchHint": "Search by name, TMDB ID, or IMDb ID.",
+      "noResults": "No titles found.",
       "library": "In your library · Assign to existing",
       "tmdbResults": "TMDB results",
       "free": "Free name",

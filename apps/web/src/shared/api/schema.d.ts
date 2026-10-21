@@ -594,9 +594,12 @@ export interface paths {
         /**
          * Titles to assign to, the library's first (RF-21)
          * @description The titles of the library whose words all appear in their title, without regard to case or
-         *     accents, and then the TMDB movies and series that match (RF-21). A TMDB title already in the
-         *     library carries its `libraryTitleId`, so that it is assigned there. Only the library answers
-         *     when TMDB is not configured or does not answer (`tmdbAvailable` false).
+         *     accents, and then the TMDB movies and series that match (RF-21). The query may instead be a
+         *     TMDB id, a TMDB movie or TV URL, an IMDb id, or an IMDb title URL. A bare TMDB id checks both
+         *     movie and TV titles; a TMDB URL checks only its kind. IMDb ids use TMDB's external-id lookup.
+         *     A TMDB title already in the library carries its `libraryTitleId`, so that it is assigned
+         *     there. Only the library answers when TMDB is not configured or does not answer
+         *     (`tmdbAvailable` false).
          */
         get: operations["searchTitles"];
         put?: never;

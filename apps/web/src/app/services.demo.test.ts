@@ -228,6 +228,23 @@ describe('VideoExplorer demo adapters', () => {
     )
   })
 
+  it('searches demo TMDB ids and sends seeded library matches to their stored title', async () => {
+    const services = await createDemoServices()
+
+    const movie = await services.metadata.searchTitles(
+      'https://www.themoviedb.org/movie/155-dark-knight',
+    )
+    const matchedMovie = movie.tmdb.find((hit) => hit.tmdbId === 155)
+    expect(matchedMovie).toMatchObject({ source: 'library', tmdbId: 155, kind: 'movie' })
+    expect(matchedMovie?.libraryTitleId).toBeTypeOf('number')
+    expect(movie.library).toHaveLength(0)
+
+    const series = await services.metadata.searchTitles('1396')
+    expect(series.tmdb).toEqual(
+      expect.arrayContaining([expect.objectContaining({ tmdbId: 1396, kind: 'series' })]),
+    )
+  })
+
   it('loads demo artwork only from the TMDB image CDN and makes no API requests', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     try {

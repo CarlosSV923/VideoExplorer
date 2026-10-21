@@ -438,17 +438,127 @@ func TestSearchPutsTheLibraryTitlesFirst(t *testing.T) {
 	}
 }
 
-func TestSearchResolvesAnIMDbIDTagForAssign(t *testing.T) {
+func TestSearchResolvesIMDbIdentifiersForAssign(t *testing.T) {
+	t.Parallel()
+	for _, query := range []string{"tt0118583", "https://www.imdb.com/title/tt0118583/?ref_=fn_al_tt_1", "[imdbid-tt0118583]"} {
+		t.Run(query, func(t *testing.T) {
+			t.Parallel()
+			e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+			e.tmdb.configured = true
+			e.tmdb.byIMDb["movie|tt0118583"] = []application.TMDBTitle{{ID: 8077, Title: "Alien Resurrection", Year: 1997}}
+			got, err := e.svc.Search(t.Context(), query, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !got.TMDBAvailable || len(got.TMDB) != 1 || got.TMDB[0].TMDBID != 8077 || got.TMDB[0].Title != "Alien Resurrection" {
+				t.Fatalf("IMDb id search = %+v", got)
+			}
+		})
+	}
+}
+
+func TestSearchTMDBLinksRestrictResultsToTheirKind(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		query string
+		kind  domain.TitleKind
+	}{
+		{query: "https://www.themoviedb.org/movie/273477-scouts-guide?language=es-MX", kind: domain.KindMovie},
+		{query: "https://themoviedb.org/es/tv/273477-breaking-bad?language=en", kind: domain.KindSeries},
+	} {
+		t.Run(string(tt.kind), func(t *testing.T) {
+			t.Parallel()
+			e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+			e.tmdb.configured = true
+			e.tmdbMovie(273477, "Movie", "Movie", 2024)
+			e.tmdbSeries(273477, "Series", "Series", 2024)
+			got, err := e.svc.Search(t.Context(), tt.query, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got.TMDB) != 1 || got.TMDB[0].Kind != tt.kind {
+				t.Errorf("TMDB link results = %+v, want only %q", got.TMDB, tt.kind)
+			}
+		})
+	}
+}
+
+func TestSearchResolvesTMDBIDsByKindAndMarksLibraryMatches(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		movie     bool
+		series    bool
+		wantKinds []domain.TitleKind
+	}{
+		{name: "movie only", movie: true, wantKinds: []domain.TitleKind{domain.KindMovie}},
+		{name: "series only", series: true, wantKinds: []domain.TitleKind{domain.KindSeries}},
+		{name: "movie and series", movie: true, series: true, wantKinds: []domain.TitleKind{domain.KindMovie, domain.KindSeries}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+			e.tmdb.configured = true
+			if tt.movie {
+				e.tmdbMovie(273477, "Movie", "Movie", 2024)
+			}
+			if tt.series {
+				e.tmdbSeries(273477, "Series", "Series", 2024)
+			}
+			if tt.movie {
+				e.registerTitle(domain.LibraryTitle{Kind: domain.KindMovie, Title: "Movie", Year: 2024, TMDBID: 273477, Folder: "Movies/Movie", IDTag: true}, nil)
+			}
+			got, err := e.svc.Search(t.Context(), "273477", 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got.TMDB) != len(tt.wantKinds) {
+				t.Fatalf("TMDB hits = %+v, want %v kinds", got.TMDB, len(tt.wantKinds))
+			}
+			for i, kind := range tt.wantKinds {
+				hit := got.TMDB[i]
+				if hit.Kind != kind {
+					t.Errorf("hit %d kind = %q, want %q", i, hit.Kind, kind)
+				}
+				if kind == domain.KindMovie && (hit.Source != "library" || hit.LibraryID == 0) {
+					t.Errorf("movie is not marked as a library result: %+v", hit)
+				}
+				if kind == domain.KindSeries && (hit.Source != "tmdb" || hit.LibraryID != 0) {
+					t.Errorf("series should remain a TMDB result: %+v", hit)
+				}
+			}
+		})
+	}
+}
+
+func TestSearchForUnknownTMDBIDReturnsNoResults(t *testing.T) {
 	t.Parallel()
 	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
 	e.tmdb.configured = true
-	e.tmdb.byIMDb["movie|tt0118583"] = []application.TMDBTitle{{ID: 8077, Title: "Alien Resurrection", Year: 1997}}
-	got, err := e.svc.Search(t.Context(), "[imdbid-tt0118583]", 0)
+	got, err := e.svc.Search(t.Context(), "999999", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.TMDBAvailable || len(got.TMDB) != 1 || got.TMDB[0].TMDBID != 8077 || got.TMDB[0].Title != "Alien Resurrection" {
-		t.Fatalf("IMDb id search = %+v", got)
+	if !got.TMDBAvailable || len(got.Library) != 0 || len(got.TMDB) != 0 {
+		t.Errorf("unknown id search = %+v", got)
+	}
+}
+
+func TestSearchUsesRegisteredTMDBIDWhenTMDBIsNotConfigured(t *testing.T) {
+	t.Parallel()
+	e := newAssignEnv(t, func(root string) application.Files { return libraryfs.New(root) })
+	e.tmdb.configured = false
+	e.registerTitle(domain.LibraryTitle{
+		Kind: domain.KindMovie, Title: "Movie", DiscTitle: "Movie", Year: 2024, TMDBID: 273477, IDTag: true,
+		Folder: "Movies/Movie (2024) [tmdbid-273477]",
+	}, nil)
+	got, err := e.svc.Search(t.Context(), "273477", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TMDBAvailable || len(got.TMDB) != 1 || got.TMDB[0].Source != "library" || got.TMDB[0].LibraryID == 0 {
+		t.Errorf("registered id should still select the library title: %+v", got)
 	}
 }
 

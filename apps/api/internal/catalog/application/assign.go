@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/url"
 	"path"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -191,13 +194,15 @@ type SearchResult struct {
 	TMDB          []TitleHit
 }
 
-// Search looks for titles by the words of query (RF-21). The library titles that match come first;
-// each word must appear in the title, in any letter case and without accents (RF-42). year, when
-// positive, narrows the TMDB results.
+// Search looks for titles by words or an identifier (RF-21). Library titles whose words all appear
+// in the title come first, without regard to case or accents (RF-42). year, when positive, narrows
+// the TMDB name search.
 func (a *Assignments) Search(ctx context.Context, query string, year int) (SearchResult, error) {
 	words := strings.Fields(foldText(query))
-	jellyfinID, tmdbID, imdbID := domain.IDTagsOf(query)
-	_ = jellyfinID
+	kindFilter, tmdbID, imdbID := parseTitleSearchID(query)
+	if tmdbID != 0 || imdbID != "" {
+		words = nil
+	}
 	if len(words) == 0 && tmdbID == 0 && imdbID == "" {
 		return SearchResult{}, ErrInvalidQuery
 	}
@@ -218,11 +223,26 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 	slices.SortStableFunc(out.Library, func(x, y TitleHit) int {
 		return strings.Compare(foldText(x.Title), foldText(y.Title))
 	})
+	libraryIDMatches := make(map[domain.TitleKind]bool)
+	if tmdbID > 0 {
+		for _, title := range titles {
+			if title.TMDBID == tmdbID && (kindFilter == "" || title.Kind == kindFilter) && !libraryIDMatches[title.Kind] {
+				out.TMDB = append(out.TMDB, libraryHit(title))
+				libraryIDMatches[title.Kind] = true
+			}
+		}
+	}
 	if !a.d.TMDB.Configured() {
 		return out, nil
 	}
 	out.TMDBAvailable = true
 	for _, kind := range []domain.TitleKind{domain.KindMovie, domain.KindSeries} {
+		if kindFilter != "" && kind != kindFilter {
+			continue
+		}
+		if libraryIDMatches[kind] {
+			continue
+		}
 		if tmdbID > 0 {
 			t, err := a.d.TMDB.Title(ctx, kind, tmdbID)
 			if err == nil {
@@ -278,6 +298,67 @@ func (a *Assignments) Search(ctx context.Context, query string, year int) (Searc
 		}
 	}
 	return out, nil
+}
+
+var (
+	tmdbURLID = regexp.MustCompile(`^(\d+)(?:-|$)`)
+	imdbURLID = regexp.MustCompile(`^tt\d+$`)
+)
+
+// parseTitleSearchID recognizes the public identifiers accepted by RF-21. A blank kindFilter means
+// the numeric or IMDb identifier may refer to either kind; regular text remains a title search.
+func parseTitleSearchID(input string) (kindFilter domain.TitleKind, tmdbID int64, imdbID string) {
+	input = strings.TrimSpace(input)
+	if id, err := strconv.ParseInt(input, 10, 64); err == nil && id > 0 {
+		return "", id, ""
+	}
+	if imdbURLID.MatchString(strings.ToLower(input)) {
+		return "", 0, strings.ToLower(input)
+	}
+	_, taggedTMDBID, taggedIMDbID := domain.IDTagsOf(input)
+	if taggedTMDBID > 0 || taggedIMDbID != "" {
+		return "", taggedTMDBID, taggedIMDbID
+	}
+
+	urlInput := input
+	if !strings.Contains(urlInput, "://") && (strings.HasPrefix(strings.ToLower(urlInput), "www.") || strings.HasPrefix(strings.ToLower(urlInput), "themoviedb.org/") || strings.HasPrefix(strings.ToLower(urlInput), "imdb.com/")) {
+		urlInput = "https://" + urlInput
+	}
+	u, err := url.Parse(urlInput)
+	if err != nil || u.Hostname() == "" {
+		return "", 0, ""
+	}
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	segments := strings.Split(strings.Trim(u.EscapedPath(), "/"), "/")
+	switch host {
+	case "themoviedb.org", "www.themoviedb.org":
+		for i := 0; i+1 < len(segments); i++ {
+			var kind domain.TitleKind
+			switch segments[i] {
+			case "movie":
+				kind = domain.KindMovie
+			case "tv":
+				kind = domain.KindSeries
+			default:
+				continue
+			}
+			match := tmdbURLID.FindStringSubmatch(segments[i+1])
+			if len(match) != 2 {
+				return "", 0, ""
+			}
+			id, err := strconv.ParseInt(match[1], 10, 64)
+			if err == nil && id > 0 {
+				return kind, id, ""
+			}
+		}
+	case "imdb.com", "www.imdb.com":
+		for _, segment := range segments {
+			if imdbURLID.MatchString(strings.ToLower(segment)) {
+				return "", 0, strings.ToLower(segment)
+			}
+		}
+	}
+	return "", 0, ""
 }
 
 // libraryHit is a registry title as a search result.

@@ -136,6 +136,7 @@ export function TitlePicker({
               setTerm(event.currentTarget.value)
             }}
           />
+          <p className="m-0 text-caption text-ink-2">{t('assign.titlePicker.searchHint')}</p>
           {search.data && !search.data.tmdbAvailable && (
             <p className="m-0 rounded-md border border-warning bg-warning-surface p-3 text-body-sm text-warning-ink">
               {t('assign.titlePicker.tmdbUnavailable')}
@@ -165,6 +166,15 @@ export function TitlePicker({
               ))}
             </section>
           )}
+          {search.isSuccess &&
+            term.trim() &&
+            search.data.library.length === 0 &&
+            search.data.tmdb.length === 0 &&
+            search.data.tmdbAvailable && (
+              <p role="status" className="m-0 text-body-sm text-ink-2">
+                {t('assign.titlePicker.noResults')}
+              </p>
+            )}
           <section className="flex flex-col gap-3 border-t border-line pt-4">
             <h3 className="m-0 text-label font-bold tracking-label text-ink-2 uppercase">
               {t('assign.titlePicker.free')}

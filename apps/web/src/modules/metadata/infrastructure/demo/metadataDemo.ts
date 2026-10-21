@@ -25,41 +25,87 @@ export function demoImage(
 
 export const demoCatalog = catalog
 
+type DemoTitle = (typeof catalog.titles)[number] & { imdbId?: string }
+
+function idSearch(query: string): { tmdbId?: number; kind?: 'movie' | 'series'; imdbId?: string } {
+  const text = query.trim()
+  if (/^\d+$/.test(text)) return { tmdbId: Number(text) }
+  if (/^tt\d+$/i.test(text)) return { imdbId: text.toLowerCase() }
+  let urlText = text
+  if (!urlText.includes('://') && /^(?:www\.)?(?:themoviedb\.org|imdb\.com)\//i.test(urlText)) {
+    urlText = `https://${urlText}`
+  }
+  try {
+    const url = new URL(urlText)
+    const host = url.hostname.toLowerCase()
+    const segments = url.pathname.split('/').filter(Boolean)
+    if (host === 'themoviedb.org' || host === 'www.themoviedb.org') {
+      for (let index = 0; index + 1 < segments.length; index += 1) {
+        const kind = segments[index]
+        const match = /^(\d+)(?:-|$)/.exec(segments[index + 1] ?? '')
+        if ((kind === 'movie' || kind === 'tv') && match) {
+          return { tmdbId: Number(match[1]), kind: kind === 'tv' ? 'series' : 'movie' }
+        }
+      }
+    }
+    if (host === 'imdb.com' || host === 'www.imdb.com') {
+      const imdbId = segments.find((segment) => /^tt\d+$/i.test(segment))
+      if (imdbId) return { imdbId: imdbId.toLowerCase() }
+    }
+  } catch {
+    // Non-URL text continues through the title search.
+  }
+  return {}
+}
+
 export function createMetadataDemo(catalogPorts?: CatalogPorts): MetadataPorts {
   return {
     searchTitles: async (query, year) => {
       const needle = query.trim().toLocaleLowerCase()
+      const id = idSearch(query)
+      const libraryTitles = catalogPorts ? (await catalogPorts.libraryTitles()).titles : []
+      const library = libraryTitles
+        .filter(
+          (item) =>
+            id.tmdbId === undefined &&
+            !id.imdbId &&
+            `${item.title} ${item.originalTitle ?? ''}`.toLocaleLowerCase().includes(needle),
+        )
+        .map((item) => ({
+          source: 'library' as const,
+          libraryTitleId: item.id,
+          ...(item.tmdbId === undefined ? {} : { tmdbId: item.tmdbId }),
+          kind: item.kind,
+          title: item.title,
+          year: item.year,
+          ...(item.poster ? { posterFile: `${String(item.tmdbId ?? item.id)}.svg` } : {}),
+        }))
       const results = catalog.titles
         .filter(
           (item) =>
             (year === undefined || item.year === year) &&
-            `${item.title.es} ${item.title.en} ${item.originalTitle}`
-              .toLocaleLowerCase()
-              .includes(needle),
+            (id.tmdbId !== undefined
+              ? item.tmdbId === id.tmdbId && (!id.kind || item.type === id.kind)
+              : id.imdbId
+                ? (item as DemoTitle).imdbId?.toLowerCase() === id.imdbId
+                : `${item.title.es} ${item.title.en} ${item.originalTitle}`
+                    .toLocaleLowerCase()
+                    .includes(needle)),
         )
-        .map((item) => ({
-          source: 'tmdb' as const,
-          tmdbId: item.tmdbId,
-          kind: item.type as 'movie' | 'series',
-          title: item.title.es,
-          year: item.year,
-          posterFile: `${String(item.tmdbId)}.svg`,
-        }))
-      const library = catalogPorts
-        ? (await catalogPorts.libraryTitles()).titles
-            .filter((item) =>
-              `${item.title} ${item.originalTitle ?? ''}`.toLocaleLowerCase().includes(needle),
-            )
-            .map((item) => ({
-              source: 'library' as const,
-              libraryTitleId: item.id,
-              ...(item.tmdbId === undefined ? {} : { tmdbId: item.tmdbId }),
-              kind: item.kind,
-              title: item.title,
-              year: item.year,
-              ...(item.poster ? { posterFile: `${String(item.tmdbId ?? item.id)}.svg` } : {}),
-            }))
-        : []
+        .map((item) => {
+          const libraryHit = libraryTitles.find(
+            (hit) => hit.tmdbId === item.tmdbId && hit.kind === item.type,
+          )
+          return {
+            source: libraryHit ? ('library' as const) : ('tmdb' as const),
+            ...(libraryHit ? { libraryTitleId: libraryHit.id } : {}),
+            tmdbId: item.tmdbId,
+            kind: item.type as 'movie' | 'series',
+            title: item.title.es,
+            year: item.year,
+            posterFile: `${String(item.tmdbId)}.svg`,
+          }
+        })
       return { tmdbAvailable: true, library, tmdb: results }
     },
     refreshTitleMetadata: async (titleId) => {
