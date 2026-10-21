@@ -229,6 +229,27 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     )
   })
 
+  it('shows a free movie with a special-character title when genres are absent', async () => {
+    const freeMovie = {
+      ...movie,
+      title: 'A la &$%! con los zombis',
+      discTitle: 'A la &$%! con los zombis (2015)',
+      year: 2015,
+      idTag: false,
+      tmdbId: undefined,
+      genres: undefined,
+      backdrop: undefined,
+      poster: undefined,
+      originalTitle: '',
+      overview: '',
+    } as unknown as LibraryTitle
+    renderCatalog('movieDetail', { libraryTitle: vi.fn().mockResolvedValue(freeMovie) })
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'A la &$%! con los zombis' })).toBeInTheDocument(),
+    )
+    expect(screen.queryByText('Drama')).not.toBeInTheDocument()
+  })
+
   it('dims only the poster for collection members outside the library', async () => {
     renderCatalog(
       'collection',

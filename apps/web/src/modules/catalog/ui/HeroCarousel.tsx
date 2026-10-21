@@ -108,7 +108,7 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
         </h2>
         <p className="m-0 h-[42px] max-h-[42px] shrink-0 overflow-hidden text-body-sm text-ink-2">
           {detail?.year ?? current.year}
-          {detail?.genres.length ? ` · ${detail.genres.join(' · ')}` : ''}
+          {(detail?.genres ?? []).length ? ` · ${(detail?.genres ?? []).join(' · ')}` : ''}
         </p>
         <p className="m-0 h-[81px] max-h-[81px] max-w-2xl shrink-0 overflow-hidden text-body-lg text-ink-1 line-clamp-3">
           {detail?.overview ?? ''}

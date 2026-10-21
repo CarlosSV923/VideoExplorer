@@ -18,6 +18,7 @@ export function TitleHeader({
 }) {
   const { t } = useTranslation()
   const format = useFormat()
+  const genres = (title as Partial<LibraryTitle>).genres ?? []
   return (
     <section className="relative -mx-[var(--page-x,16px)] overflow-hidden border-b border-line">
       <div className="relative min-h-[360px] p-6 pt-12 md:p-12">
@@ -59,9 +60,9 @@ export function TitleHeader({
                 : ''}
               {title.originalTitle ? ` · ${title.originalTitle}` : ''}
             </p>
-            {title.genres.length > 0 && (
+            {genres.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {title.genres.map((genre) => (
+                {genres.map((genre) => (
                   <Chip key={genre}>{genre}</Chip>
                 ))}
               </div>
