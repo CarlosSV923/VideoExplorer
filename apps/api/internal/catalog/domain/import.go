@@ -422,6 +422,12 @@ func (p *importPlanner) place(root ImportRoot, f Folder, folderLib string, cands
 	}
 	for _, v := range videos {
 		v.read = p.in.Read(v.rel, false)
+		if fn.TMDBID == 0 {
+			fn.TMDBID = v.read.TMDBID
+		}
+		if fn.IMDbID == "" {
+			fn.IMDbID = v.read.IMDbID
+		}
 		v.ok = p.videoPlacement(root.Kind, fn, v) && !p.allRel[strings.ToLower(v.lib)]
 	}
 	if root.Kind == KindMovie {

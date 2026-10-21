@@ -4,6 +4,7 @@ import (
 	"path"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,6 +160,59 @@ func movedFrom(p domain.ImportPlan) []string {
 
 func TestPlanImportMovies(t *testing.T) {
 	t.Parallel()
+	t.Run("ID tags are read from the folder or the video name", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			folder    string
+			file      string
+			reading   domain.FileReading
+			lookup    domain.Lookup
+			wantID    int64
+			wantIMDb  string
+			wantTitle string
+		}{
+			{
+				name:   "tmdbid tag in folder",
+				folder: "A la &$%! con los zombis (2015) [tmdbid-273477]",
+				file:   "A la &$%! con los zombis (2015).avi",
+				lookup: domain.Lookup{ByID: &domain.TMDBHit{ID: 273477, Title: "A la &$%! con los zombis"}},
+				wantID: 273477, wantTitle: "A la &$%! con los zombis",
+			},
+			{
+				name:    "tmdb braces tag in file",
+				folder:  "A la &$%! con los zombis (2015)",
+				file:    "A la &$%! con los zombis (2015) {tmdb-273477}.avi",
+				reading: domain.FileReading{TMDBID: 273477},
+				lookup:  domain.Lookup{ByID: &domain.TMDBHit{ID: 273477, Title: "A la &$%! con los zombis"}},
+				wantID:  273477, wantTitle: "A la &$%! con los zombis",
+			},
+			{
+				name:    "imdb tag in file with tmdb tag in folder",
+				folder:  "A la &$%! con los zombis (2015) [tmdbid-273477]",
+				file:    "A la &$%! con los zombis (2015) [imdbid-tt356354].avi",
+				reading: domain.FileReading{IMDbID: "tt356354"},
+				lookup:  domain.Lookup{ByID: &domain.TMDBHit{ID: 273477, Title: "A la &$%! con los zombis"}, ByIMDb: []domain.TMDBHit{{ID: 273477, Title: "A la &$%! con los zombis"}}},
+				wantID:  273477, wantIMDb: "tt356354", wantTitle: "A la &$%! con los zombis",
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				in := baseInput(movieRoot, folderOf(tt.folder, tt.file))
+				in.Read = readingsOf(map[string]domain.FileReading{tt.file: tt.reading})
+				in.Lookups = map[string]domain.Lookup{"movies/" + strings.ToLower(tt.folder): tt.lookup}
+				plan := domain.PlanImport(in)
+				if len(plan.Wanted) != 1 || plan.Wanted[0].TMDBID != tt.wantID || plan.Wanted[0].IMDbID != tt.wantIMDb {
+					t.Fatalf("wanted = %+v, want TMDB id %d and IMDb id %q", plan.Wanted, tt.wantID, tt.wantIMDb)
+				}
+				got := newTitleOf(t, plan).Title
+				if got.TMDBID != tt.wantID || got.Title != tt.wantTitle {
+					t.Errorf("title = %+v, want linked title %q (%d)", got, tt.wantTitle, tt.wantID)
+				}
+			})
+		}
+	})
 	runImportCases(t, []importCase{
 		{
 			name:  "a folder with year and its movie is registered in place, with no renaming",
