@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +20,7 @@ import {
 } from '@/shared/ui'
 import { useAction, useGamepadConnected } from '@/shared/input'
 import { LoadingGrid, PosterFor } from './CatalogShared'
+import type { LibraryTitleSummary } from '../domain/types'
 
 export function BrowseScreen({
   kind,
@@ -43,6 +44,8 @@ export function BrowseScreen({
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
+  const selectionBar = useRef<HTMLDivElement>(null)
+  const [selectionBarHeight, setSelectionBarHeight] = useState(0)
   const [result, setResult] = useState<{
     ok: number
     failed: { id: number; title: string; reason: string }[]
@@ -52,10 +55,50 @@ export function BrowseScreen({
   )
   const [selectedGenre, setSelectedGenre] = useState(genre ?? '')
   const [onlyIncomplete, setOnlyIncomplete] = useState(incomplete)
-  const selectedTitles = useMemo(
-    () => query.data?.titles.filter((title) => selectedIds.has(title.id)) ?? [],
-    [query.data, selectedIds],
+  const all = useMemo<LibraryTitleSummary[]>(
+    () => query.data?.titles.filter((title) => title.kind === kind) ?? [],
+    [kind, query.data],
   )
+  const genres = [...new Set(all.flatMap((title) => title.genres ?? []))]
+  const filtered = useMemo(
+    () =>
+      sortTitles(
+        all.filter(
+          (title) =>
+            (!selectedGenre || title.genres?.includes(selectedGenre)) &&
+            (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
+        ),
+        selectedSort,
+      ),
+    [all, onlyIncomplete, selectedGenre, selectedSort],
+  )
+  const selectedTitles = useMemo(
+    () => filtered.filter((title) => selectedIds.has(title.id)),
+    [filtered, selectedIds],
+  )
+  const retainSelection = (isVisible: (title: LibraryTitleSummary) => boolean) => {
+    setSelectedIds((current) => {
+      const visibleSelection = new Set(
+        [...current].filter((id) => {
+          const title = all.find((candidate) => candidate.id === id)
+          return title !== undefined && isVisible(title)
+        }),
+      )
+      return visibleSelection.size === current.size ? current : visibleSelection
+    })
+  }
+  useEffect(() => {
+    if (!selectionMode) return
+    const element = selectionBar.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      setSelectionBarHeight(element.offsetHeight)
+    })
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+    }
+  }, [selectionMode, result, gamepad])
   const toggle = (id: number) => {
     setSelectedIds((current) => {
       const next = new Set(current)
@@ -108,11 +151,12 @@ export function BrowseScreen({
     selectionMode,
   )
   const sendToTrash = async () => {
+    const titlesToTrash = selectedTitles
     setBusy(true)
     setProgress(0)
     const failed: { id: number; title: string; reason: string }[] = []
     let ok = 0
-    for (const [index, title] of selectedTitles.entries()) {
+    for (const [index, title] of titlesToTrash.entries()) {
       setProgress(index + 1)
       try {
         await ports.trashTitleScope(title.id, { kind: 'title' })
@@ -152,102 +196,102 @@ export function BrowseScreen({
         </div>
       </LibraryLayout>
     )
-  const all = query.data.titles.filter((title) => title.kind === kind)
-  const genres = [...new Set(all.flatMap((title) => title.genres ?? []))]
-  const filtered = sortTitles(
-    all.filter(
-      (title) =>
-        (!selectedGenre || title.genres?.includes(selectedGenre)) &&
-        (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
-    ),
-    selectedSort,
-  )
   return (
     <LibraryLayout>
-      <PageHeader
-        title={kind === 'movie' ? t('library.movies') : t('library.seriesPlural')}
-        subtitle={t('library.titleCount', { count: filtered.length })}
-      />
-      <div className="flex flex-wrap items-center justify-between gap-4 py-6">
-        <SegmentedControl
-          label={t('library.sort')}
-          options={[
-            { value: 'added', label: t('library.sortAdded') },
-            { value: 'title', label: t('library.sortTitle') },
-            { value: 'year', label: t('library.sortYear') },
-          ]}
-          value={selectedSort}
-          onChange={(value) => {
-            setSelectedSort(value)
-            const search = { sort: value, genre: selectedGenre || undefined }
-            if (kind === 'movie') void router?.navigate({ to: '/movies', search })
-            else
-              void router?.navigate({
-                to: '/series',
-                search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
-              })
-          }}
+      <div style={selectionMode ? { paddingBottom: `${String(selectionBarHeight)}px` } : undefined}>
+        <PageHeader
+          title={kind === 'movie' ? t('library.movies') : t('library.seriesPlural')}
+          subtitle={t('library.titleCount', { count: filtered.length })}
         />
-        <ChipGroup
-          legend={t('library.genre')}
-          name="genre"
-          options={[
-            { value: '', label: t('library.allGenres') },
-            ...genres.map((value) => ({ value, label: value })),
-          ]}
-          value={selectedGenre}
-          onChange={(value) => {
-            setSelectedGenre(value)
-            const search = { sort: selectedSort, genre: value || undefined }
-            if (kind === 'movie') void router?.navigate({ to: '/movies', search })
-            else
-              void router?.navigate({
-                to: '/series',
-                search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
-              })
-          }}
-        />
-        <Button
-          size="sm"
-          disabled={busy}
-          onClick={() => {
-            setSelectionMode((value) => !value)
-            setSelectedIds(new Set())
-            setResult(null)
-          }}
-        >
-          {t(selectionMode ? 'library.selectionCancel' : 'library.selectionEnter')}
-        </Button>
-      </div>
-      {kind === 'series' && (
-        <label className="mb-6 flex min-h-control-sm items-center gap-3 text-body">
-          <input
-            type="checkbox"
-            checked={onlyIncomplete}
-            onChange={(event) => {
-              const incomplete = event.currentTarget.checked
-              setOnlyIncomplete(incomplete)
-              void router?.navigate({
-                to: '/series',
-                search: {
-                  sort: selectedSort,
-                  genre: selectedGenre || undefined,
-                  incomplete: incomplete ? 1 : undefined,
-                },
-              })
+        <div className="flex flex-wrap items-center justify-between gap-4 py-6">
+          <SegmentedControl
+            label={t('library.sort')}
+            options={[
+              { value: 'added', label: t('library.sortAdded') },
+              { value: 'title', label: t('library.sortTitle') },
+              { value: 'year', label: t('library.sortYear') },
+            ]}
+            value={selectedSort}
+            onChange={(value) => {
+              setSelectedSort(value)
+              const search = { sort: value, genre: selectedGenre || undefined }
+              if (kind === 'movie') void router?.navigate({ to: '/movies', search })
+              else
+                void router?.navigate({
+                  to: '/series',
+                  search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
+                })
             }}
-            className="size-5 accent-accent"
           />
-          {t('library.onlyIncomplete')}
-        </label>
-      )}
-      {result && (
-        <div className="mb-5">
-          <Banner
-            tone={result.failed.length ? 'danger' : 'info'}
-            live={result.failed.length ? 'assertive' : 'polite'}
-            action={
-              !result.failed.length ? (
+          <ChipGroup
+            legend={t('library.genre')}
+            name="genre"
+            options={[
+              { value: '', label: t('library.allGenres') },
+              ...genres.map((value) => ({ value, label: value })),
+            ]}
+            value={selectedGenre}
+            onChange={(value) => {
+              setSelectedGenre(value)
+              retainSelection(
+                (title) =>
+                  (!value || title.genres?.includes(value) === true) &&
+                  (!onlyIncomplete || (title.missingEpisodes ?? 0) > 0),
+              )
+              const search = { sort: selectedSort, genre: value || undefined }
+              if (kind === 'movie') void router?.navigate({ to: '/movies', search })
+              else
+                void router?.navigate({
+                  to: '/series',
+                  search: { ...search, incomplete: onlyIncomplete ? 1 : undefined },
+                })
+            }}
+          />
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setSelectionMode((value) => !value)
+              setSelectedIds(new Set())
+              setResult(null)
+            }}
+          >
+            {t(selectionMode ? 'library.selectionCancel' : 'library.selectionEnter')}
+          </Button>
+        </div>
+        {kind === 'series' && (
+          <label className="mb-6 flex min-h-control-sm items-center gap-3 text-body">
+            <input
+              type="checkbox"
+              checked={onlyIncomplete}
+              onChange={(event) => {
+                const incomplete = event.currentTarget.checked
+                setOnlyIncomplete(incomplete)
+                retainSelection(
+                  (title) =>
+                    (!selectedGenre || title.genres?.includes(selectedGenre) === true) &&
+                    (!incomplete || (title.missingEpisodes ?? 0) > 0),
+                )
+                void router?.navigate({
+                  to: '/series',
+                  search: {
+                    sort: selectedSort,
+                    genre: selectedGenre || undefined,
+                    incomplete: incomplete ? 1 : undefined,
+                  },
+                })
+              }}
+              className="size-5 accent-accent"
+            />
+            {t('library.onlyIncomplete')}
+          </label>
+        )}
+        {result && (
+          <div className="mb-5">
+            <Banner
+              tone={result.failed.length ? 'danger' : 'info'}
+              live={result.failed.length ? 'assertive' : 'polite'}
+              action={
                 <Button
                   size="sm"
                   onClick={() => {
@@ -256,49 +300,52 @@ export function BrowseScreen({
                 >
                   {t('common.close')}
                 </Button>
-              ) : undefined
-            }
-          >
-            {result.failed.length ? (
-              <>
-                {t('library.selectionFailed')}
-                {result.failed.map((failure) => (
-                  <div key={failure.title}>
-                    {failure.title}: {failure.reason}
-                  </div>
-                ))}
-              </>
-            ) : (
-              t('library.selectionTrashed', { count: result.ok })
-            )}
-          </Banner>
-        </div>
-      )}
-      {filtered.length ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-x-4 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]">
-          {filtered.map((title) => (
-            <PosterFor
-              key={title.id}
-              title={title}
-              fluid
-              selected={selectedIds.has(title.id)}
-              {...(selectionMode
-                ? {
-                    selectionId: title.id,
-                    onToggle: () => {
-                      toggle(title.id)
-                    },
-                  }
-                : {})}
-            />
-          ))}
-        </div>
-      ) : (
-        <EmptyState title={t('library.emptyFilterTitle')} body={t('library.emptyFilterBody')} />
-      )}
+              }
+            >
+              {result.failed.length ? (
+                <>
+                  {t('library.selectionFailed')}
+                  {result.failed.map((failure) => (
+                    <div key={failure.id}>
+                      {failure.title}: {failure.reason}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                t('library.selectionTrashed', { count: result.ok })
+              )}
+            </Banner>
+          </div>
+        )}
+        {filtered.length ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-x-4 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]">
+            {filtered.map((title) => (
+              <PosterFor
+                key={title.id}
+                title={title}
+                fluid
+                selected={selectedIds.has(title.id)}
+                {...(selectionMode
+                  ? {
+                      selectionId: title.id,
+                      onToggle: () => {
+                        toggle(title.id)
+                      },
+                    }
+                  : {})}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title={t('library.emptyFilterTitle')} body={t('library.emptyFilterBody')} />
+        )}
+      </div>
       {selectionMode && (
         <>
-          <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-screen-2xl border border-line bg-surface-2 p-4 shadow-xl md:bottom-4 md:rounded-xl">
+          <div
+            ref={selectionBar}
+            className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 mx-auto max-w-screen-2xl border border-line bg-surface-2 p-4 shadow-xl md:bottom-4 md:rounded-xl"
+          >
             <div className="page-padding flex flex-wrap items-center justify-between gap-3">
               <div aria-live="polite" className="font-semibold">
                 {t('library.selectionCount', { count: selectedIds.size })}

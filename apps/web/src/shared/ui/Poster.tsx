@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { cx } from './cx'
 import { AppLink } from './AppLink'
-import { ChevronLeftIcon, ChevronRightIcon } from './icons'
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from './icons'
 import { Button, IconButton } from './Button'
 
 export interface PosterProps {
@@ -114,9 +114,14 @@ export function Poster({
         {content}
         <span
           aria-hidden="true"
-          className="absolute top-2 left-2 grid size-6 place-items-center rounded-full border border-white/70 bg-surface/80 text-on-accent"
+          className={cx(
+            'absolute top-2 left-2 grid size-6 place-items-center rounded-full border',
+            selected
+              ? 'border-accent bg-accent text-on-accent'
+              : 'border-white bg-surface/80 text-on-accent',
+          )}
         >
-          {selected ? '✓' : ''}
+          {selected && <CheckIcon size={16} strokeWidth={3} />}
         </span>
       </button>
     )

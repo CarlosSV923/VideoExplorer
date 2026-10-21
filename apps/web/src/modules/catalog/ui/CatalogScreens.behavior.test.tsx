@@ -254,7 +254,7 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     expect(screen.getByRole('link', { name: /Alfa/ })).toBeInTheDocument()
   })
 
-  it('keeps selection when filters change and moves selected full titles to trash', async () => {
+  it('removes hidden titles from selection when filters change', async () => {
     const titles = [
       summary({ id: 1, title: 'Zeta', genres: ['Drama'] }),
       summary({ id: 2, title: 'Alfa', genres: ['Comedia'] }),
@@ -264,24 +264,42 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     })
     await screen.findByRole('link', { name: /Zeta/ })
     fireEvent.click(screen.getByRole('button', { name: 'Seleccionar' }))
-    fireEvent.click(screen.getByRole('checkbox', { name: /Zeta/ }))
+    const selectedPoster = screen.getByRole('checkbox', { name: /Zeta/ })
+    fireEvent.click(selectedPoster)
+    const selectionMark = selectedPoster.querySelector('.absolute.top-2.left-2')
+    expect(selectionMark).toHaveClass('border-accent', 'bg-accent', 'text-on-accent')
+    expect(selectionMark?.querySelector('svg')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Título' }))
+    expect(screen.getByRole('checkbox', { name: /Zeta/ })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('1 seleccionado')).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Comedia'))
     expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'false')
-    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar todo' }))
-    expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByText('2 seleccionados')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Deseleccionar todo' }))
-    expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'false')
-    expect(screen.getByText('1 seleccionado')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Mandar a la papelera' }))
-    const dialog = screen.getByRole('dialog')
-    expect(dialog).toHaveTextContent('Zeta')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Mandar a la papelera' }))
-    await waitFor(() => {
-      expect(mockCalls(catalog, 'trashTitleScope')).toContainEqual([1, { kind: 'title' }])
+    expect(screen.getByText('0 seleccionados')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mandar a la papelera' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(mockCalls(catalog, 'trashTitleScope')).toHaveLength(0)
+  })
+
+  it('removes completed series from selection when Solo incompletas is enabled', async () => {
+    renderCatalog('series', {
+      libraryTitles: vi.fn().mockResolvedValue({
+        titles: [
+          summary({ id: 2, kind: 'series', title: 'Incompleta', missingEpisodes: 1 }),
+          summary({ id: 3, kind: 'series', title: 'Completa', missingEpisodes: 0 }),
+        ],
+      }),
     })
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument(),
+    await screen.findByRole('link', { name: /Completa/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Completa/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Solo incomplet' + 'as' }))
+    expect(screen.getByText('0 seleccionados')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mandar a la papelera' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
     )
   })
 
@@ -305,6 +323,8 @@ describe('Biblioteca: comportamiento de pantallas', () => {
       expect(trashTitleScope.mock.calls).toHaveLength(2)
     })
     expect(await screen.findByRole('alert')).toHaveTextContent('Primera')
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: /Primera/ })).toHaveAttribute(
       'aria-checked',
       'true',
