@@ -16,6 +16,9 @@ export interface PosterProps {
   dimmed?: boolean
   seed?: string
   fluid?: boolean
+  selected?: boolean
+  onToggle?: () => void
+  selectionId?: number
 }
 
 function generatedBackground(seed: string) {
@@ -36,12 +39,16 @@ export function Poster({
   dimmed = false,
   seed = title,
   fluid = false,
+  selected = false,
+  onToggle,
+  selectionId,
 }: PosterProps) {
   const content = (
     <>
       <div
         className={cx(
           'relative aspect-[2/3] overflow-hidden rounded-md bg-surface-missing',
+          onToggle && selected && 'ring-[3px] ring-accent',
           dimmed && 'bg-surface-missing',
         )}
         style={image ? undefined : generatedBackground(seed)}
@@ -72,6 +79,9 @@ export function Poster({
             {title}
           </span>
         )}
+        {onToggle && selected && (
+          <span aria-hidden="true" className="absolute inset-0 bg-black/20" />
+        )}
         {chips.length > 0 && (
           <span className="absolute top-2 right-2 flex max-w-[calc(100%-16px)] flex-wrap justify-end gap-1 [&>span>span]:max-w-full [&>span>span]:whitespace-normal [&>span>span]:break-words">
             {chips.map((chip, index) => (
@@ -87,6 +97,29 @@ export function Poster({
     </>
   )
   const accessibleName = [title, meta, ...accessibleChips].filter(Boolean).join(', ')
+  if (onToggle)
+    return (
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={selected}
+        data-selection-id={selectionId}
+        aria-label={accessibleName}
+        onClick={onToggle}
+        className={cx(
+          'group relative block min-w-0 shrink-0 text-left',
+          fluid ? 'w-full' : 'w-poster-w',
+        )}
+      >
+        {content}
+        <span
+          aria-hidden="true"
+          className="absolute top-2 left-2 grid size-6 place-items-center rounded-full border border-white/70 bg-surface/80 text-on-accent"
+        >
+          {selected ? '✓' : ''}
+        </span>
+      </button>
+    )
   return href ? (
     <AppLink
       href={href}

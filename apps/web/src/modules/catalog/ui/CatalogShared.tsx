@@ -22,10 +22,16 @@ export function PosterFor({
   title,
   href,
   fluid = false,
+  selected,
+  onToggle,
+  selectionId,
 }: {
   title: LibraryTitleSummary
   href?: string
   fluid?: boolean
+  selected?: boolean
+  onToggle?: () => void
+  selectionId?: number
 }) {
   const { t } = useTranslation()
   const chips = [
@@ -49,6 +55,9 @@ export function PosterFor({
       accessibleChips={chips.map(() => '')}
       seed={String(title.id)}
       fluid={fluid}
+      {...(selected !== undefined ? { selected } : {})}
+      {...(onToggle ? { onToggle } : {})}
+      {...(selectionId !== undefined ? { selectionId } : {})}
       {...(title.poster ? { image: title.poster } : {})}
       href={href ?? `/${title.kind === 'movie' ? 'movies' : 'series'}/${String(title.id)}`}
     />

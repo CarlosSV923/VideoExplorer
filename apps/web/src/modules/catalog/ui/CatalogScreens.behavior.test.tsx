@@ -254,6 +254,98 @@ describe('Biblioteca: comportamiento de pantallas', () => {
     expect(screen.getByRole('link', { name: /Alfa/ })).toBeInTheDocument()
   })
 
+  it('keeps selection when filters change and moves selected full titles to trash', async () => {
+    const titles = [
+      summary({ id: 1, title: 'Zeta', genres: ['Drama'] }),
+      summary({ id: 2, title: 'Alfa', genres: ['Comedia'] }),
+    ]
+    const { catalog } = renderCatalog('movies', {
+      libraryTitles: vi.fn().mockResolvedValue({ titles }),
+    })
+    await screen.findByRole('link', { name: /Zeta/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Zeta/ }))
+    fireEvent.click(screen.getByLabelText('Comedia'))
+    expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar todo' }))
+    expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('2 seleccionados')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Deseleccionar todo' }))
+    expect(screen.getByRole('checkbox', { name: /Alfa/ })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText('1 seleccionado')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Mandar a la papelera' }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('Zeta')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mandar a la papelera' }))
+    await waitFor(() => {
+      expect(mockCalls(catalog, 'trashTitleScope')).toContainEqual([1, { kind: 'title' }])
+    })
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('continues after a trash failure and leaves failed titles selected', async () => {
+    const titles = [summary({ id: 1, title: 'Primera' }), summary({ id: 2, title: 'Segunda' })]
+    const trashTitleScope = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined)
+    renderCatalog('movies', {
+      libraryTitles: vi.fn().mockResolvedValue({ titles }),
+      trashTitleScope,
+    })
+    await screen.findByRole('link', { name: /Primera/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar todo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mandar a la papelera' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mandar a la papelera' }))
+    await waitFor(() => {
+      expect(trashTitleScope.mock.calls).toHaveLength(2)
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Primera')
+    expect(screen.getByRole('checkbox', { name: /Primera/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    expect(screen.getByRole('checkbox', { name: /Segunda/ })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
+  })
+
+  it('announces sequential trash progress while each title is being processed', async () => {
+    const titles = [summary({ id: 1, title: 'Primera' }), summary({ id: 2, title: 'Segunda' })]
+    let finishFirst: (() => void) | undefined
+    const trashTitleScope = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishFirst = resolve
+          }),
+      )
+      .mockResolvedValueOnce(undefined)
+    renderCatalog('movies', {
+      libraryTitles: vi.fn().mockResolvedValue({ titles }),
+      trashTitleScope,
+    })
+    await screen.findByRole('link', { name: /Primera/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Seleccionar todo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mandar a la papelera' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mandar a la papelera' }))
+    expect(
+      await within(dialog).findByRole('button', { name: /Mandando 1 de 2/ }),
+    ).toHaveTextContent('Mandando 1 de 2…')
+    finishFirst?.()
+    await waitFor(() => {
+      expect(trashTitleScope.mock.calls).toHaveLength(2)
+    })
+  })
+
   it('filters series with Solo incomplet' + 'as', async () => {
     renderCatalog('series', {
       libraryTitles: vi.fn().mockResolvedValue({

@@ -190,6 +190,30 @@ test('search finds a seeded movie', async ({ page }) => {
   ).toBeVisible()
 })
 
+test('selects two demo movies and restores them in Settings trash on desktop and touch mobile', async ({
+  page,
+}) => {
+  await page.goto('/settings/trash')
+  await expect(page.locator('article').first()).toBeVisible()
+  const previousEntries = await page.locator('article').count()
+  await page.goto('/movies')
+  await page.getByRole('button', { name: 'Seleccionar', exact: true }).click()
+  const posters = page.getByRole('checkbox')
+  await expect(posters.first()).toBeVisible()
+  await posters.nth(0).click()
+  await posters.nth(1).click()
+  await page.getByRole('button', { name: 'Mandar a la papelera', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('2 títulos')
+  await dialog.getByRole('button', { name: 'Mandar a la papelera', exact: true }).click()
+  await expect(
+    page.getByRole('status').filter({ hasText: '2 títulos en la papelera' }),
+  ).toBeVisible()
+  await page.locator('a[href="/settings/general"]').first().click()
+  await page.locator('a[href="/settings/trash"]').first().click()
+  await expect(page.locator('article')).toHaveCount(previousEntries + 2)
+})
+
 test('demo examples ask for a relation, unlock multipart archives, and reach Unassigned', async ({
   page,
 }) => {
