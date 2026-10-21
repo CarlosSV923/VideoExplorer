@@ -1,6 +1,7 @@
 import { useJobs } from '@/modules/ingestion/application/queries'
 import { isJobActiveOrWaiting } from '@/modules/ingestion/application/uploadLogic'
 import { Brand } from '@/shared/ui/Brand'
+import { AppLink } from '@/shared/ui/AppLink'
 import { SearchField } from '@/shared/ui'
 import { RefreshIcon, SearchIcon, UploadIcon } from '@/shared/ui/icons'
 import { useLanguage } from '@/shared/i18n/hooks'
@@ -23,19 +24,19 @@ export function Header() {
   const links = [
     ['/peliculas', t('library.movies')],
     ['/series', t('library.seriesPlural')],
-  ]
+  ] as const
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/95 px-[var(--page-x,16px)] backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-screen-2xl items-center gap-4">
         <Brand />
         <nav aria-label={t('library.mainNavigation')} className="hidden items-center gap-5 md:flex">
-          <a href="/" className="text-body-sm font-semibold no-underline">
+          <AppLink href="/" className="text-body-sm font-semibold no-underline">
             {t('library.home')}
-          </a>
+          </AppLink>
           {links.map(([href, label]) => (
-            <a key={href} href={href} className="text-body-sm font-semibold no-underline">
+            <AppLink key={href} href={href} className="text-body-sm font-semibold no-underline">
               {label}
-            </a>
+            </AppLink>
           ))}
         </nav>
         <form
@@ -50,13 +51,13 @@ export function Header() {
             shortcut
           />
         </form>
-        <a
+        <AppLink
           href="/buscar"
           aria-label={t('library.search')}
           className="inline-flex size-control-sm items-center justify-center rounded-full md:hidden"
         >
           <SearchIcon />
-        </a>
+        </AppLink>
         <button
           type="button"
           aria-label={uploadsAriaLabel}
@@ -84,13 +85,13 @@ export function Header() {
           <span className="hidden md:inline">{t('library.upload')}</span>
         </button>
         {dataSource === 'demo' && <TryExamplesButton className="hidden md:inline-flex" />}
-        <a
+        <AppLink
           href="/ajustes/general"
           aria-label={t('library.settings')}
           className="inline-flex size-control-sm items-center justify-center rounded-full text-ink-2"
         >
           ⚙
-        </a>
+        </AppLink>
         <span className="sr-only">{language}</span>
       </div>
     </header>
@@ -105,14 +106,14 @@ export function MobileNav() {
     ['/series', '▤', t('library.seriesPlural')],
     ['/no-asignados', '□', t('library.unassigned')],
     ['/ajustes/general', '⚙', t('library.settings')],
-  ]
+  ] as const
   return (
     <nav
       aria-label={t('library.mobileNavigation')}
       className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface px-1 pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {links.map(([href, icon, label]) => (
-        <a
+        <AppLink
           key={href}
           href={href}
           className="flex min-h-16 flex-col items-center justify-center gap-0.5 text-caption text-ink-2 no-underline"
@@ -121,7 +122,7 @@ export function MobileNav() {
             {icon}
           </span>
           {label}
-        </a>
+        </AppLink>
       ))}
     </nav>
   )

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { AppLink } from '@/shared/ui/AppLink'
 
 import { useLibraryCollection } from '../application/queries'
 
@@ -23,7 +24,7 @@ export function CollectionCard({
     ? `linear-gradient(120deg, rgb(17 34 29 / .86), rgb(12 12 15 / .4)), url(${image})`
     : 'linear-gradient(120deg, #11221d 0%, #2c5246 60%, #0c0c0f 100%)'
   return (
-    <a
+    <AppLink
       href={`/colecciones/${String(id)}`}
       aria-label={`${name}, ${t('library.collectionCount', { present: inLibrary, total })}`}
       className="block min-w-[280px] flex-[0_0_360px] shrink-0 rounded-lg no-underline transition duration-120 ease-out hover:-translate-y-1 focus-visible:-translate-y-1 sm:min-w-0"
@@ -35,6 +36,6 @@ export function CollectionCard({
           {t('library.collectionCount', { present: inLibrary, total })}
         </span>
       </span>
-    </a>
+    </AppLink>
   )
 }

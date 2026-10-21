@@ -25,6 +25,14 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "JSXOpeningElement[name.name='a'] > JSXAttribute[name.name='href'][value.value=/^\\/(?!\\/)/]",
+          message: 'Use AppLink for internal application routes.',
+        },
+      ],
     },
   },
   {

@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { cx } from './cx'
+import { AppLink } from './AppLink'
 import { Spinner } from './Feedback'
 import { buttonClass, type ButtonSize, type ButtonVariant } from './buttonClass'
 
@@ -116,6 +117,13 @@ interface LinkButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   icon?: ReactNode
 }
 
+function isAppRouteHref(href: string): boolean {
+  return (
+    href === '/' ||
+    /^\/(?:peliculas|series|colecciones|buscar|no-asignados|ajustes|entrar)(?:\/|\?|$)/.test(href)
+  )
+}
+
 export function LinkButton({
   variant = 'secondary',
   size = 'md',
@@ -124,8 +132,14 @@ export function LinkButton({
   children,
   ...rest
 }: LinkButtonProps) {
-  return (
-    <a className={cx(buttonClass(variant, size), className)} {...rest}>
+  const linkClass = cx(buttonClass(variant, size), className)
+  return isAppRouteHref(rest.href) ? (
+    <AppLink className={linkClass} {...rest}>
+      {icon}
+      {children}
+    </AppLink>
+  ) : (
+    <a className={linkClass} {...rest}>
       {icon}
       {children}
     </a>

@@ -59,11 +59,9 @@ export function AssignScreen({ id }: { id: number }) {
 
   const goToUnassigned = useCallback(() => {
     try {
-      void navigate({ to: '/no-asignados' as never }).catch(() => {
-        window.history.pushState({}, '', '/no-asignados')
-      })
+      void navigate({ to: '/no-asignados' as never }).catch(() => undefined)
     } catch {
-      window.history.pushState({}, '', '/no-asignados')
+      // Standalone screen tests do not mount the app router.
     }
   }, [navigate])
 

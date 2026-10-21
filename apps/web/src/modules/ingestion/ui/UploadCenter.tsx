@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AppLink } from '@/shared/ui/AppLink'
 
 import { useIngestionPorts } from '../application/ports'
 import { useJobs, useJobMutation, useUploadQueue } from '../application/queries'
@@ -261,13 +262,13 @@ function UploadRowCard({
           </Button>
         )}
         {row.phase === 'done' && (
-          <a
+          <AppLink
             className="inline-flex min-h-control-sm items-center rounded-pill border border-accent px-3 text-body-sm font-bold no-underline"
             href="/no-asignados"
             onClick={onOpenPanel}
           >
             {t('uploads.assign')}
-          </a>
+          </AppLink>
         )}
         {job && canCancelJob(job.status) && (
           <Button

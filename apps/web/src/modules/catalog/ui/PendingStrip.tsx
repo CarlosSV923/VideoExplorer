@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import type { LibraryTitleSummary } from '../domain/types'
+import { AppLink } from '@/shared/ui/AppLink'
 
 export function PendingStrip({
   titles,
@@ -15,20 +16,20 @@ export function PendingStrip({
   return (
     <section aria-label={t('library.pending')} className="flex flex-wrap gap-3">
       {unassignedCount !== undefined && unassignedCount > 0 && (
-        <a
+        <AppLink
           href="/no-asignados"
           className="rounded-md border border-warning bg-warning-surface px-4 py-3 text-warning-ink no-underline"
         >
           {t('library.pendingUnassigned', { count: unassignedCount })}
-        </a>
+        </AppLink>
       )}
       {incomplete > 0 && (
-        <a
+        <AppLink
           href="/series?incompletas=1"
           className="rounded-md border border-warning bg-warning-surface px-4 py-3 text-warning-ink no-underline"
         >
           {t('library.pendingIncomplete', { count: incomplete })}
-        </a>
+        </AppLink>
       )}
       {unlinked > 0 && (
         <div className="rounded-md border border-warning bg-warning-surface px-4 py-3 text-warning-ink">

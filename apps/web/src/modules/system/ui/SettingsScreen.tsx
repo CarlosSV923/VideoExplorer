@@ -7,6 +7,7 @@ import { useSettings } from '@/modules/mediaservers/application/queries'
 import { LanguageToggle } from '@/shared/i18n/LanguageToggle'
 import { useFormat } from '@/shared/i18n/hooks'
 import { Button, PageHeader, StatusChip } from '@/shared/ui'
+import { AppLink } from '@/shared/ui/AppLink'
 import { LibraryLayout } from '@/app/LibraryLayout'
 import { tmdbLogos } from '@/shared/assets/tmdb'
 
@@ -25,19 +26,19 @@ export function SettingsScreen() {
         title={t('library.settings')}
         actions={
           <nav aria-label={t('settings.sections')} className="flex gap-2">
-            <a
+            <AppLink
               href="/ajustes/general"
               aria-current="page"
               className="rounded-pill border border-accent px-3 py-2 text-body-sm font-bold no-underline"
             >
               {t('settings.general')}
-            </a>
-            <a
+            </AppLink>
+            <AppLink
               href="/ajustes/papelera"
               className="rounded-pill border border-control px-3 py-2 text-body-sm font-bold no-underline"
             >
               {t('settings.trash')}
-            </a>
+            </AppLink>
           </nav>
         }
       />

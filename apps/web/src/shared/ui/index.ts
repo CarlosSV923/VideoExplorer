@@ -1,4 +1,5 @@
 export { Button, FileButton, IconButton, LinkButton } from './Button'
+export { AppLink } from './AppLink'
 export { buttonClass, type ButtonSize, type ButtonVariant } from './buttonClass'
 export { Brand } from './Brand'
 export {

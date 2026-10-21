@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { cx } from './cx'
+import { AppLink } from './AppLink'
 import { ChevronLeftIcon, ChevronRightIcon } from './icons'
 import { Button, IconButton } from './Button'
 
@@ -87,7 +88,7 @@ export function Poster({
   )
   const accessibleName = [title, meta, ...accessibleChips].filter(Boolean).join(', ')
   return href ? (
-    <a
+    <AppLink
       href={href}
       aria-label={accessibleName}
       className={cx(
@@ -96,7 +97,7 @@ export function Poster({
       )}
     >
       {content}
-    </a>
+    </AppLink>
   ) : (
     <article
       aria-label={accessibleName}

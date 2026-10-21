@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { titleChoiceFromHit } from '../application/assignment'
@@ -33,6 +34,7 @@ import {
   TextField,
 } from '@/shared/ui'
 import { LoadingGrid } from './CatalogShared'
+import { AppLink } from '@/shared/ui/AppLink'
 
 const languages = [
   ['es-419', 'Español (Latinoamérica)'],
@@ -80,6 +82,7 @@ function issueMessage(t: Translate, issue?: PlanIssue): string | undefined {
 
 export function EditScreen({ id }: { id: number }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const format = useFormat()
   const translate = t as unknown as Translate
   const query = useLibraryTitle(id)
@@ -205,7 +208,9 @@ export function EditScreen({ id }: { id: number }) {
         .commitTitleIDTag(id, { ...idTagRequest(), revision: planned.revision })
         .then(() => {
           invalidateCatalog()
-          window.location.href = `/${kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}`
+          void navigate({
+            to: `/${kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}` as never,
+          })
         })
         .catch(setPlanError)
       return
@@ -276,9 +281,9 @@ export function EditScreen({ id }: { id: number }) {
     <LibraryLayout hideMobileNav>
       <PageHeader
         back={
-          <a href={`/${title.kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}`}>
+          <AppLink href={`/${title.kind === 'movie' ? 'peliculas' : 'series'}/${String(id)}`}>
             {title.title}
-          </a>
+          </AppLink>
         }
         title={title.tmdbId ? t('library.edit') : t('library.link')}
         subtitle={t('library.editSubtitle')}

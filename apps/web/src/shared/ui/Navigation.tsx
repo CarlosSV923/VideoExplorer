@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom'
 
 import { useAction } from '../input'
 import { cx } from './cx'
+import { AppLink } from './AppLink'
 
 export interface TabOption {
   value: string
@@ -91,7 +92,7 @@ export function SectionTabs({
   return (
     <nav aria-label={label} className="flex flex-wrap gap-2">
       {tabs.map((tab) => (
-        <a
+        <AppLink
           key={tab.value}
           href={tab.href}
           aria-current={tab.value === current ? 'page' : undefined}
@@ -101,7 +102,7 @@ export function SectionTabs({
           )}
         >
           {tab.label}
-        </a>
+        </AppLink>
       ))}
     </nav>
   )

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { AppLink } from '@/shared/ui/AppLink'
 
 import type { LibraryTitle } from '../domain/types'
 import { Poster } from '@/shared/ui'
@@ -19,7 +20,9 @@ export function CollectionInline({
             {t('library.collectionCount', { present, total: collection.movies.length })}
           </p>
         </div>
-        <a href={`/colecciones/${String(collection.id)}`}>{t('library.viewCollection')}</a>
+        <AppLink href={`/colecciones/${String(collection.id)}`}>
+          {t('library.viewCollection')}
+        </AppLink>
       </div>
       <div className="mt-3 flex gap-3 overflow-x-auto md:gap-4">
         {collection.movies.map((movie) => (

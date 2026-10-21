@@ -11,6 +11,7 @@ import { HeroCarousel } from './HeroCarousel'
 import { PendingStrip } from './PendingStrip'
 import { LoadingGrid, PosterFor } from './CatalogShared'
 import { selectHeroTitles } from './heroSelection'
+import { AppLink } from '@/shared/ui/AppLink'
 
 export function HomeScreen({ random = Math.random }: { random?: () => number }) {
   const { t } = useTranslation()
@@ -91,9 +92,9 @@ function HomeContent({
             title={t('library.recentMovies')}
             items={row(movies)}
             seeAll={
-              <a href="/peliculas" className="text-body-sm">
+              <AppLink href="/peliculas" className="text-body-sm">
                 {t('library.seeAll')}
-              </a>
+              </AppLink>
             }
           />
         )}
@@ -102,9 +103,9 @@ function HomeContent({
             title={t('library.recentSeries')}
             items={row(series)}
             seeAll={
-              <a href="/series" className="text-body-sm">
+              <AppLink href="/series" className="text-body-sm">
                 {t('library.seeAll')}
-              </a>
+              </AppLink>
             }
           />
         )}
