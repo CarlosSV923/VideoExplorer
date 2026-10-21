@@ -658,14 +658,33 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A title of the library with its files and TMDB details (RF-43, RF-43a)
-         * @description The title with its videos and their subtitles, the files that are out of the trash, and the localized
-         *     TMDB data when the title is linked. Images are local `/api/images/...` routes (RNF-10). A free title
-         *     carries only its registry data: it has no TMDB episodes or missing count. A series includes season 0,
-         *     marks each TMDB episode as `present`, `missing` or `upcoming`, and repeats a multi-episode file in every
-         *     episode it covers (RF-43a). `missingEpisodes` counts only missing episodes in normal seasons (RF-40).
+         * A title of the library with its files and saved TMDB metadata (RF-43, RF-43a)
+         * @description The title with its videos and their subtitles, the files that are out of the trash, and any TMDB
+         *     metadata already stored. This response does not wait for a TMDB cache miss; use the metadata operation
+         *     to complete the page asynchronously. Images are local `/api/images/...` routes (RNF-10).
          */
         get: operations["getLibraryTitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/titles/{id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Complete a title page with cache-aware TMDB metadata (RF-43a)
+         * @description Reads cached TMDB metadata or fetches a cache miss, returning the complete title page. Call this
+         *     after the immediate library detail response so upstream latency does not delay saved library data.
+         */
+        get: operations["getLibraryTitleMetadata"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2964,6 +2983,31 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The title. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTitle"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getLibraryTitleMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A title of the library, its id in the registry (RF-21, RF-43). */
+                id: components["parameters"]["TitleId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The title with metadata and its live files. */
             200: {
                 headers: {
                     [name: string]: unknown;

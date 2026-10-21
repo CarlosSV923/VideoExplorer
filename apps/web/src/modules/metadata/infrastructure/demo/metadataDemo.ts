@@ -66,6 +66,10 @@ export function createMetadataDemo(catalogPorts?: CatalogPorts): MetadataPorts {
       if (!catalogPorts) return Promise.reject(new Error('Not available in demo'))
       return catalogPorts.libraryTitle(titleId)
     },
+    loadTitleMetadata: async (titleId) => {
+      if (!catalogPorts) return Promise.reject(new Error('Not available in demo'))
+      return catalogPorts.libraryTitle(titleId)
+    },
     imageUrl: (kind: ImageKind, file: string) => {
       const id = Number(file.replace(/\.svg$/, ''))
       const title =

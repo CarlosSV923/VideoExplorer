@@ -51,6 +51,7 @@ function renderScreen(screenName: 'home' | 'edit', catalog: Partial<CatalogPorts
   } as CatalogPorts
   const metadataPorts = {
     searchTitles: vi.fn().mockResolvedValue({ tmdbAvailable: true, library: [], tmdb: [] }),
+    loadTitleMetadata: vi.fn(),
     refreshTitleMetadata: vi.fn(),
     imageUrl: vi.fn((kind: string, file: string) => `/api/images/${kind}/${file}`),
     ...metadata,

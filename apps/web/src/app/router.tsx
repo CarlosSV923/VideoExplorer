@@ -16,7 +16,12 @@ import { sessionKey, sessionQuery } from '@/modules/identity/application/queries
 import { LoginScreen } from '@/modules/identity/ui/LoginScreen'
 import { useIngestionPorts } from '@/modules/ingestion/application/ports'
 import { watchJobsInCache } from '@/modules/ingestion/application/queries'
-import { scheduleCatalogInvalidation, unassignedKey } from '@/modules/catalog/application/queries'
+import {
+  libraryTitleKey,
+  libraryTitlesKey,
+  scheduleCatalogInvalidation,
+  unassignedKey,
+} from '@/modules/catalog/application/queries'
 import { isAppError } from '@/shared/kernel/errors'
 import { Button, EmptyState } from '@/shared/ui'
 import { useEffect } from 'react'
@@ -102,8 +107,10 @@ function AppShell() {
     if (typeof EventSource === 'undefined' || typeof ports.watchJobs !== 'function')
       return undefined
     return watchJobsInCache(queryClient, ports, {
-      onCatalogChanged: () => {
-        scheduleCatalogInvalidation(queryClient, [unassignedKey, ['library']])
+      onCatalogChanged: (titleId) => {
+        scheduleCatalogInvalidation(queryClient, [unassignedKey, libraryTitlesKey])
+        if (titleId !== undefined)
+          scheduleCatalogInvalidation(queryClient, [libraryTitleKey(titleId)])
       },
       onStatusChange: (job) => {
         if (['done', 'discarded', 'failed', 'cancelled'].includes(job.status)) {

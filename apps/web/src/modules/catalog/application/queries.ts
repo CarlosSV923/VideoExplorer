@@ -16,7 +16,7 @@ export const liveQueryOptions = {
 } as const
 
 const invalidationBatches = new WeakMap<QueryClient, Set<string>>()
-const invalidationQueued = new WeakSet<QueryClient>()
+const invalidationTimers = new WeakMap<QueryClient, ReturnType<typeof setTimeout>>()
 
 function invalidateSafely(queryClient: QueryClient, queryKey: readonly unknown[]) {
   void queryClient.invalidateQueries({ queryKey }).catch(() => undefined)
@@ -25,21 +25,24 @@ function invalidateSafely(queryClient: QueryClient, queryKey: readonly unknown[]
 export function scheduleCatalogInvalidation(
   queryClient: QueryClient,
   queryKeys: readonly (readonly unknown[])[],
+  delayMs = 500,
 ) {
   const keys = invalidationBatches.get(queryClient) ?? new Set<string>()
   for (const queryKey of queryKeys) keys.add(JSON.stringify(queryKey))
   invalidationBatches.set(queryClient, keys)
-  if (invalidationQueued.has(queryClient)) return
-  invalidationQueued.add(queryClient)
-  queueMicrotask(() => {
-    invalidationQueued.delete(queryClient)
-    const pending = invalidationBatches.get(queryClient)
-    invalidationBatches.delete(queryClient)
-    for (const key of pending ?? []) {
-      const queryKey = JSON.parse(key) as readonly unknown[]
-      invalidateSafely(queryClient, queryKey)
-    }
-  })
+  if (invalidationTimers.has(queryClient)) return
+  invalidationTimers.set(
+    queryClient,
+    setTimeout(() => {
+      invalidationTimers.delete(queryClient)
+      const pending = invalidationBatches.get(queryClient)
+      invalidationBatches.delete(queryClient)
+      for (const key of pending ?? []) {
+        const queryKey = JSON.parse(key) as readonly unknown[]
+        invalidateSafely(queryClient, queryKey)
+      }
+    }, delayMs),
+  )
 }
 
 export function invalidateCatalogQueries(queryClient: QueryClient) {

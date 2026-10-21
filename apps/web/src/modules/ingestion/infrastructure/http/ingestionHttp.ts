@@ -46,7 +46,18 @@ export function createIngestionHttp(client: ApiClient, baseUrl = '/api'): Ingest
         onJob(JSON.parse(event.data) as Parameters<typeof onJob>[0])
       }
       source.addEventListener('job', listener)
-      if (onCatalogChanged) source.addEventListener('catalog', onCatalogChanged)
+      if (onCatalogChanged)
+        source.addEventListener('catalog', (event) => {
+          let titleId: number | undefined
+          try {
+            const data = JSON.parse((event as MessageEvent<string>).data) as { titleId?: unknown }
+            if (typeof data.titleId === 'number' && Number.isInteger(data.titleId))
+              titleId = data.titleId
+          } catch {
+            // Generic catalog events do not identify a title.
+          }
+          onCatalogChanged(titleId)
+        })
       if (onOpen) source.addEventListener('open', onOpen)
       return () => {
         source.close()

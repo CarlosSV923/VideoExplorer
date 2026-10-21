@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import { afterEach, vi } from 'vitest'
 
 import {
   invalidateCatalogQueries,
@@ -18,6 +19,7 @@ describe('consultas de catalogo', () => {
   })
 
   it('agrupa invalidaciones síncronas de una ráfaga SSE', async () => {
+    vi.useFakeTimers()
     const client = new QueryClient()
     const invalidate = vi.spyOn(client, 'invalidateQueries')
 
@@ -25,10 +27,14 @@ describe('consultas de catalogo', () => {
     scheduleCatalogInvalidation(client, [unassignedKey])
 
     expect(invalidate).not.toHaveBeenCalled()
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(499)
+    expect(invalidate).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
     expect(invalidate).toHaveBeenCalledTimes(1)
     expect(invalidate).toHaveBeenCalledWith({ queryKey: unassignedKey })
   })
+
+  afterEach(() => vi.useRealTimers())
 
   it('absorbe errores de refetch al invalidar el catálogo', async () => {
     const client = new QueryClient()

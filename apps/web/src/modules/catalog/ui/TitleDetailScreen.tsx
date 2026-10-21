@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCatalogPorts } from '../application/ports'
@@ -13,20 +13,30 @@ import { VersionCard } from './VersionCard'
 import { EpisodeList } from './EpisodeList'
 import { CollectionInline } from './CollectionInline'
 import { LoadingGrid } from './CatalogShared'
-import { useMetadataPorts } from '@/modules/metadata/application/ports'
+import {
+  useLoadTitleMetadata,
+  useRefreshTitleMetadata,
+} from '@/modules/metadata/application/queries'
 
 export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
   const { t } = useTranslation()
   const query = useLibraryTitle(id)
-  const metadata = useMetadataPorts()
   const ports = useCatalogPorts()
   const invalidateCatalog = useInvalidateCatalog()
   const [confirm, setConfirm] = useState<'unassigned' | 'trash' | null>(null)
   const [season, setSeason] = useState<number | null>(null)
-  const refresh = useMutation({
-    mutationFn: () => metadata.refreshTitleMetadata(id),
-    onSuccess: () => undefined,
-  })
+  const refresh = useRefreshTitleMetadata(id)
+  const loadMetadata = useLoadTitleMetadata(id)
+  useEffect(() => {
+    if (
+      !query.data?.tmdbId ||
+      loadMetadata.isPending ||
+      loadMetadata.isError ||
+      loadMetadata.isSuccess
+    )
+      return
+    loadMetadata.mutate()
+  }, [query.data?.tmdbId, loadMetadata])
   const move = useMutation({
     mutationFn: () => ports.moveTitleToUnassigned(id, { kind: 'title' }),
     onSuccess: () => {
@@ -85,6 +95,7 @@ export function TitleDetailScreen({ id, kind }: { id: number; kind: Kind }) {
         }}
         refreshing={refresh.isPending}
       />
+      {loadMetadata.isError && <Banner tone="warning">{t('library.refreshFailed')}</Banner>}
       {refresh.isError && <Banner tone="danger">{t('library.refreshFailed')}</Banner>}
       <div className="flex flex-col gap-8 py-8">
         <div className="flex flex-wrap gap-3">

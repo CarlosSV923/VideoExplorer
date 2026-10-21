@@ -32,7 +32,7 @@ export interface IngestionPorts {
   watchJobs(handlers: {
     onJob: (job: UploadJob) => void
     onOpen?: () => void
-    onCatalogChanged?: () => void
+    onCatalogChanged?: (titleId?: number) => void
   }): () => void
   submitPassword(jobId: string, password: string): Promise<UploadJob>
   retryJob(jobId: string): Promise<UploadJob>

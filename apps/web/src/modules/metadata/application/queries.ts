@@ -25,3 +25,14 @@ export function useRefreshTitleMetadata(titleId: number) {
     },
   })
 }
+
+export function useLoadTitleMetadata(titleId: number) {
+  const ports = useMetadataPorts()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => ports.loadTitleMetadata(titleId),
+    onSuccess: (title) => {
+      queryClient.setQueryData(['library', 'titles', title.id], title)
+    },
+  })
+}

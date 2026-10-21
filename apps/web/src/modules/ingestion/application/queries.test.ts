@@ -80,13 +80,17 @@ describe('job event cache updates', () => {
     )
   })
 
-  it('invalidates No asignados and the library after a catalog SSE event', async () => {
+  it('invalidates lists and only the title identified by a catalog SSE event', async () => {
+    vi.useFakeTimers()
     const client = new QueryClient()
     const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined)
-    let onCatalogChanged: (() => void) | undefined
+    let onCatalogChanged: ((titleId?: number) => void) | undefined
     const ports = {
       watchJobs: vi.fn(
-        (handlers: { onJob: (next: UploadJob) => void; onCatalogChanged?: () => void }) => {
+        (handlers: {
+          onJob: (next: UploadJob) => void
+          onCatalogChanged?: (titleId?: number) => void
+        }) => {
           onCatalogChanged = handlers.onCatalogChanged
           return () => undefined
         },
@@ -94,14 +98,19 @@ describe('job event cache updates', () => {
     } as unknown as IngestionPorts
 
     watchJobsInCache(client, ports, {
-      onCatalogChanged: () => {
-        scheduleCatalogInvalidation(client, [['unassigned'], ['library']])
+      onCatalogChanged: (titleId) => {
+        scheduleCatalogInvalidation(client, [['unassigned'], ['library', 'titles']])
+        if (titleId !== undefined)
+          scheduleCatalogInvalidation(client, [['library', 'titles', titleId]])
       },
     })
-    onCatalogChanged?.()
-    await Promise.resolve()
+    onCatalogChanged?.(6)
+    await vi.advanceTimersByTimeAsync(500)
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['unassigned'] })
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['library'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['library', 'titles'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['library', 'titles', 6] })
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['library'] })
+    vi.useRealTimers()
   })
 })

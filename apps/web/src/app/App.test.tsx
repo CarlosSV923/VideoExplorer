@@ -85,6 +85,7 @@ const routeServices = {
   },
   metadata: {
     searchTitles: vi.fn(() => Promise.resolve({ tmdbAvailable: true, library: [], tmdb: [] })),
+    loadTitleMetadata: vi.fn(),
     refreshTitleMetadata: vi.fn(),
   },
   mediaServers: {},

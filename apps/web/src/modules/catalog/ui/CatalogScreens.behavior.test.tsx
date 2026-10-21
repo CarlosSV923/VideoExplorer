@@ -129,6 +129,7 @@ function renderCatalog(
   } as CatalogPorts
   const metadata = {
     searchTitles: vi.fn().mockResolvedValue({ tmdbAvailable: true, library: [], tmdb: [] }),
+    loadTitleMetadata: vi.fn().mockResolvedValue(movie),
     refreshTitleMetadata: vi.fn().mockResolvedValue(undefined),
     imageUrl: vi.fn((kind: string, file: string) => `/api/images/${kind}/${file}`),
     ...metadataOverrides,
@@ -158,6 +159,7 @@ function renderCatalog(
   return {
     ...result,
     catalog,
+    queryClient,
     rerenderCatalog: () => {
       result.rerender(renderTree())
     },
@@ -181,6 +183,58 @@ describe('Biblioteca: comportamiento de pantallas', () => {
         removeEventListener: vi.fn(),
       }),
     })
+  })
+
+  it('keeps detail data visible when the query refetches in the background', async () => {
+    let finishRefetch: ((value: LibraryTitle) => void) | undefined
+    const { catalog, queryClient } = renderCatalog('movieDetail', {
+      libraryTitle: vi
+        .fn()
+        .mockResolvedValueOnce(movie)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishRefetch = resolve
+            }),
+        ),
+    })
+    expect(await screen.findByText(movie.title)).toBeInTheDocument()
+
+    const refetch = queryClient.invalidateQueries({ queryKey: ['library', 'titles', 1] })
+    expect(screen.getByText(movie.title)).toBeInTheDocument()
+    expect(document.querySelector('.animate-pulse')).toBeNull()
+    finishRefetch?.(movie)
+    await refetch
+
+    expect(mockCalls(catalog, 'libraryTitle')).toHaveLength(2)
+    expect(screen.getByText(movie.title)).toBeInTheDocument()
+  })
+
+  it('shows saved title data while TMDB metadata loads and applies it when ready', async () => {
+    const linkedMovie = { ...movie, tmdbId: 124905 } as LibraryTitle
+    const enrichedMovie = { ...linkedMovie, overview: 'Metadatos cargados en segundo plano.' }
+    let finishMetadata: ((value: LibraryTitle) => void) | undefined
+    const loadTitleMetadata = vi.fn(
+      () =>
+        new Promise<LibraryTitle>((resolve) => {
+          finishMetadata = resolve
+        }),
+    )
+    renderCatalog(
+      'movieDetail',
+      { libraryTitle: vi.fn().mockResolvedValue(linkedMovie) },
+      {},
+      { loadTitleMetadata },
+    )
+
+    expect(await screen.findByText(linkedMovie.title)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(loadTitleMetadata).toHaveBeenCalledWith(1)
+    })
+    expect(document.querySelector('.animate-pulse')).toBeNull()
+    finishMetadata?.(enrichedMovie)
+
+    expect(await screen.findByText(enrichedMovie.overview)).toBeInTheDocument()
   })
 
   it('filters movies by genre and applies the selected sort', async () => {
