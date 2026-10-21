@@ -126,7 +126,7 @@ Depende de: 10 · Cubre: RNF-01, RNF-03, RNF-04
 - [x] Rutas en inglés (RF-64, decisión 2026-10-21): rutas y parámetros traducidos, sin redirección desde las antiguas; las antiguas muestran «no encontrado» (corregidos dos textos «incompletas» que el builder había escapado)
 - [x] Selección múltiple en Películas y Series y mandar a la papelera (RF-41, decisión 2026-10-21): probado en la demo en escritorio y móvil (corregidos en la revisión: se mandaban títulos ocultos por el filtro, la marca no se veía, la barra tapaba la última fila y el aviso de error no se cerraba)
 - [x] Ajustes de la 0.1.8 en las cuadrículas (RF-41, decisión 2026-10-21): casillas de selección alineadas con los pósters; filtro de géneros en un desplegable con varios géneros (al menos uno): probado en la demo (marcos alineados antes y durante la selección, casilla a 8 px en todos; Acción + Aventura → 8 títulos, URL `?genre=Aventura,Acción`; lista a lo ancho en móvil)
-- [ ] Pregunta de relación con tarjetas de opción apiladas (RF-03, ajuste 2026-10-21: con muchos comprimidos los botones se solapaban)
-- [ ] Elegir coincidencia como opciones claras con póster, 5 por sección y «Mostrar 5 más» (RF-21, ajuste 2026-10-21)
-- [ ] Hero: título largo sin logo que se sale de su caja; quitar la etiqueta «Destacado» (RF-40, ajuste 2026-10-21)
+- [x] Pregunta de relación con tarjetas de opción apiladas (RF-03, ajuste 2026-10-21: con muchos comprimidos los botones se solapaban): título con el número de archivos, tarjetas con ayuda que hace wrap, hoja inferior en móvil
+- [x] Elegir coincidencia como opciones claras con póster, 5 por sección y «Mostrar 5 más» (RF-21, ajuste 2026-10-21): probado en la demo (tarjetas de radio con póster, «Elegida», 5 por sección y «Mostrar N más»; los resultados de la biblioteca llevan su póster guardado)
+- [x] Hero: título largo sin logo que se sale de su caja; quitar la etiqueta «Destacado» (RF-40, ajuste 2026-10-21): tamaño según longitud y corte a 3 líneas dentro de la caja; sin «Destacado»
 - [~] Prueba en el NAS con contenido real: subida, extracción, asignación, importación de la biblioteca existente y Jellyfin reconociéndolo todo
