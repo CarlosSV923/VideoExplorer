@@ -25,6 +25,7 @@ const langs = {
     replace: 'Replace',
     changeMatch: /Change|Choose title/,
     searchTitle: 'Search title',
+    chosen: 'Chosen',
     files: 'Files',
     collection: 'Collection',
     collectionTitle: /Collection|Colección/,
@@ -50,6 +51,7 @@ const langs = {
     replace: 'Reemplazar',
     changeMatch: /Cambiar|Elegir título/,
     searchTitle: 'Buscar título',
+    chosen: 'Elegida',
     files: 'Archivos',
     collection: 'Colección',
     collectionTitle: /Colección/,
@@ -148,45 +150,47 @@ async function captureMovie(page, langDir, t) {
   await movie.click()
   await page.getByRole('heading', { level: 1, name: /Duna|Dune/ }).waitFor()
   await page.evaluate(() => {
-    document.body.style.zoom = '0.85'
+    document.body.style.zoom = '0.75'
+    window.scrollTo(0, 0)
   })
   const files = page.getByRole('heading', { name: t.files, exact: true })
-  await files.evaluate((element) => element.scrollIntoView({ block: 'start' }))
-  await page.evaluate(() => window.scrollBy(0, -100))
   await page.getByRole('heading', { name: t.collectionTitle }).waitFor()
   await capture(page, join(langDir, 'movie.png'))
 }
 
 async function captureSeries(page, langDir, t) {
   await goInApp(page, '/series')
-  const series = page.getByRole('link', { name: /Dark/ }).first()
+  const series = page.getByRole('link', { name: /Breaking Bad/ }).first()
   await series.waitFor()
   await waitForTmdbImage(series)
   await series.click()
-  await page.getByRole('heading', { level: 1, name: 'Dark' }).waitFor()
-  await page.getByRole('heading', { name: t.seasons, exact: true }).scrollIntoViewIfNeeded()
-  await page.getByRole('tab', { name: /Season 2|Temporada 2/ }).click()
-  await page
-    .getByText(/Missing|Falta/)
-    .first()
-    .scrollIntoViewIfNeeded()
+  await page.getByRole('heading', { level: 1, name: 'Breaking Bad' }).waitFor()
+  await page.evaluate(() => {
+    document.body.style.zoom = '0.55'
+    window.scrollTo(0, 0)
+  })
+  await page.getByRole('heading', { name: t.seasons, exact: true }).waitFor()
+  await page.getByRole('tab', { name: /Season 3|Temporada 3/ }).click()
+  await page.getByText(/Present|Presente/).first().waitFor()
+  await page.getByText(/Missing|Falta/).first().waitFor()
   await capture(page, join(langDir, 'series.png'))
 }
 
 async function captureAssignment(page, langDir, t) {
-  await goInApp(page, '/unassigned/4/assign')
+  await goInApp(page, '/unassigned/1/assign')
   await page.getByRole('heading', { name: /Assign|Asignar/ }).waitFor()
   const picker = page.locator('article').first()
   const poster = picker.locator('button img[src*="image.tmdb.org"]').first()
   if (await poster.count()) await waitForTmdbImage(picker)
+  await page.getByRole('button', { name: t.changeMatch }).first().click()
+  const choices = page.getByRole('dialog')
+  await choices.getByRole('textbox', { name: t.searchTitle }).fill('ted lasso')
+  const match = choices.getByRole('radio').first()
+  await match.waitFor()
+  await waitForTmdbImage(choices)
+  await match.click()
   const previewButton = page.getByRole('button', { name: t.preview, exact: true }).first()
   await previewButton.click()
-  const duplicate = page.getByRole('group', { name: /duplicate|duplicado/i })
-  await duplicate.waitFor({ timeout: 10_000 }).catch(() => undefined)
-  if (await duplicate.isVisible().catch(() => false)) {
-    await duplicate.getByRole('button', { name: t.replace, exact: true }).click()
-    await previewButton.click()
-  }
   await page.getByRole('heading', { name: t.previewTitle, exact: true }).waitFor()
   await settle(page)
   await page.evaluate(() => window.scrollTo(0, 0))
@@ -211,8 +215,7 @@ async function captureSelection(page, langDir, t) {
   await posters.nth(0).click()
   await posters.nth(1).click()
   await page.getByText(t.selected).waitFor()
-  await menu.click()
-  await page.getByRole('checkbox', { name: t.animation }).waitFor()
+  await page.getByRole('checkbox', { name: t.animation }).waitFor({ state: 'hidden' })
   await capture(page, join(langDir, 'select.png'))
 }
 
@@ -302,6 +305,14 @@ async function captureGif(browser, lang, t, langDir) {
   await waitForTmdbImage(picker)
   await match.click()
   await pause(page, 500)
+  await page.getByRole('button', { name: t.changeMatch }).first().click()
+  const chosenPicker = page.getByRole('dialog')
+  const chosenMatch = chosenPicker.getByRole('radio', { checked: true }).first()
+  await chosenMatch.waitFor()
+  await waitForTmdbImage(chosenPicker)
+  await chosenPicker.getByText(t.chosen, { exact: true }).waitFor()
+  await pause(page, 1400)
+  await chosenMatch.click()
   const previewButton = page.getByRole('button', { name: t.preview, exact: true }).first()
   await previewButton.click()
   const duplicate = page.getByRole('group', { name: /duplicate|duplicado/i })
@@ -331,7 +342,7 @@ async function captureGif(browser, lang, t, langDir) {
   const paletteFilter =
     'fps=12,scale=1200:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer'
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', webm, '-vf', paletteFilter, gif])
-  if (statSync(gif).size > 6 * 1024 * 1024) {
+  if (statSync(gif).size > 6_000_000) {
     execFileSync('ffmpeg', [
       '-y',
       '-loglevel',
@@ -339,11 +350,11 @@ async function captureGif(browser, lang, t, langDir) {
       '-i',
       webm,
       '-vf',
-      'fps=8,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=bayer',
+      'fps=7,scale=900:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=bayer',
       gif,
     ])
   }
-  if (statSync(gif).size > 6 * 1024 * 1024)
+  if (statSync(gif).size > 6_000_000)
     throw new Error(`GIF exceeds 6 MB: ${String(statSync(gif).size)} bytes`)
   rmSync(videoDir, { recursive: true, force: true })
 }
