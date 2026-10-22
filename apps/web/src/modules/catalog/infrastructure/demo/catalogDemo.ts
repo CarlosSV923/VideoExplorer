@@ -3,6 +3,7 @@ import catalog from '@/modules/metadata/infrastructure/demo/catalog.json'
 import type { CatalogPorts } from '@/modules/catalog/application/ports'
 import type { AssignSuggestions, EditRequest, TitleHit } from '@/modules/catalog/domain/types'
 import { chapterPath, moviePath, subtitlePath } from '@/modules/catalog/domain/paths'
+import { chapterTitle, discTitle } from '@/modules/metadata/domain/naming'
 import type { UploadJob } from '@/modules/ingestion/domain/types'
 import type {
   LibrarySeason,
@@ -332,7 +333,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
     const hintedId = seededMatchIds.get(entryId)
     const match = hintedId ? titleHit(hintedId) : undefined
     const videos = entry.files
-      .filter((file) => !/\.(srt|ass|ssa|sub|idx)$/i.test(file.path))
+      .filter((file) => !/\.(srt|ass|ssa|sub|idx|vtt)$/i.test(file.path))
       .map((file) => {
         const episode = file.path.match(/S(\d{2})E(\d{2})(?:E(\d{2}))?/i)
         const title = file.path
@@ -357,7 +358,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         }
       })
     const subtitles = entry.files
-      .filter((file) => /\.(srt|ass|ssa|sub|idx)$/i.test(file.path))
+      .filter((file) => /\.(srt|ass|ssa|sub|idx|vtt)$/i.test(file.path))
       .map((file) => ({
         file: file.path,
         language: /\.en(?:[-.]|\.)/i.test(file.path) ? 'en' : 'es-419',
@@ -381,7 +382,35 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         video.title?.source === 'library'
           ? library.find((item) => item.id === video.title?.libraryTitleId)
           : undefined
-      const target = targetTitle?.discTitle ?? video.title?.title
+      const tmdbTitle =
+        video.title?.source === 'tmdb'
+          ? catalog.titles.find((item) => item.tmdbId === video.title?.tmdbId)
+          : undefined
+      const namingTitle =
+        tmdbTitle ??
+        (targetTitle?.tmdbId
+          ? catalog.titles.find((item) => item.tmdbId === targetTitle.tmdbId)
+          : undefined)
+      const titleName = targetTitle
+        ? targetTitle.discTitle
+        : tmdbTitle
+          ? discTitle(tmdbTitle.originalTitle, tmdbTitle.title.en)
+          : (video.title?.title ?? '')
+      const tmdbId = targetTitle?.tmdbId ?? tmdbTitle?.tmdbId ?? 0
+      const year = targetTitle?.year ?? tmdbTitle?.year ?? video.title?.year ?? 0
+      const idTag = targetTitle?.idTag ?? tmdbId > 0
+      const currentPath =
+        targetTitle?.videos[0]?.path ??
+        targetTitle?.seasons.flatMap((season) =>
+          season.episodes.flatMap((episode) => episode.files),
+        )[0]?.path
+      const currentFolder = currentPath
+        ?.split('/')
+        .slice(0, targetTitle?.kind === 'series' ? -2 : -1)
+        .join('/')
+      const root =
+        targetTitle?.kind === 'series' || video.title?.kind === 'series' ? 'TV Shows' : 'Movies'
+      const extension = video.file.slice(video.file.lastIndexOf('.')) || '.mkv'
       const duplicate = targetTitle?.videos.find((item) =>
         targetTitle.kind === 'movie'
           ? item.part === (video.part ?? 0)
@@ -412,7 +441,64 @@ export function createCatalogDemo(): DemoCatalogAdapter {
             }
           : {}),
         ...(video.action === 'place' && video.title && (!hasDuplicate || decision)
-          ? { finalPath: `${target ?? 'Título'}/${video.file}` }
+          ? {
+              finalPath: (() => {
+                const name = video.title.source === 'free' ? (video.title.title ?? '') : titleName
+                const linkedTitle = { name, year, tmdbId, idTag }
+                const generated =
+                  root === 'Movies'
+                    ? moviePath({
+                        root,
+                        title: linkedTitle,
+                        version: decision === 'keep_both' ? (video.version ?? '1080p') : '',
+                        part: video.part ?? 0,
+                        extension,
+                      })
+                    : chapterPath({
+                        root,
+                        title: linkedTitle,
+                        season: video.season ?? 0,
+                        first: video.chapter ?? 1,
+                        last: video.lastChapter ?? video.chapter ?? 1,
+                        chapterTitle:
+                          video.title.source === 'free'
+                            ? (video.chapterTitle ?? '')
+                            : chapterTitle(
+                                video.season === undefined || video.chapter === undefined
+                                  ? []
+                                  : Array.from(
+                                      {
+                                        length:
+                                          (video.lastChapter ?? video.chapter) - video.chapter + 1,
+                                      },
+                                      (_, index) => {
+                                        const episode = namingTitle?.seasons
+                                          ?.find((season) => season.number === video.season)
+                                          ?.episodes.find(
+                                            (item) => item.number === (video.chapter ?? 0) + index,
+                                          )
+                                        return {
+                                          original:
+                                            namingTitle?.originalLanguage === 'es'
+                                              ? (episode?.title.es ?? '')
+                                              : namingTitle?.originalLanguage.startsWith('en')
+                                                ? (episode?.title.en ?? '')
+                                                : '',
+                                          english: episode?.title.en ?? '',
+                                        }
+                                      },
+                                    ),
+                              ),
+                        version: decision === 'keep_both' ? (video.version ?? '1080p') : '',
+                        extension,
+                      })
+                if (!targetTitle || !currentFolder) return generated
+                const parts = generated.split('/')
+                const folderParts = currentFolder.split('/')
+                parts[root === 'Movies' ? 1 : 1] = folderParts.at(-1) ?? parts[1] ?? ''
+                return parts.join('/')
+              })(),
+            }
           : {}),
       }
     })
@@ -432,7 +518,16 @@ export function createCatalogDemo(): DemoCatalogAdapter {
       return {
         file: subtitle.file,
         video: subtitle.video ?? '',
-        ...(finalPath ? { finalPath: `${finalPath}.${subtitle.language}.srt` } : {}),
+        ...(finalPath
+          ? {
+              finalPath: subtitlePath(finalPath, {
+                language: subtitle.language,
+                forced: subtitle.forced ?? false,
+                sdh: subtitle.sdh ?? false,
+                extension: subtitle.file.slice(subtitle.file.lastIndexOf('.')) || '.srt',
+              }),
+            }
+          : {}),
       }
     })
     return { entryId, valid: errors.length === 0, videos, subtitles, errors, warnings: [] }
