@@ -208,6 +208,14 @@ tasks:
         -w /src {{.PLAYWRIGHT_IMAGE}}
         sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @videoexplorer/web exec playwright install chromium && pnpm e2e:web"
 
+  screenshots:
+    desc: Generate bilingual demo screenshots and assignment GIFs in docs/screenshots/ with Playwright and ffmpeg
+    cmds:
+      - >-
+        docker run --rm --ipc=host -v "{{.ROOT_DIR}}:/src" -v /src/node_modules -v /src/apps/web/node_modules
+        -w /src {{.PLAYWRIGHT_IMAGE}}
+        sh -c "apt-get update -qq >/dev/null && apt-get install -y -qq ffmpeg >/dev/null && corepack enable && pnpm install --frozen-lockfile && cd apps/web && VITE_DATA_SOURCE=demo pnpm build && (pnpm preview --port 4173 --strictPort >/dev/null &) && sleep 3 && node scripts/screenshots.mjs"
+
   embed:web:
     internal: true
     cmds:
