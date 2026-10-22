@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[Español](README.es.md) · **Status: phases 0–11 complete; phase 12 in progress**
+[Español](README.es.md) · **Status: complete — v1.0.0**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
@@ -14,7 +14,7 @@ VideoExplorer is a self-hosted web app for a home NAS (TrueNAS SCALE). It organi
 - Moves uploaded or SMB-copied files through **Unassigned** and **Assign**, with title suggestions from TMDB or a free title.
 - Names folders, videos and subtitles using the Jellyfin convention, including optional `[tmdbid-ID]` tags, duplicate decisions, versions, parts and episode numbering.
 - Edits and reassigns library files, downloads files or titles, restores items from the trash, and permanently purges trash entries.
-- Provides settings for language, scans, TMDB and Jellyfin, including a notice to refresh Jellyfin after library changes when Jellyfin is configured.
+- Provides settings for language, scans, TMDB and Jellyfin, and, when Jellyfin is configured, asks it to refresh only the affected folders after each library change.
 - Supports Spanish and English with mouse, keyboard, touch and gamepad input.
 
 The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md) and [`docs/tasks.md`](docs/tasks.md). The design system and responsive behavior are in [`docs/design-handoff.md`](docs/design-handoff.md). The naming and classification vectors live in [`contracts/`](contracts/README.md).
@@ -31,13 +31,13 @@ The image includes `ffprobe` from jellyfin-ffmpeg 8.1.3-1, licensed under GPL-3.
 
 ## Project status
 
-Phases 0 through 11 are complete: the API, the full web UI (library, uploads, Unassigned, Assign, edit, trash, settings), tested against real files, and the backend-less demo published on Vercel with end-to-end tests. Phase 12, the TrueNAS production packaging, is next; progress is tracked in [`docs/tasks.md`](docs/tasks.md).
+All phases (0–12) are complete and released as **v1.0.0**: the API, the full web UI (library, uploads, Unassigned, Assign, edit, multi-select trash, settings), the backend-less demo on Vercel with end-to-end tests, and the production image on GHCR, tested on a real TrueNAS SCALE NAS with real content and Jellyfin. The task history is in [`docs/tasks.md`](docs/tasks.md).
 
 ## Install on TrueNAS SCALE
 
-Create a media dataset for `/library` and a separate app-state dataset for `/data`. Keep `Movies/`, `TV Shows/`, `_unassigned/`, and `.videoexplorer/` (staging and trash) on the media dataset. Set an inherited **Modify** ACL for the compose `user:` UID:GID on both datasets. Generate `APP_PASSWORD_HASH` with `task hash-password`, set a random `SESSION_SECRET` of at least 32 bytes, then install [`deploy/truenas/compose.yaml`](deploy/truenas/compose.yaml) as **Apps → Discover Apps → Custom App → Install via YAML**. After first start, check `http://<nas-ip>:8080/api/health`. The compose guide covers Jellyfin path detection and version updates: [`deploy/truenas/README.md`](deploy/truenas/README.md).
+Create a media dataset for `/library` and a separate app-state dataset for `/data`. Keep `Movies/`, `TV Shows/`, `_unassigned/`, and `.videoexplorer/` (staging and trash) on the media dataset. Set an inherited **Modify** ACL for the compose `user:` UID:GID on both datasets. Generate `APP_PASSWORD_HASH` with `task hash-password`, set a random `SESSION_SECRET` of at least 32 bytes, then install [`deploy/truenas/compose.yaml`](deploy/truenas/compose.yaml) as **Apps → Discover Apps → Custom App → Install via YAML**. After first start, check `http://<nas-ip>:8080/api/health`. The compose guide covers Jellyfin setup, path detection and version updates: [`deploy/truenas/README.md`](deploy/truenas/README.md).
 
-The fallback library scan runs every 6 hours, and the `_unassigned/` scan every 30 minutes. The TrueNAS compose sets these as `LIBRARY_SCAN_INTERVAL` and `UNASSIGNED_SCAN_INTERVAL`; filesystem change detection is configured separately.
+The fallback library scan runs every 6 hours, and the `_unassigned/` scan every 30 minutes. The TrueNAS compose sets these as `LIBRARY_SCAN_INTERVAL` and `UNASSIGNED_SCAN_INTERVAL`; files copied to the NAS (for example over SMB) are also detected automatically through filesystem notifications.
 
 Automatic detection requires copies to reach the same NAS, through Samba/SMB or locally on the NAS. If a change is not detected, **Scan now** remains available in Settings.
 

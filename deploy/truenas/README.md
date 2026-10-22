@@ -10,7 +10,14 @@ The fallback scan of the full library runs every 6 hours (`LIBRARY_SCAN_INTERVAL
 
 Automatic detection works when files are copied to the same NAS, either through Samba/SMB or locally on the NAS. Copies made somewhere else and later made visible without filesystem notifications may not be detected immediately; **Scan now** remains available in Settings.
 
-## Jellyfin paths
+## Jellyfin
+
+1. **Read access.** Give the user that runs the Jellyfin app (usually `apps`, UID 568, on the official TrueNAS app) an inherited **Read** ACL entry on the media dataset, applied recursively, next to the VideoExplorer **Modify** entry. Inheritance matters: folders and files that VideoExplorer creates later must stay readable by Jellyfin.
+2. **Mount.** In the Jellyfin app, add the media dataset as additional host-path storage (for example at `/media`), read-only, without the app's automatic ACL option (it would overwrite the entries above).
+3. **Libraries.** Add a *Movies* library on `/media/Movies` and a *Shows* library on `/media/TV Shows`. Do not add the dataset root: it would expose `_unassigned/` and `.videoexplorer/` (staging and trash). Keep TMDB as a metadata provider; the `[tmdbid-…]` tags that VideoExplorer writes pin each title.
+4. **Connect.** Create an API key in Jellyfin (**Dashboard → API Keys**) and set `JELLYFIN_URL` and `JELLYFIN_API_KEY` in the compose. **Settings → General** in VideoExplorer should show Jellyfin as connected, with the detected path translation.
+
+### Jellyfin paths
 
 Jellyfin should see the same media dataset that VideoExplorer mounts at `/library`. If both containers expose it at different paths, VideoExplorer detects the Jellyfin paths for `Movies/` and `TV Shows/` automatically. If detection cannot find them, set `JELLYFIN_LIBRARY_PATH` to the path Jellyfin uses for the root mounted at `/library`. Configure `JELLYFIN_URL` and `JELLYFIN_API_KEY` together; all three values are optional. Jellyfin scans the shared files normally, and VideoExplorer requests a refresh after changes.
 

@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[English](README.md) · **Estado: fases 0–11 cerradas; fase 12 en curso**
+[English](README.md) · **Estado: terminado — v1.0.0**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
@@ -14,7 +14,7 @@ VideoExplorer es una app web autoalojada para un NAS doméstico (TrueNAS SCALE).
 - Lleva los archivos subidos o copiados por SMB a **No asignados** y **Asignar**, con sugerencias de títulos de TMDB o un nombre libre.
 - Nombra carpetas, videos y subtítulos con la convención de Jellyfin, incluida la etiqueta opcional `[tmdbid-ID]`, decisiones de duplicados, versiones, partes y numeración de capítulos.
 - Edita y reasigna archivos de la biblioteca, descarga archivos o títulos, restaura elementos de la papelera y la vacía de forma permanente.
-- Ofrece ajustes de idioma, escaneos, TMDB y Jellyfin, incluido un aviso para actualizar Jellyfin tras cambios en la biblioteca cuando está configurado.
+- Ofrece ajustes de idioma, escaneos, TMDB y Jellyfin, y, si Jellyfin está configurado, le pide refrescar solo las carpetas afectadas tras cada cambio en la biblioteca.
 - Funciona en español e inglés con ratón, teclado, táctil y gamepad.
 
 Los requisitos detallados y el trabajo actual están en [`docs/spec.md`](docs/spec.md) y [`docs/tasks.md`](docs/tasks.md). El sistema de diseño y el comportamiento adaptable están en [`docs/design-handoff.md`](docs/design-handoff.md). Los vectores de nombres y clasificación están en [`contracts/`](contracts/README.md).
@@ -31,13 +31,13 @@ La imagen incluye `ffprobe` de jellyfin-ffmpeg 8.1.3-1, bajo GPL-3.0. Su licenci
 
 ## Estado del proyecto
 
-Las fases 0 a 11 están cerradas: la API, la interfaz web completa (biblioteca, subidas, No asignados, Asignar, edición, papelera, ajustes), probada con archivos reales, y la demo sin backend publicada en Vercel con pruebas de punta a punta. Sigue la fase 12, el empaquetado de producción para TrueNAS; el avance se sigue en [`docs/tasks.md`](docs/tasks.md).
+Todas las fases (0–12) están cerradas y publicadas como **v1.0.0**: la API, la interfaz web completa (biblioteca, subidas, No asignados, Asignar, edición, papelera con selección múltiple, ajustes), la demo sin backend en Vercel con pruebas de punta a punta y la imagen de producción en GHCR, probada en un NAS TrueNAS SCALE real con contenido real y Jellyfin. El historial de tareas está en [`docs/tasks.md`](docs/tasks.md).
 
 ## Instalar en TrueNAS SCALE
 
-Crea un dataset multimedia para `/library` y otro para el estado de la app en `/data`. Mantén `Movies/`, `TV Shows/`, `_unassigned/` y `.videoexplorer/` (staging y papelera) en el dataset multimedia. Da una ACL heredada **Modify** al UID:GID de `user:` en el compose para ambos datasets. Genera `APP_PASSWORD_HASH` con `task hash-password` y configura un `SESSION_SECRET` aleatorio de al menos 32 bytes. Luego instala [`deploy/truenas/compose.yaml`](deploy/truenas/compose.yaml) desde **Apps → Discover Apps → Custom App → Install via YAML**. Tras el primer arranque, comprueba `http://<ip-del-nas>:8080/api/health`. La guía del compose explica la detección de rutas de Jellyfin y las actualizaciones: [`deploy/truenas/README.md`](deploy/truenas/README.md).
+Crea un dataset multimedia para `/library` y otro para el estado de la app en `/data`. Mantén `Movies/`, `TV Shows/`, `_unassigned/` y `.videoexplorer/` (staging y papelera) en el dataset multimedia. Da una ACL heredada **Modify** al UID:GID de `user:` en el compose para ambos datasets. Genera `APP_PASSWORD_HASH` con `task hash-password` y configura un `SESSION_SECRET` aleatorio de al menos 32 bytes. Luego instala [`deploy/truenas/compose.yaml`](deploy/truenas/compose.yaml) desde **Apps → Discover Apps → Custom App → Install via YAML**. Tras el primer arranque, comprueba `http://<ip-del-nas>:8080/api/health`. La guía del compose explica la configuración de Jellyfin, la detección de rutas y las actualizaciones: [`deploy/truenas/README.md`](deploy/truenas/README.md).
 
-El escaneo de respaldo de la biblioteca se ejecuta cada 6 horas y el de `_unassigned/` cada 30 minutos. El compose de TrueNAS configura estos intervalos con `LIBRARY_SCAN_INTERVAL` y `UNASSIGNED_SCAN_INTERVAL`; la detección de cambios del sistema de archivos se configura por separado.
+El escaneo de respaldo de la biblioteca se ejecuta cada 6 horas y el de `_unassigned/` cada 30 minutos. El compose de TrueNAS configura estos intervalos con `LIBRARY_SCAN_INTERVAL` y `UNASSIGNED_SCAN_INTERVAL`; lo que se copia al NAS (por ejemplo por SMB) también se detecta solo mediante los avisos del sistema de archivos.
 
 La detección automática requiere que las copias lleguen al mismo NAS, por Samba/SMB o localmente en el NAS. Si no se detecta un cambio, «Escanear ahora» sigue disponible en Ajustes.
 
