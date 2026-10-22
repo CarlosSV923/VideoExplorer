@@ -1,9 +1,10 @@
 name: Release image
 
 # A v* tag publishes ghcr.io/carlossv923/videoexplorer:<version> and :latest.
-# Pull requests build the same image without publishing it.
+# Pull requests and manual runs build the same image without publishing it.
 on:
   pull_request:
+  workflow_dispatch:
   push:
     tags: ['v*']
 
@@ -16,25 +17,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/carlossv923/videoexplorer
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
       - name: Log in to GHCR
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v3
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

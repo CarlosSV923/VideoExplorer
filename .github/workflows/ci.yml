@@ -132,7 +132,7 @@ jobs:
         run: pnpm e2e:web
         env:
           HOME: /root
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-traces
