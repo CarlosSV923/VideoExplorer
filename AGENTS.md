@@ -20,6 +20,7 @@ An orchestrator (Claude Code) gives you **one task** from `docs/tasks.md` per ru
 7. Never push, never run destructive git commands (`reset --hard`, `clean -fd`, force operations), never touch processes or containers you did not start.
 8. Test data: when a task asks for a manual test with real files, use `C:\Users\carlo\Downloads\PruebasVideos` only through **hard links** created inside `.dev/`. Never move, rename, extract into or delete anything under `PruebasVideos`. Its `.rar` files use the password `cc`.
 9. Never rewrite strings (Unicode escapes, concatenation, odd spelling) to make a search or check come out clean. If a check finds a legitimate match (for example a Spanish word in the copy), leave it as it is and mention it in the report. User-visible copy changes only when the task asks for it.
+10. Never discard, revert or overwrite changes you did not make (`git restore`, `git checkout --`, `git stash`, rewriting the file). If the working tree has uncommitted changes in files outside your task, leave them exactly as they are, never stage them, and mention them in the report.
 
 ## Running the checks on this machine
 `task.exe` is blocked by Windows Application Control, so run the equivalents of `task check` directly. Go tooling runs in Docker (freshly built Go binaries are blocked on the host). From the repository root (Git Bash shown; in PowerShell drop `MSYS_NO_PATHCONV=1` and use `${PWD}`):

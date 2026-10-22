@@ -4,6 +4,8 @@
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
+![Uploading sample files, assigning a movie from Unassigned with a TMDB match and opening the stored title](docs/screenshots/en/assign.gif)
+
 VideoExplorer is a self-hosted web app for a home NAS (TrueNAS SCALE). It organizes movies and TV series so Jellyfin recognizes them, with a Netflix-style library UI. It manages files; it never plays video.
 
 ## What it does today
@@ -11,9 +13,9 @@ VideoExplorer is a self-hosted web app for a home NAS (TrueNAS SCALE). It organi
 - Browses a Netflix-style library of movies, series, seasons, episodes and collections.
 - Uploads one or more files with resumable [tus](https://tus.io/) uploads, including zip, 7z and rar archives.
 - Extracts archives with 7-Zip, filters videos and external subtitles, and sends discarded content to the trash instead of deleting it.
-- Moves uploaded or SMB-copied files through **Unassigned** and **Assign**, with title suggestions from TMDB or a free title.
+- Moves uploaded or SMB-copied files through **Unassigned** and **Assign**, with title suggestions from TMDB (by name, TMDB ID, IMDb ID or a pasted link) or a free title. Files copied over SMB are detected automatically.
 - Names folders, videos and subtitles using the Jellyfin convention, including optional `[tmdbid-ID]` tags, duplicate decisions, versions, parts and episode numbering.
-- Edits and reassigns library files, downloads files or titles, restores items from the trash, and permanently purges trash entries.
+- Edits and reassigns library files, downloads files or titles, selects several titles to move them to the trash at once, restores items from the trash, and permanently purges trash entries.
 - Provides settings for language, scans, TMDB and Jellyfin, and, when Jellyfin is configured, asks it to refresh only the affected folders after each library change.
 - Supports Spanish and English with mouse, keyboard, touch and gamepad input.
 
@@ -22,6 +24,18 @@ The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md)
 ## Online demo
 
 **Live demo:** [video-explorer-sepia.vercel.app](https://video-explorer-sepia.vercel.app). The demo runs without a backend; its in-memory changes reset when the page reloads. TMDB images load from `image.tmdb.org`.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Home with the hero carousel and the recently added rows](docs/screenshots/en/home.png) | ![Movie page with its backdrop, files and collection](docs/screenshots/en/movie.png) |
+| ![Series page with seasons and present and missing episodes](docs/screenshots/en/series.png) | ![Assign: the chosen TMDB match and the final paths preview](docs/screenshots/en/assign.png) |
+| ![The Unassigned section with an archive waiting for its password and entries ready to assign](docs/screenshots/en/unassigned.png) | ![Movies grid in selection mode with a genre filter, ready to move to the trash](docs/screenshots/en/select.png) |
+
+<p align="center"><img src="docs/screenshots/en/phone.png" alt="Home on a phone" width="300"></p>
+
+Screenshots and GIF are generated from the demo with `task screenshots`. Posters and backdrops come from TMDB.
 
 ## Production image
 
@@ -63,11 +77,65 @@ task gen           # Regenerate OpenAPI and SQL code
 task build:web     # Build the frontend
 task build:demo    # Build with the demo adapters
 task e2e           # Run Playwright E2E in Docker (desktop and touch mobile)
+task screenshots   # README screenshots and GIF from the demo
 ```
 
 See [`Taskfile.yml`](Taskfile.yml) for all available tasks. Go tooling runs in Docker so development matches CI and production Linux paths.
 
 ## Architecture
+
+```mermaid
+flowchart LR
+  subgraph NAS["TrueNAS SCALE"]
+    direction TB
+    app["VideoExplorer<br/>Go binary + embedded React app"]
+    db[("SQLite + image cache<br/>/data")]
+    lib[("Media dataset<br/>/library: Movies · TV Shows · _unassigned")]
+    tools["7-Zip · ffprobe<br/>(child processes)"]
+    jf["Jellyfin"]
+    app --- db
+    app --- lib
+    app --- tools
+    jf -. "reads (read-only)" .- lib
+  end
+  browser["Browser<br/>desktop · phone · gamepad"] -- "HTTP · tus uploads · SSE" --> app
+  app -- "titles, posters, seasons" --> tmdb["TMDB"]
+  app -- "refresh affected folders" --> jf
+  pc["PC over SMB"] -- "copies files<br/>(detected with inotify)" --> lib
+  subgraph Vercel
+    demo["Demo<br/>same React app, in-memory adapters"]
+  end
+  visitor["Visitor"] --> demo
+```
+
+An upload is a job that follows this state machine (spec RF-10a); its result lands in **Unassigned**, and nothing reaches the library until the user confirms it in **Assign**:
+
+```mermaid
+stateDiagram-v2
+  [*] --> uploading
+  uploading --> uploaded
+  uploaded --> waiting_parts: multi-part archive
+  waiting_parts --> extracting
+  uploaded --> extracting: archive
+  extracting --> needs_password
+  needs_password --> extracting
+  extracting --> filtering
+  uploaded --> filtering: loose files
+  filtering --> done: kept videos and subtitles
+  filtering --> discarded: nothing kept
+  extracting --> failed
+  failed --> extracting: retry
+  uploading --> cancelled
+  done --> [*]
+```
+
+| | |
+|---|---|
+| Backend | Go, `net/http`, tusd, SQLite (modernc + sqlc + goose), fsnotify, 7-Zip and ffprobe as child processes |
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS 4, TanStack Router/Query, tus-js-client, i18next |
+| Contract | OpenAPI 3, spec-first: the Go server and the TS client are generated |
+| Design | Domain-Driven Design on both sides (catalog, ingestion, metadata, mediaservers, identity), ports and adapters; Go and TypeScript share golden test vectors for naming and file-name parsing |
+| Quality | Go and Vitest tests, Playwright E2E on desktop and touch phone, golangci-lint, ESLint strict, govulncheck in CI |
 
 The backend and frontend use Domain-Driven Design with pure domain packages and ports/adapters. The main areas are:
 

@@ -4,6 +4,8 @@
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
+![Subir archivos de ejemplo, asignar una película desde No asignados con una coincidencia de TMDB y abrir el título guardado](docs/screenshots/es/assign.gif)
+
 VideoExplorer es una app web autoalojada para un NAS doméstico (TrueNAS SCALE). Organiza películas y series para que Jellyfin las reconozca, con una interfaz de biblioteca estilo Netflix. Gestiona archivos; nunca reproduce video.
 
 ## Qué hace hoy
@@ -11,9 +13,9 @@ VideoExplorer es una app web autoalojada para un NAS doméstico (TrueNAS SCALE).
 - Explora una biblioteca estilo Netflix de películas, series, temporadas, capítulos y colecciones.
 - Sube uno o varios archivos con subidas reanudables mediante [tus](https://tus.io/), incluidos comprimidos zip, 7z y rar.
 - Descomprime con 7-Zip, filtra videos y subtítulos externos, y manda lo descartado a la papelera en vez de borrarlo.
-- Lleva los archivos subidos o copiados por SMB a **No asignados** y **Asignar**, con sugerencias de títulos de TMDB o un nombre libre.
+- Lleva los archivos subidos o copiados por SMB a **No asignados** y **Asignar**, con sugerencias de títulos de TMDB (por nombre, id de TMDB, id de IMDb o un enlace pegado) o un nombre libre. Lo copiado por SMB se detecta solo.
 - Nombra carpetas, videos y subtítulos con la convención de Jellyfin, incluida la etiqueta opcional `[tmdbid-ID]`, decisiones de duplicados, versiones, partes y numeración de capítulos.
-- Edita y reasigna archivos de la biblioteca, descarga archivos o títulos, restaura elementos de la papelera y la vacía de forma permanente.
+- Edita y reasigna archivos de la biblioteca, descarga archivos o títulos, selecciona varios títulos para mandarlos a la papelera de una vez, restaura elementos de la papelera y la vacía de forma permanente.
 - Ofrece ajustes de idioma, escaneos, TMDB y Jellyfin, y, si Jellyfin está configurado, le pide refrescar solo las carpetas afectadas tras cada cambio en la biblioteca.
 - Funciona en español e inglés con ratón, teclado, táctil y gamepad.
 
@@ -22,6 +24,18 @@ Los requisitos detallados y el trabajo actual están en [`docs/spec.md`](docs/sp
 ## Demo en línea
 
 **Demo:** [video-explorer-sepia.vercel.app](https://video-explorer-sepia.vercel.app). Funciona sin backend; los cambios en memoria se pierden al recargar. Las imágenes de TMDB se cargan desde `image.tmdb.org`.
+
+## Capturas
+
+| | |
+|---|---|
+| ![Inicio con el carrusel destacado y las filas de agregados recientemente](docs/screenshots/es/home.png) | ![Ficha de película con su fondo, archivos y colección](docs/screenshots/es/movie.png) |
+| ![Ficha de serie con temporadas y capítulos presentes y faltantes](docs/screenshots/es/series.png) | ![Asignar: la coincidencia de TMDB elegida y la vista previa de las rutas finales](docs/screenshots/es/assign.png) |
+| ![La sección No asignados con un comprimido que espera su contraseña y entradas listas para asignar](docs/screenshots/es/unassigned.png) | ![Cuadrícula de películas en modo selección con un filtro de géneros, lista para mandar a la papelera](docs/screenshots/es/select.png) |
+
+<p align="center"><img src="docs/screenshots/es/phone.png" alt="Inicio en un teléfono" width="300"></p>
+
+Las capturas y el GIF se generan desde la demo con `task screenshots`. Los pósters y fondos vienen de TMDB.
 
 ## Imagen de producción
 
@@ -63,11 +77,65 @@ task gen           # Regenera el código de OpenAPI y SQL
 task build:web     # Construye el frontend
 task build:demo    # Construye con los adaptadores de demo
 task e2e           # Ejecuta Playwright en Docker (escritorio y móvil táctil)
+task screenshots   # Capturas y GIF del README desde la demo
 ```
 
 Consulta [`Taskfile.yml`](Taskfile.yml) para ver todas las tareas. Las herramientas de Go corren en Docker para coincidir con la CI y con las rutas Linux de producción.
 
 ## Arquitectura
+
+```mermaid
+flowchart LR
+  subgraph NAS["TrueNAS SCALE"]
+    direction TB
+    app["VideoExplorer<br/>binario Go + app React embebida"]
+    db[("SQLite + caché de imágenes<br/>/data")]
+    lib[("Dataset multimedia<br/>/library: Movies · TV Shows · _unassigned")]
+    tools["7-Zip · ffprobe<br/>(procesos hijos)"]
+    jf["Jellyfin"]
+    app --- db
+    app --- lib
+    app --- tools
+    jf -. "lee (solo lectura)" .- lib
+  end
+  browser["Navegador<br/>escritorio · móvil · gamepad"] -- "HTTP · subidas tus · SSE" --> app
+  app -- "títulos, pósters, temporadas" --> tmdb["TMDB"]
+  app -- "refrescar carpetas afectadas" --> jf
+  pc["PC por SMB"] -- "copia archivos<br/>(detectados con inotify)" --> lib
+  subgraph Vercel
+    demo["Demo<br/>la misma app React, adaptadores en memoria"]
+  end
+  visitor["Visitante"] --> demo
+```
+
+Una subida es un trabajo que sigue esta máquina de estados (spec RF-10a); su resultado llega a **No asignados**, y nada entra en la biblioteca sin que el usuario lo confirme en **Asignar**:
+
+```mermaid
+stateDiagram-v2
+  [*] --> uploading
+  uploading --> uploaded
+  uploaded --> waiting_parts: comprimido multiparte
+  waiting_parts --> extracting
+  uploaded --> extracting: comprimido
+  extracting --> needs_password
+  needs_password --> extracting
+  extracting --> filtering
+  uploaded --> filtering: archivos sueltos
+  filtering --> done: conserva videos y subtítulos
+  filtering --> discarded: no conserva nada
+  extracting --> failed
+  failed --> extracting: reintentar
+  uploading --> cancelled
+  done --> [*]
+```
+
+| | |
+|---|---|
+| Backend | Go, `net/http`, tusd, SQLite (modernc + sqlc + goose), fsnotify, 7-Zip y ffprobe como procesos hijos |
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS 4, TanStack Router/Query, tus-js-client, i18next |
+| Contrato | OpenAPI 3, spec-first: el servidor Go y el cliente TS se generan |
+| Diseño | Domain-Driven Design en ambos lados (catalog, ingestion, metadata, mediaservers, identity), puertos y adaptadores; Go y TypeScript comparten vectores dorados de nombres y lectura de nombres de archivo |
+| Calidad | Tests de Go y Vitest, E2E con Playwright en escritorio y móvil táctil, golangci-lint, ESLint estricto, govulncheck en la CI |
 
 El backend y el frontend usan Domain-Driven Design, con paquetes de dominio puros y puertos/adaptadores. Las áreas principales son:
 
