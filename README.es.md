@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[English](README.md) · **Estado: terminado — v1.0.0**
+[English](README.md) · **Estado: terminado — última versión v1.0.1**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
