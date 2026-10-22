@@ -409,6 +409,31 @@ test('shows the stacked relation choices in English', async ({ page }) => {
   ).toBe(true)
 })
 
+test('keeps mobile hero buttons and indicators in separate rows in Spanish and English', async ({
+  page,
+}) => {
+  for (const width of [390, 360]) {
+    await page.setViewportSize({ width, height: 844 })
+    for (const language of ['es', 'en']) {
+      await page.goto('/')
+      if (language === 'en') {
+        await page.evaluate(() => localStorage.setItem('ve.lang', 'en'))
+        await page.reload()
+      }
+      const indicators = page.getByRole('group', {
+        name: language === 'en' ? 'Featured indicators' : 'Indicadores de destacados',
+      })
+      await expect(indicators).toBeVisible()
+      const buttons = indicators.locator('xpath=preceding-sibling::div[1]')
+      const buttonBox = await buttons.boundingBox()
+      const indicatorBox = await indicators.boundingBox()
+      expect(buttonBox).not.toBeNull()
+      expect(indicatorBox).not.toBeNull()
+      expect((indicatorBox?.y ?? 0) - ((buttonBox?.y ?? 0) + (buttonBox?.height ?? 0))).toBe(12)
+    }
+  }
+})
+
 test('assigns the seeded Dark Knight duplicate through save', async ({ page }) => {
   await page.goto('/unassigned/4/assign')
   await expect(page.getByRole('heading', { name: /Asignar/ })).toBeVisible()

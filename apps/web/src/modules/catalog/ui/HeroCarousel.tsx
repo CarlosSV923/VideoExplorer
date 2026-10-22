@@ -96,7 +96,7 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
         />
       )}
       <div className="absolute inset-0 bg-scrim" />
-      <div className="relative flex h-full max-w-3xl flex-col justify-end gap-2 px-[var(--page-x,16px)] py-6 md:gap-4 md:py-12">
+      <div className="relative flex h-full max-w-3xl flex-col justify-end gap-3 px-[var(--page-x,16px)] py-6 md:gap-4 md:py-12">
         <h2
           aria-label={title}
           title={title}
@@ -119,10 +119,10 @@ export function HeroCarousel({ titles }: { titles: LibraryTitleSummary[] }) {
           {detail?.year ?? current.year}
           {(detail?.genres ?? []).length ? ` · ${(detail?.genres ?? []).join(' · ')}` : ''}
         </p>
-        <p className="m-0 h-[81px] max-h-[81px] max-w-2xl shrink-0 overflow-hidden text-body-lg text-ink-1 line-clamp-3">
+        <p className="m-0 h-[54px] max-h-[54px] max-w-2xl shrink-0 overflow-hidden text-body-lg text-ink-1 line-clamp-2 md:h-[81px] md:max-h-[81px] md:line-clamp-3">
           {detail?.overview ?? ''}
         </p>
-        <div className="flex h-12 shrink-0 flex-wrap gap-3">
+        <div className="flex min-h-12 shrink-0 flex-wrap gap-3">
           <LinkButton
             href={`/${current.kind === 'movie' ? 'movies' : 'series'}/${String(current.id)}`}
             variant="primary"
