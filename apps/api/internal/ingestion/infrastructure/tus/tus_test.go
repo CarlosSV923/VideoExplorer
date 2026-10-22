@@ -118,10 +118,10 @@ func newFixture(t *testing.T, free uint64) fixture {
 }
 
 // do sends a request and closes the body when the test ends.
-func do(t *testing.T, req *http.Request) *http.Response {
+func do(t *testing.T, client *http.Client, req *http.Request) *http.Response {
 	t.Helper()
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func (f fixture) create(t *testing.T, size int64, uploadMetadata string) *http.R
 	if uploadMetadata != "" {
 		req.Header.Set("Upload-Metadata", uploadMetadata)
 	}
-	return do(t, req)
+	return do(t, f.srv.Client(), req)
 }
 
 // patch sends one chunk at offset and returns the response.
@@ -171,7 +171,7 @@ func (f fixture) patch(t *testing.T, location string, offset int64, chunk string
 	req.Header.Set("Tus-Resumable", "1.0.0")
 	req.Header.Set("Upload-Offset", strconv.FormatInt(offset, 10))
 	req.Header.Set("Content-Type", "application/offset+octet-stream")
-	return do(t, req)
+	return do(t, f.srv.Client(), req)
 }
 
 // head asks the server how many bytes it has (the resume point).
@@ -180,7 +180,7 @@ func (f fixture) head(t *testing.T, location string) *http.Response {
 
 	req := request(t, http.MethodHead, location, nil)
 	req.Header.Set("Tus-Resumable", "1.0.0")
-	return do(t, req)
+	return do(t, f.srv.Client(), req)
 }
 
 // remove deletes the upload (tus termination).
@@ -189,7 +189,7 @@ func (f fixture) remove(t *testing.T, location string) *http.Response {
 
 	req := request(t, http.MethodDelete, location, nil)
 	req.Header.Set("Tus-Resumable", "1.0.0")
-	return do(t, req)
+	return do(t, f.srv.Client(), req)
 }
 
 // awaitCompleted waits for the next finished upload and returns its job id.
@@ -492,7 +492,7 @@ func TestCreateRequiresTheSizeUpFront(t *testing.T) {
 	req.Header.Set("Tus-Resumable", "1.0.0")
 	req.Header.Set("Upload-Defer-Length", "1")
 	req.Header.Set("Upload-Metadata", metadata("filename", "a.mkv", "batchId", testBatch))
-	if res := do(t, req); res.StatusCode != http.StatusBadRequest {
+	if res := do(t, f.srv.Client(), req); res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("deferred length status = %d, want 400", res.StatusCode)
 	}
 }

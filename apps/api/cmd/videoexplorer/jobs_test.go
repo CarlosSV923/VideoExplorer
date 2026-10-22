@@ -106,7 +106,7 @@ func TestJobEventsSendTheSnapshotToASession(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.AddCookie(cookie)
-	res, err := http.DefaultClient.Do(req)
+	res, err := srv.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}

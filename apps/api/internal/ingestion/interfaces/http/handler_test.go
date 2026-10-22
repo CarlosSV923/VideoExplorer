@@ -122,7 +122,7 @@ func (f fixture) connect(t *testing.T) stream {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := f.server.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
