@@ -173,7 +173,7 @@ Capa única en `shared/input` (la de GameExplorer, adaptada): las pantallas se s
 | ≥ 1280 | Mockups de escritorio (1440) |
 | 1024–1279 | Igual, con menos pósters visibles por fila; Asignar y Editar mantienen dos columnas |
 | 768–1023 (tablet) | Cabecera en dos líneas (navegación debajo). Asignar y Editar: «Así quedará» pasa debajo del formulario con Guardar fijo abajo. Panel de Subidas a ancho completo |
-| < 768 (teléfono) | Mockups de móvil (390): barra de navegación inferior con 5 destinos (Inicio, Películas, Series, No asignados, Ajustes), icono + texto de 13 px; cabecera con lupa, indicador de subidas y botón Subir de icono; hero de 440 px con botones a lo ancho; pósters de 120 px; acciones de archivo en un menú «⋯»; Subidas y «Así quedará» como hoja inferior; Guardar fijo abajo |
+| < 768 (teléfono) | Mockups de móvil (390): barra de navegación inferior con 5 destinos (Inicio, Películas, Series, No asignados, Ajustes), icono + texto de 13 px; cabecera con lupa, indicador de subidas y botón Subir de icono; hero de 440 px con botones a lo ancho (los botones y la fila de indicadores nunca se solapan: van en flujo, uno debajo del otro, con 12 px entre ellos; si no caben, la sinopsis baja a 2 líneas, ajuste 2026-10-21); pósters de 120 px; acciones de archivo en un menú «⋯»; Subidas y «Así quedará» como hoja inferior; Guardar fijo abajo |
 
 ### Rutas (TanStack Router, en inglés; RF-64, decisión 2026-10-21)
 | Ruta | Pantalla |
