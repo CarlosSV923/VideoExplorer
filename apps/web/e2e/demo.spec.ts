@@ -416,10 +416,10 @@ test('keeps mobile hero buttons and indicators in separate rows in Spanish and E
     await page.setViewportSize({ width, height: 844 })
     for (const language of ['es', 'en']) {
       await page.goto('/')
-      if (language === 'en') {
-        await page.evaluate(() => localStorage.setItem('ve.lang', 'en'))
-        await page.reload()
-      }
+      await page.evaluate((selected) => {
+        localStorage.setItem('ve.lang', selected)
+      }, language)
+      await page.reload()
       const indicators = page.getByRole('group', {
         name: language === 'en' ? 'Featured indicators' : 'Indicadores de destacados',
       })
@@ -432,6 +432,27 @@ test('keeps mobile hero buttons and indicators in separate rows in Spanish and E
       expect((indicatorBox?.y ?? 0) - ((buttonBox?.y ?? 0) + (buttonBox?.height ?? 0))).toBe(12)
     }
   }
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+  const hero = page.locator('main section[aria-label="Featured"]')
+  await expect(hero).toBeVisible()
+  expect((await hero.boundingBox())?.height).toBe(600)
+  expect(
+    await hero
+      .locator('p.text-body-lg')
+      .evaluate((element) => element.getBoundingClientRect().height),
+  ).toBe(81)
+})
+
+test('updates demo catalog text after changing language without reloading', async ({ page }) => {
+  await page.goto('/settings/general')
+  await page.getByRole('button', { name: 'English' }).click()
+  await page.goto('/movies')
+  await expect(page.getByRole('link', { name: /The Lion King/ }).first()).toBeVisible()
+  await page.goto('/settings/general')
+  await page.getByRole('button', { name: 'Español' }).click()
+  await page.goto('/movies')
+  await expect(page.getByRole('link', { name: /El rey le.n/ }).first()).toBeVisible()
 })
 
 test('assigns the seeded Dark Knight duplicate through save', async ({ page }) => {

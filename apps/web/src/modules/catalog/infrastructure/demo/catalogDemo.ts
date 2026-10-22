@@ -12,7 +12,7 @@ import type {
   TrashList,
   UnassignedSection,
 } from '@/modules/catalog/domain/types'
-import { demoImage } from '@/modules/metadata/infrastructure/demo/metadataDemo'
+import { demoImage, localizedDemoText } from '@/modules/metadata/infrastructure/demo/metadataDemo'
 import { AppError } from '@/shared/kernel/errors'
 
 type DemoTitle = (typeof catalog.titles)[number]
@@ -62,9 +62,10 @@ const freeTitle = {
 
 function makeTitle(source: DemoTitle): LibraryTitle {
   const id = ids.get(source.tmdbId) ?? nextId++
-  const name = source.title.es
+  const name = localizedDemoText(source.title)
+  const diskName = source.title.es
   const series = source.type === 'series'
-  const present = episodeSelection[name.toLocaleLowerCase()]
+  const present = episodeSelection[diskName.toLocaleLowerCase()]
   let videoId = id * 100
   const seasons: LibrarySeason[] = (source.seasons ?? []).map((season) => ({
     number: season.number,
@@ -73,7 +74,7 @@ function makeTitle(source: DemoTitle): LibraryTitle {
       const video = hasFile
         ? {
             id: videoId++,
-            path: `${name} (${String(source.year)}) [tmdbid-${String(source.tmdbId)}]/Season ${String(season.number).padStart(2, '0')}/${name} - S${String(season.number).padStart(2, '0')}E${String(episode.number).padStart(2, '0')}.mkv`,
+            path: `${diskName} (${String(source.year)}) [tmdbid-${String(source.tmdbId)}]/Season ${String(season.number).padStart(2, '0')}/${diskName} - S${String(season.number).padStart(2, '0')}E${String(episode.number).padStart(2, '0')}.mkv`,
             size: 1_000_000_000,
             version: '',
             part: 0,
@@ -85,7 +86,7 @@ function makeTitle(source: DemoTitle): LibraryTitle {
       return {
         id: source.tmdbId * 100_000 + season.number * 100 + episode.number,
         number: episode.number,
-        title: episode.title.es,
+        title: localizedDemoText(episode.title),
         overview: '',
         status: hasFile
           ? ('present' as const)
@@ -146,9 +147,9 @@ function makeTitle(source: DemoTitle): LibraryTitle {
     tmdbId: source.tmdbId,
     idTag: true,
     originalTitle: source.originalTitle,
-    overview: source.synopsis.es,
+    overview: localizedDemoText(source.synopsis),
     runtime: source.runtime ?? 0,
-    genres: source.genres.map((genre) => genre.name.es),
+    genres: source.genres.map((genre) => localizedDemoText(genre.name)),
     poster: demoImage(name, 'poster', source.posterPath),
     backdrop: demoImage(name, 'backdrop', source.backdropPath),
     ...(source.logoPath ? { logo: demoImage(name, 'logo', source.logoPath) } : {}),
@@ -156,16 +157,16 @@ function makeTitle(source: DemoTitle): LibraryTitle {
       ? {
           collection: {
             id: source.collection.id,
-            name: source.collection.name.es,
+            name: localizedDemoText(source.collection.name),
             overview: '',
             movies: collectionMovies.map((movie) => {
               const libraryTitleId = ids.get(movie.tmdbId)
               return {
                 id: movie.tmdbId,
-                title: movie.title.es,
+                title: localizedDemoText(movie.title),
                 originalTitle: movie.originalTitle,
                 year: movie.year,
-                poster: demoImage(movie.title.es, 'poster', movie.posterPath),
+                poster: demoImage(localizedDemoText(movie.title), 'poster', movie.posterPath),
                 inLibrary: libraryTitleId !== undefined,
                 ...(libraryTitleId === undefined ? {} : { libraryTitleId }),
               }
@@ -214,6 +215,32 @@ export function createCatalogDemo(): DemoCatalogAdapter {
   nextId = 1000
   for (const item of titles) if (!ids.has(item.tmdbId)) ids.set(item.tmdbId, nextId++)
   const library = titles.map(makeTitle)
+  const localizeLibrary = () => {
+    const language = document.documentElement.lang === 'en' ? 'en' : 'es'
+    for (const title of library) {
+      const source = catalog.titles.find((item) => item.tmdbId === title.tmdbId)
+      if (!source) continue
+      title.title = localizedDemoText(source.title, language)
+      title.overview = localizedDemoText(source.synopsis, language)
+      title.genres = source.genres.map((genre) => localizedDemoText(genre.name, language))
+      for (const season of title.seasons) {
+        const sourceSeason = source.seasons?.find((candidate) => candidate.number === season.number)
+        for (const episode of season.episodes) {
+          const sourceEpisode = sourceSeason?.episodes.find(
+            (candidate) => candidate.number === episode.number,
+          )
+          if (sourceEpisode) episode.title = localizedDemoText(sourceEpisode.title, language)
+        }
+      }
+      if (title.collection && source.collection) {
+        title.collection.name = localizedDemoText(source.collection.name, language)
+        for (const movie of title.collection.movies) {
+          const sourceMovie = catalog.titles.find((candidate) => candidate.tmdbId === movie.id)
+          if (sourceMovie) movie.title = localizedDemoText(sourceMovie.title, language)
+        }
+      }
+    }
+  }
   library.push(freeTitle)
   const initialEntries = [
     ['Ted.Lasso.S02.1080p.WEB', ['Ted.Lasso.S02E01.mkv', 'Ted.Lasso.S02E02.mkv']],
@@ -284,7 +311,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
       source: existing ? 'library' : 'tmdb',
       ...(existing ? { libraryTitleId: existing.id } : { tmdbId: id }),
       kind: source.type as 'movie' | 'series',
-      title: source.title.es,
+      title: localizedDemoText(source.title),
       year: source.year,
       posterFile: `${String(id)}.svg`,
     }
@@ -544,8 +571,9 @@ export function createCatalogDemo(): DemoCatalogAdapter {
         })),
       })
     },
-    libraryTitles: async () =>
-      ({
+    libraryTitles: async () => {
+      localizeLibrary()
+      return {
         titles: library.map((item) => ({
           id: item.id,
           kind: item.kind,
@@ -570,10 +598,15 @@ export function createCatalogDemo(): DemoCatalogAdapter {
             : {}),
           addedAt: created,
         })),
-      }) as LibraryTitles,
-    libraryTitle: async (id) =>
-      library.find((item) => item.id === id) ??
-      Promise.reject(new AppError('notFound', { status: 404 })),
+      } as LibraryTitles
+    },
+    libraryTitle: async (id) => {
+      localizeLibrary()
+      return (
+        library.find((item) => item.id === id) ??
+        Promise.reject(new AppError('notFound', { status: 404 }))
+      )
+    },
     libraryCollection: async (id) => {
       const members = catalog.titles.filter(
         (item) => item.collection?.id === id && item.type === 'movie',
@@ -582,11 +615,11 @@ export function createCatalogDemo(): DemoCatalogAdapter {
       if (!source) return missing()
       return {
         id,
-        name: source.name.es,
+        name: localizedDemoText(source.name),
         overview: '',
-        poster: demoImage(source.name.es, 'poster', source.posterPath),
+        poster: demoImage(localizedDemoText(source.name), 'poster', source.posterPath),
         backdrop: demoImage(
-          source.name.es,
+          localizedDemoText(source.name),
           'backdrop',
           members.find((item) => item.backdropPath)?.backdropPath,
         ),
@@ -594,10 +627,10 @@ export function createCatalogDemo(): DemoCatalogAdapter {
           const libraryTitleId = ids.get(movie.tmdbId)
           return {
             id: movie.tmdbId,
-            title: movie.title.es,
+            title: localizedDemoText(movie.title),
             originalTitle: movie.originalTitle,
             year: movie.year,
-            poster: demoImage(movie.title.es, 'poster', movie.posterPath),
+            poster: demoImage(localizedDemoText(movie.title), 'poster', movie.posterPath),
             inLibrary: libraryTitleId !== undefined,
             ...(libraryTitleId === undefined ? {} : { libraryTitleId }),
           }
@@ -631,7 +664,7 @@ export function createCatalogDemo(): DemoCatalogAdapter {
           : undefined
       const preview = source ? buildEditPlan(title, request) : undefined
       if (source) {
-        title.title = source.title.es
+        title.title = localizedDemoText(source.title)
         title.discTitle = source.discTitle
         title.originalTitle = source.originalTitle
         title.year = source.year

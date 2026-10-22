@@ -23,6 +23,14 @@ export function demoImage(
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+type DemoLanguage = 'es' | 'en'
+type LocalizedText = { es?: string; en?: string }
+
+export function localizedDemoText(value: LocalizedText, language?: DemoLanguage): string {
+  const selected = language ?? (document.documentElement.lang === 'en' ? 'en' : 'es')
+  return value[selected] ?? value[selected === 'es' ? 'en' : 'es'] ?? ''
+}
+
 export const demoCatalog = catalog
 
 type DemoTitle = (typeof catalog.titles)[number] & { imdbId?: string }
@@ -101,7 +109,7 @@ export function createMetadataDemo(catalogPorts?: CatalogPorts): MetadataPorts {
             ...(libraryHit ? { libraryTitleId: libraryHit.id } : {}),
             tmdbId: item.tmdbId,
             kind: item.type as 'movie' | 'series',
-            title: item.title.es,
+            title: localizedDemoText(item.title),
             year: item.year,
             posterFile: `${String(item.tmdbId)}.svg`,
           }
@@ -118,9 +126,8 @@ export function createMetadataDemo(catalogPorts?: CatalogPorts): MetadataPorts {
     },
     imageUrl: (kind: ImageKind, file: string) => {
       const id = Number(file.replace(/\.svg$/, ''))
-      const title =
-        catalog.titles.find((item) => item.tmdbId === id)?.title.es ?? file.replace(/\.svg$/, '')
       const item = catalog.titles.find((candidate) => candidate.tmdbId === id)
+      const title = item ? localizedDemoText(item.title) : file.replace(/\.svg$/, '')
       const path =
         kind === 'poster'
           ? item?.posterPath

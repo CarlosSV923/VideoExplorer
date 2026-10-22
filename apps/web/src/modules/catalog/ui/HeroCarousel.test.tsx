@@ -151,6 +151,11 @@ describe('HeroCarousel', () => {
     expect(screen.getByRole('heading', { name: 'Sin logo' }).querySelector('span')).toHaveClass(
       'text-display-hero',
     )
-    expect(hero.querySelector('p.text-body-lg')).toHaveClass('h-[81px]', 'line-clamp-3')
+    expect(hero.querySelector('p.text-body-lg')).toHaveClass(
+      'h-[54px]',
+      'line-clamp-2',
+      'md:h-[81px]',
+      'md:line-clamp-3',
+    )
   })
 })
