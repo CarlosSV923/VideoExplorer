@@ -98,7 +98,7 @@ async function fixedPage(browser, lang, options = {}) {
     localStorage.setItem('ve.lang', language)
     const style = document.createElement('style')
     style.textContent =
-      '* { caret-color: transparent !important; animation: none !important; transition: none !important; scroll-behavior: auto !important; }'
+      '* { caret-color: transparent !important; animation: none !important; transition: none !important; scroll-behavior: auto !important; } body { zoom: 0.75; }'
     document.documentElement.append(style)
   }, lang)
   const page = await context.newPage()
@@ -149,10 +149,7 @@ async function captureMovie(page, langDir, t) {
   await waitForTmdbImage(movie)
   await movie.click()
   await page.getByRole('heading', { level: 1, name: /Duna|Dune/ }).waitFor()
-  await page.evaluate(() => {
-    document.body.style.zoom = '0.75'
-    window.scrollTo(0, 0)
-  })
+  await page.evaluate(() => window.scrollTo(0, 0))
   const files = page.getByRole('heading', { name: t.files, exact: true })
   await page.getByRole('heading', { name: t.collectionTitle }).waitFor()
   await capture(page, join(langDir, 'movie.png'))
@@ -165,14 +162,17 @@ async function captureSeries(page, langDir, t) {
   await waitForTmdbImage(series)
   await series.click()
   await page.getByRole('heading', { level: 1, name: 'Breaking Bad' }).waitFor()
-  await page.evaluate(() => {
-    document.body.style.zoom = '0.55'
-    window.scrollTo(0, 0)
-  })
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.getByRole('heading', { name: t.seasons, exact: true }).waitFor()
   await page.getByRole('tab', { name: /Season 3|Temporada 3/ }).click()
-  await page.getByText(/Present|Presente/).first().waitFor()
-  await page.getByText(/Missing|Falta/).first().waitFor()
+  await page
+    .getByText(/Present|Presente/)
+    .first()
+    .waitFor()
+  await page
+    .getByText(/Missing|Falta/)
+    .first()
+    .waitFor()
   await capture(page, join(langDir, 'series.png'))
 }
 
@@ -268,7 +268,7 @@ async function captureGif(browser, lang, t, langDir) {
     localStorage.setItem('ve.lang', language)
     const style = document.createElement('style')
     style.textContent =
-      '* { caret-color: transparent !important; animation: none !important; transition: none !important; scroll-behavior: auto !important; }'
+      '* { caret-color: transparent !important; animation: none !important; transition: none !important; scroll-behavior: auto !important; } body { zoom: 0.75; }'
     document.documentElement.append(style)
   }, lang)
   const page = await context.newPage()
