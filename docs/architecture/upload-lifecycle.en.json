@@ -1,0 +1,59 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Upload Job Lifecycle",
+    "locale": "en",
+    "output": "docs/architecture/site/upload-lifecycle.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/CarlosSV923/VideoExplorer.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "a5421ce13e90396629439e2ab0129a266014bbc6"
+    }
+  },
+  "mainPath": ["uploading", "uploaded", "extracting", "filtering", "done"],
+  "states": [
+    { "id": "uploading", "type": "start", "label": "Uploading", "sublabel": "tus transfer in progress", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 18, "end_line": 26 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 219, "end_line": 246 }] },
+    { "id": "uploaded", "type": "active", "label": "Uploaded", "sublabel": "all bytes received", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 357, "end_line": 364 }] },
+    { "id": "waiting-parts", "type": "waiting", "label": "Waiting for parts", "sublabel": "multi-part archive only", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 302, "end_line": 319 }] },
+    { "id": "extracting", "type": "active", "label": "Extracting", "sublabel": "archive contents", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 378, "end_line": 386 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 417, "end_line": 424 }] },
+    { "id": "needs-password", "type": "waiting", "label": "Needs password", "sublabel": "encrypted archive or wrong password", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 401, "end_line": 414 }] },
+    { "id": "filtering", "type": "active", "label": "Filtering", "sublabel": "keeps videos and subtitles", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 478, "end_line": 503 }] },
+    { "id": "done", "type": "success", "label": "Done · in Unassigned", "sublabel": "Assign confirmation required", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 36, "end_line": 37 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 461, "end_line": 465 }, { "path": "docs/spec.md", "line": 56, "end_line": 56 }] },
+    { "id": "discarded", "type": "neutral", "label": "Discarded", "sublabel": "batch keeps content", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 38, "end_line": 39 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 494, "end_line": 497 }] },
+    { "id": "failed", "type": "failure", "label": "Failed", "sublabel": "Retry where eligible", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 40, "end_line": 62 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 427, "end_line": 458 }] },
+    { "id": "cancelled", "type": "neutral", "label": "Cancelled", "sublabel": "user or browser request", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 500, "end_line": 513 }] }
+  ],
+  "transitions": [
+    { "id": "upload-complete", "from": "uploading", "to": "uploaded", "label": "complete" },
+    { "id": "await-parts", "from": "uploaded", "to": "waiting-parts", "label": "parts" },
+    { "id": "parts-ready", "from": "waiting-parts", "to": "extracting", "label": "complete set" },
+    { "id": "archive-start", "from": "uploaded", "to": "extracting", "label": "archive" },
+    { "id": "password-prompt", "from": "extracting", "to": "needs-password", "label": "password needed" },
+    { "id": "password-retry", "from": "needs-password", "to": "extracting", "label": "password sent" },
+    { "id": "extract-complete", "from": "extracting", "to": "filtering", "label": "extracted" },
+    { "id": "loose-file", "from": "uploaded", "to": "filtering", "label": "loose files" },
+    { "id": "kept", "from": "filtering", "to": "done", "label": "kept" },
+    { "id": "empty", "from": "filtering", "to": "discarded", "label": "nothing kept" },
+    { "id": "upload-failure", "from": "uploading", "to": "failed" },
+    { "id": "uploaded-failure", "from": "uploaded", "to": "failed" },
+    { "id": "parts-failure", "from": "waiting-parts", "to": "failed" },
+    { "id": "extract-failure", "from": "extracting", "to": "failed" },
+    { "id": "password-failure", "from": "needs-password", "to": "failed" },
+    { "id": "filter-failure", "from": "filtering", "to": "failed" },
+    { "id": "retry-extract", "from": "failed", "to": "extracting", "label": "retry" },
+    { "id": "retry-filter", "from": "failed", "to": "filtering", "label": "retry" },
+    { "id": "cancel-uploading", "from": "uploading", "to": "cancelled" },
+    { "id": "cancel-uploaded", "from": "uploaded", "to": "cancelled" },
+    { "id": "cancel-waiting", "from": "waiting-parts", "to": "cancelled" },
+    { "id": "cancel-extracting", "from": "extracting", "to": "cancelled" },
+    { "id": "cancel-password", "from": "needs-password", "to": "cancelled" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Happy path", "items": ["Archives are extracted, then filtered.", "Loose files go straight from Uploaded to Filtering.", "Kept content ends in Unassigned, not in the library."] },
+    { "dot": "amber", "title": "Waiting and retry", "items": ["Multi-part archives wait until the set is complete.", "Encrypted archives pause for a password and return to Extracting.", "Retry depends on the failure reason; extraction and filtering can resume separately."] },
+    { "dot": "rose", "title": "Terminal outcomes", "items": ["Discarded means this job kept nothing while its batch retained content.", "Cancel is available while uploading, waiting, or extracting.", "No file reaches the library until the user confirms it in Assign."] }
+  ]
+}

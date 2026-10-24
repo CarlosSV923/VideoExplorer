@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "VideoExplorer Architecture",
+    "locale": "en",
+    "output": "docs/architecture/site/architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/CarlosSV923/VideoExplorer.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "a5421ce13e90396629439e2ab0129a266014bbc6"
+    }
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Browser",
+      "sublabel": "Desktop · phone · gamepad",
+      "pos": [40, 230],
+      "size": [175, 76],
+      "sources": [{ "path": "README.md", "line": 9, "end_line": 20 }]
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "VideoExplorer",
+      "sublabel": "Go API · embedded React",
+      "pos": [340, 220],
+      "size": [250, 100],
+      "sources": [
+        { "path": "apps/api/cmd/videoexplorer/main.go", "line": 101, "end_line": 179 },
+        { "path": "apps/api/internal/platform/web/spa.go", "line": 16, "end_line": 25 }
+      ]
+    },
+    {
+      "id": "data",
+      "type": "database",
+      "label": "SQLite + image cache",
+      "sublabel": "/data · durable metadata and cached images",
+      "pos": [340, 55],
+      "size": [205, 76],
+      "sources": [
+        { "path": "deploy/truenas/compose.yaml", "line": 11, "end_line": 21 },
+        { "path": "apps/api/internal/platform/database/sqlite.go", "line": 18, "end_line": 43 },
+        { "path": "apps/api/cmd/videoexplorer/metadata.go", "line": 23, "end_line": 42 }
+      ]
+    },
+    {
+      "id": "library",
+      "type": "database",
+      "label": "Media dataset",
+      "sublabel": "/library · Movies · TV Shows · _unassigned · .videoexplorer",
+      "pos": [680, 220],
+      "size": [235, 90],
+      "sources": [{ "path": "deploy/truenas/compose.yaml", "line": 11, "end_line": 16 }]
+    },
+    {
+      "id": "children",
+      "type": "backend",
+      "label": "7-Zip + ffprobe",
+      "sublabel": "Separate child processes",
+      "pos": [355, 435],
+      "size": [190, 76],
+      "sources": [
+        { "path": "apps/api/internal/ingestion/infrastructure/sevenzip/sevenzip.go", "line": 143, "end_line": 154 },
+        { "path": "apps/api/internal/ingestion/infrastructure/ffprobe/ffprobe.go", "line": 44, "end_line": 61 }
+      ]
+    },
+    {
+      "id": "jellyfin",
+      "type": "external",
+      "label": "Jellyfin",
+      "sublabel": "Reads the shared media folders",
+      "pos": [680, 350],
+      "size": [180, 76],
+      "sources": [
+        { "path": "deploy/truenas/README.md", "line": 14, "end_line": 23 },
+        { "path": "apps/api/internal/mediaservers/infrastructure/jellyfin/client.go", "line": 152, "end_line": 173 }
+      ]
+    },
+    {
+      "id": "tmdb",
+      "type": "external",
+      "label": "TMDB",
+      "sublabel": "Titles, metadata and images",
+      "pos": [40, 55],
+      "size": [175, 76],
+      "sources": [{ "path": "apps/api/cmd/videoexplorer/metadata.go", "line": 23, "end_line": 42 }]
+    },
+    {
+      "id": "smb-pc",
+      "type": "external",
+      "label": "PC over SMB",
+      "sublabel": "Copies detected by inotify",
+      "pos": [40, 445],
+      "size": [190, 76],
+      "sources": [
+        { "path": "apps/api/cmd/videoexplorer/main.go", "line": 201, "end_line": 205 },
+        { "path": "apps/api/internal/catalog/infrastructure/fswatch/watcher.go", "line": 97, "end_line": 110 },
+        { "path": "README.md", "line": 99, "end_line": 104 }
+      ]
+    },
+    {
+      "id": "demo",
+      "type": "frontend",
+      "label": "Vercel demo",
+      "sublabel": "Same React app · in-memory adapters",
+      "pos": [965, 545],
+      "size": [205, 76],
+      "sources": [
+        { "path": "README.md", "line": 24, "end_line": 26 },
+        { "path": "apps/web/src/app/services.ts", "line": 40, "end_line": 57 },
+        { "path": "apps/web/src/app/config.ts", "line": 1, "end_line": 12 }
+      ]
+    }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "TrueNAS SCALE", "wraps": ["app", "data", "library", "children", "jellyfin"] },
+    { "kind": "region", "label": "Vercel", "wraps": ["demo"] }
+  ],
+  "connections": [
+    { "id": "browser-app", "from": "browser", "to": "app", "label": "HTTP · tus uploads · SSE", "variant": "emphasis" },
+    { "id": "app-data", "from": "app", "to": "data", "label": "SQLite · cached images", "fromSide": "top", "toSide": "bottom" },
+    { "id": "app-library", "from": "app", "to": "library", "label": "Reads · stages · organizes" },
+    { "id": "app-children", "from": "app", "to": "children", "label": "Extracts · probes", "fromSide": "bottom", "toSide": "top" },
+    { "id": "app-tmdb", "from": "app", "to": "tmdb", "label": "Metadata requests", "fromSide": "top", "toSide": "bottom" },
+    { "id": "jellyfin-library", "from": "jellyfin", "to": "library", "label": "Reads media (read-only)", "variant": "dashed" },
+    { "id": "app-jellyfin", "from": "app", "to": "jellyfin", "label": "Refreshes affected folders" },
+    { "id": "pc-library", "from": "smb-pc", "to": "library", "label": "SMB file copies · inotify detection", "variant": "dashed" },
+    { "id": "browser-demo", "from": "browser", "to": "demo", "label": "Visits the online demo" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Self-hosted runtime", "items": ["One Go binary serves the API and embedded React app.", "Backend contexts: catalog, ingestion, metadata, mediaservers, identity and platform.", "SQLite and image files live on the separate /data dataset; media and app-owned staging live on /library."] },
+    { "dot": "amber", "title": "External integrations", "items": ["TMDB supplies metadata and image sources when configured.", "Jellyfin reads Movies and TV Shows and receives folder refreshes.", "7-Zip and ffprobe run as separate child processes."] },
+    { "dot": "emerald", "title": "Online demo", "items": ["Vercel serves the same React app with in-memory demo adapters.", "Demo changes reset when the page reloads."] }
+  ]
+}

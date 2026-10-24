@@ -1,0 +1,59 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Ciclo de vida de una subida",
+    "locale": "es",
+    "output": "docs/architecture/site/es/upload-lifecycle.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/CarlosSV923/VideoExplorer.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "a5421ce13e90396629439e2ab0129a266014bbc6"
+    }
+  },
+  "mainPath": ["uploading", "uploaded", "extracting", "filtering", "done"],
+  "states": [
+    { "id": "uploading", "type": "start", "label": "Subiendo", "sublabel": "transferencia tus en curso", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 18, "end_line": 26 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 219, "end_line": 246 }] },
+    { "id": "uploaded", "type": "active", "label": "Subido", "sublabel": "se recibieron todos los bytes", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 357, "end_line": 364 }] },
+    { "id": "waiting-parts", "type": "waiting", "label": "Esperando partes", "sublabel": "comprimido multiparte", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 302, "end_line": 319 }] },
+    { "id": "extracting", "type": "active", "label": "Descomprimiendo", "sublabel": "archivo", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 378, "end_line": 386 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 417, "end_line": 424 }] },
+    { "id": "needs-password", "type": "waiting", "label": "Necesita clave", "sublabel": "espera contraseña", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 401, "end_line": 414 }] },
+    { "id": "filtering", "type": "active", "label": "Filtrando", "sublabel": "videos y subtítulos", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 478, "end_line": 503 }] },
+    { "id": "done", "type": "success", "label": "Terminado · No asignados", "sublabel": "Confirmar en Asignar", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 36, "end_line": 37 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 461, "end_line": 465 }, { "path": "docs/spec.md", "line": 56, "end_line": 56 }] },
+    { "id": "discarded", "type": "neutral", "label": "Descartado", "sublabel": "el lote conserva", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 38, "end_line": 39 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 494, "end_line": 497 }] },
+    { "id": "failed", "type": "failure", "label": "Error", "sublabel": "Reintento selectivo", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 40, "end_line": 62 }, { "path": "apps/api/internal/ingestion/domain/job.go", "line": 427, "end_line": 458 }] },
+    { "id": "cancelled", "type": "neutral", "label": "Cancelado", "sublabel": "a petición", "sources": [{ "path": "apps/api/internal/ingestion/domain/job.go", "line": 500, "end_line": 513 }] }
+  ],
+  "transitions": [
+    { "id": "upload-complete", "from": "uploading", "to": "uploaded", "label": "listo" },
+    { "id": "await-parts", "from": "uploaded", "to": "waiting-parts", "label": "partes" },
+    { "id": "parts-ready", "from": "waiting-parts", "to": "extracting" },
+    { "id": "archive-start", "from": "uploaded", "to": "extracting" },
+    { "id": "password-prompt", "from": "extracting", "to": "needs-password", "label": "falta contraseña" },
+    { "id": "password-retry", "from": "needs-password", "to": "extracting" },
+    { "id": "extract-complete", "from": "extracting", "to": "filtering", "label": "listo" },
+    { "id": "loose-file", "from": "uploaded", "to": "filtering", "label": "archivos sueltos" },
+    { "id": "kept", "from": "filtering", "to": "done", "label": "fin" },
+    { "id": "empty", "from": "filtering", "to": "discarded", "label": "nada conservado" },
+    { "id": "upload-failure", "from": "uploading", "to": "failed" },
+    { "id": "uploaded-failure", "from": "uploaded", "to": "failed" },
+    { "id": "parts-failure", "from": "waiting-parts", "to": "failed" },
+    { "id": "extract-failure", "from": "extracting", "to": "failed" },
+    { "id": "password-failure", "from": "needs-password", "to": "failed" },
+    { "id": "filter-failure", "from": "filtering", "to": "failed" },
+    { "id": "retry-extract", "from": "failed", "to": "extracting" },
+    { "id": "retry-filter", "from": "failed", "to": "filtering" },
+    { "id": "cancel-uploading", "from": "uploading", "to": "cancelled" },
+    { "id": "cancel-uploaded", "from": "uploaded", "to": "cancelled" },
+    { "id": "cancel-waiting", "from": "waiting-parts", "to": "cancelled" },
+    { "id": "cancel-extracting", "from": "extracting", "to": "cancelled" },
+    { "id": "cancel-password", "from": "needs-password", "to": "cancelled" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Camino principal", "items": ["Los comprimidos se extraen y luego se filtran.", "Los archivos sueltos pasan de Subido directamente a Filtrando.", "El contenido conservado termina en No asignados, no en la biblioteca."] },
+    { "dot": "amber", "title": "Esperas y reintentos", "items": ["Los comprimidos multiparte esperan hasta que el conjunto esté completo.", "Los comprimidos cifrados esperan la contraseña y vuelven a Descomprimiendo.", "El motivo determina si se puede reintentar; extracción y filtrado se retoman por separado."] },
+    { "dot": "rose", "title": "Resultados finales", "items": ["Descartado significa que este trabajo no conservó nada y el lote sí conservó contenido.", "Se puede cancelar durante la subida, las esperas y la extracción.", "Ningún archivo entra en la biblioteca hasta que el usuario lo confirme en Asignar."] }
+  ]
+}

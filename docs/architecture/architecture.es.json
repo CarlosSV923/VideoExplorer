@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de VideoExplorer",
+    "locale": "es",
+    "output": "docs/architecture/site/es/architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/CarlosSV923/VideoExplorer.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "a5421ce13e90396629439e2ab0129a266014bbc6"
+    }
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Navegador",
+      "sublabel": "Escritorio · móvil · gamepad",
+      "pos": [40, 230],
+      "size": [175, 76],
+      "sources": [{ "path": "README.md", "line": 9, "end_line": 20 }]
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "VideoExplorer",
+      "sublabel": "API Go · React embebido",
+      "pos": [340, 220],
+      "size": [250, 100],
+      "sources": [
+        { "path": "apps/api/cmd/videoexplorer/main.go", "line": 101, "end_line": 179 },
+        { "path": "apps/api/internal/platform/web/spa.go", "line": 16, "end_line": 25 }
+      ]
+    },
+    {
+      "id": "data",
+      "type": "database",
+      "label": "SQLite + caché de imágenes",
+      "sublabel": "/data · metadatos e imágenes en caché",
+      "pos": [340, 55],
+      "size": [205, 76],
+      "sources": [
+        { "path": "deploy/truenas/compose.yaml", "line": 11, "end_line": 21 },
+        { "path": "apps/api/internal/platform/database/sqlite.go", "line": 18, "end_line": 43 },
+        { "path": "apps/api/cmd/videoexplorer/metadata.go", "line": 23, "end_line": 42 }
+      ]
+    },
+    {
+      "id": "library",
+      "type": "database",
+      "label": "Dataset multimedia",
+      "sublabel": "/library · Movies · TV Shows · _unassigned · .videoexplorer",
+      "pos": [680, 225],
+      "size": [235, 90],
+      "sources": [{ "path": "deploy/truenas/compose.yaml", "line": 11, "end_line": 16 }]
+    },
+    {
+      "id": "children",
+      "type": "backend",
+      "label": "7-Zip + ffprobe",
+      "sublabel": "Procesos hijos independientes",
+      "pos": [355, 435],
+      "size": [190, 76],
+      "sources": [
+        { "path": "apps/api/internal/ingestion/infrastructure/sevenzip/sevenzip.go", "line": 143, "end_line": 154 },
+        { "path": "apps/api/internal/ingestion/infrastructure/ffprobe/ffprobe.go", "line": 44, "end_line": 61 }
+      ]
+    },
+    {
+      "id": "jellyfin",
+      "type": "external",
+      "label": "Jellyfin",
+      "sublabel": "Lee las carpetas multimedia compartidas",
+      "pos": [707.5, 375],
+      "size": [180, 76],
+      "sources": [
+        { "path": "deploy/truenas/README.md", "line": 14, "end_line": 23 },
+        { "path": "apps/api/internal/mediaservers/infrastructure/jellyfin/client.go", "line": 152, "end_line": 173 }
+      ]
+    },
+    {
+      "id": "tmdb",
+      "type": "external",
+      "label": "TMDB",
+      "sublabel": "Títulos, metadatos e imágenes",
+      "pos": [40, 55],
+      "size": [175, 76],
+      "sources": [{ "path": "apps/api/cmd/videoexplorer/metadata.go", "line": 23, "end_line": 42 }]
+    },
+    {
+      "id": "smb-pc",
+      "type": "external",
+      "label": "PC por SMB",
+      "sublabel": "Copias detectadas con inotify",
+      "pos": [702.5, 545],
+      "size": [190, 76],
+      "sources": [
+        { "path": "apps/api/cmd/videoexplorer/main.go", "line": 201, "end_line": 205 },
+        { "path": "apps/api/internal/catalog/infrastructure/fswatch/watcher.go", "line": 97, "end_line": 110 },
+        { "path": "README.md", "line": 99, "end_line": 104 }
+      ]
+    },
+    {
+      "id": "demo",
+      "type": "frontend",
+      "label": "Demo en Vercel",
+      "sublabel": "La misma app React · adaptadores en memoria",
+      "pos": [40, 545],
+      "size": [205, 76],
+      "sources": [
+        { "path": "README.md", "line": 24, "end_line": 26 },
+        { "path": "apps/web/src/app/services.ts", "line": 40, "end_line": 57 },
+        { "path": "apps/web/src/app/config.ts", "line": 1, "end_line": 12 }
+      ]
+    }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "TrueNAS SCALE", "wraps": ["app", "data", "library", "children", "jellyfin"] },
+    { "kind": "region", "label": "Vercel", "wraps": ["demo"] }
+  ],
+  "connections": [
+    { "id": "browser-app", "from": "browser", "to": "app", "label": "HTTP · tus · SSE", "variant": "emphasis" },
+    { "id": "app-data", "from": "app", "to": "data", "label": "SQLite · imágenes en caché", "fromSide": "top", "toSide": "bottom" },
+    { "id": "app-library", "from": "app", "to": "library", "label": "Organiza medios" },
+    { "id": "app-children", "from": "app", "to": "children", "label": "Extrae · analiza", "fromSide": "bottom", "toSide": "top" },
+    { "id": "app-tmdb", "from": "app", "to": "tmdb", "label": "Metadatos", "fromSide": "top", "toSide": "bottom" },
+    { "id": "jellyfin-library", "from": "jellyfin", "to": "library", "label": "Lee medios (solo lectura)", "variant": "dashed" },
+    { "id": "app-jellyfin", "from": "app", "to": "jellyfin", "label": "Refresca carpetas" },
+    { "id": "pc-library", "from": "smb-pc", "to": "library", "label": "Copia SMB", "variant": "dashed" },
+    { "id": "browser-demo", "from": "browser", "to": "demo", "label": "Visita la demo" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Ejecución autohospedada", "items": ["Un binario Go sirve la API y la app React embebida.", "Contextos backend: catalog, ingestion, metadata, mediaservers, identity y platform.", "SQLite e imágenes viven en /data; los medios y el staging propio de la app, en /library."] },
+    { "dot": "amber", "title": "Integraciones externas", "items": ["TMDB aporta metadatos e imágenes cuando está configurado.", "Jellyfin lee Movies y TV Shows y recibe avisos para refrescar carpetas.", "7-Zip y ffprobe se ejecutan como procesos hijos independientes."] },
+    { "dot": "emerald", "title": "Demo en línea", "items": ["Vercel sirve la misma app React con adaptadores en memoria.", "Los cambios de la demo se reinician al recargar la página."] }
+  ]
+}
