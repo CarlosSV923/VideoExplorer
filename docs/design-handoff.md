@@ -104,6 +104,7 @@ Familias: **Outfit** 400/500/600/700/800 para la interfaz y **JetBrains Mono** 4
 | `ProgressBar` | `value`, `label`, `tone: upload \| extract` | `role=progressbar`, 8 px de alto |
 | `EmptyState` | `icon`, `title`, `body`, `action?` | Plantillas de `Estados` |
 | `Brand` | — | Marca «Video» en `ink-1` + «Explorer» en `accent`, 22 px (20 en móvil), peso 800, sin mayúsculas; enlace a Inicio de 44 px de alto |
+| `Favicon` | — | Icono de la pestaña (decisión del usuario 2026-10-23): las iniciales «VE» como la marca, «V» en `ink-1` y «E» en `accent`, Outfit 800 convertida a trazos (sin depender de fuentes), sobre un cuadrado redondeado `bg` (radio ≈ 22 %) con borde interior `line` de 1 px; legible a 16 px (las letras ocupan ~70 % del ancho). Archivos en `apps/web/public/`: `favicon.svg`, `favicon.ico` (16 y 32), `apple-touch-icon.png` (180, sin transparencia) e `icon-192.png` / `icon-512.png`; `theme-color` `#0c0c0f` |
 | `PageHeader` | `back?`, `title`, `subtitle?`, `actions?` | Asignar, Editar |
 | `Poster` | `title`, `meta`, `image?`, `chips`, `href`, `dimmed?` | Nombre accesible «título, año, chips»; `dimmed` atenúa solo la imagen (A1) |
 | `PosterRow` | `title`, `count?`, `seeAll?` | Lista horizontal con `overflow-x: auto`, `scroll-snap`, botones ‹ › siempre visibles (escritorio), swipe (táctil) |
