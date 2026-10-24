@@ -84,6 +84,8 @@ Consulta [`Taskfile.yml`](Taskfile.yml) para ver todas las tareas. Las herramien
 
 ## Arquitectura
 
+**Diagramas interactivos:** [carlossv923.github.io/VideoExplorer/es/](https://carlossv923.github.io/VideoExplorer/es/) — versiones explorables de los dos diagramas de abajo (arquitectura del sistema y ciclo de vida de una subida), generadas con [Archify](https://github.com/tt-a1i/archify) desde [`docs/architecture/`](docs/architecture/).
+
 ```mermaid
 flowchart LR
   subgraph NAS["TrueNAS SCALE"]

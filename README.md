@@ -84,6 +84,8 @@ See [`Taskfile.yml`](Taskfile.yml) for all available tasks. Go tooling runs in D
 
 ## Architecture
 
+**Interactive diagrams:** [carlossv923.github.io/VideoExplorer](https://carlossv923.github.io/VideoExplorer/) — explorable versions of the two diagrams below (system architecture and upload job lifecycle), generated with [Archify](https://github.com/tt-a1i/archify) from [`docs/architecture/`](docs/architecture/).
+
 ```mermaid
 flowchart LR
   subgraph NAS["TrueNAS SCALE"]
