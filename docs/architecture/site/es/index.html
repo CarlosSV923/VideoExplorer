@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0c0c0f" />
+    <meta name="description" content="Explora la arquitectura autohospedada de VideoExplorer y el ciclo de vida de las subidas." />
+    <title>VideoExplorer — Arquitectura</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0c0c0f;
+        color: #f5f5f7;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        --bg: #0c0c0f;
+        --surface: #15151a;
+        --ink-1: #f5f5f7;
+        --ink-2: #c4c4cc;
+        --accent: #35d0ba;
+        --line: #2e2e37;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 320px; background: var(--bg); color: var(--ink-1); }
+      a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+      a:hover { text-decoration-thickness: 2px; }
+      a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 3px; }
+      .wrap { width: min(100% - 40px, 1040px); margin-inline: auto; }
+      header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-block: 28px; border-bottom: 1px solid var(--line); }
+      .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink-1); text-decoration: none; font-weight: 700; letter-spacing: -0.025em; }
+      .brand img { width: 34px; height: 34px; }
+      nav, footer { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+      main { padding-block: clamp(48px, 9vw, 96px) 72px; }
+      .eyebrow { margin: 0 0 14px; color: var(--accent); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+      h1 { max-width: 780px; margin: 0; font-size: clamp(2.6rem, 7vw, 5rem); line-height: 1.02; letter-spacing: -0.06em; }
+      .intro { max-width: 690px; margin: 22px 0 0; color: var(--ink-2); font-size: clamp(1.05rem, 2.5vw, 1.25rem); line-height: 1.65; }
+      .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 52px; }
+      .card { min-height: 210px; padding: 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); transition: border-color 160ms ease, transform 160ms ease; }
+      .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+      .card a { display: block; color: var(--ink-1); text-decoration: none; }
+      .card a:focus-visible { outline-offset: 7px; }
+      .card h2 { margin: 0; font-size: 1.3rem; letter-spacing: -0.02em; }
+      .card p { margin: 12px 0 18px; color: var(--ink-2); line-height: 1.6; }
+      .card .open { color: var(--accent); font-weight: 650; }
+      footer { justify-content: space-between; padding-block: 22px 30px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 0.95rem; }
+      @media (max-width: 650px) {
+        .wrap { width: min(100% - 32px, 1040px); }
+        header { align-items: flex-start; }
+        nav { justify-content: flex-end; gap: 14px; }
+        .cards { grid-template-columns: 1fr; margin-top: 36px; }
+        .card { min-height: auto; }
+        footer { align-items: flex-start; }
+      }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <a class="brand" href="index.html" aria-label="Inicio de VideoExplorer — Arquitectura">
+          <img src="../favicon.svg" alt="" width="34" height="34" />
+          <span>VideoExplorer</span>
+        </a>
+        <nav aria-label="Idioma y enlaces del proyecto">
+          <a href="../index.html" lang="en">English</a>
+          <a href="https://github.com/CarlosSV923/VideoExplorer">Repositorio</a>
+          <a href="https://video-explorer-sepia.vercel.app">Demo en línea</a>
+        </nav>
+      </header>
+      <main>
+        <p class="eyebrow">Mapa del sistema</p>
+        <h1>VideoExplorer — Arquitectura</h1>
+        <p class="intro">Un organizador autohospedado de películas y series. Explora cómo funciona en TrueNAS SCALE y cómo las subidas llevan el contenido a No asignados antes de que el usuario lo asigne a la biblioteca.</p>
+        <section class="cards" aria-label="Diagramas interactivos">
+          <article class="card">
+            <a href="architecture.html">
+              <h2>Arquitectura del sistema</h2>
+              <p>TrueNAS SCALE, almacenamiento, integraciones, detección SMB y la demo de Vercel.</p>
+              <span class="open">Explorar la arquitectura <span aria-hidden="true">→</span></span>
+            </a>
+          </article>
+          <article class="card">
+            <a href="upload-lifecycle.html">
+              <h2>Ciclo de vida de una subida</h2>
+              <p>Subida, espera de partes, extracción, contraseñas, filtrado y resultados.</p>
+              <span class="open">Explorar el ciclo de vida <span aria-hidden="true">→</span></span>
+            </a>
+          </article>
+        </section>
+      </main>
+      <footer>
+        <span>Diseñado para bibliotecas Jellyfin · no reproduce video</span>
+        <nav aria-label="Enlaces del proyecto">
+          <a href="https://github.com/CarlosSV923/VideoExplorer">GitHub</a>
+          <a href="https://video-explorer-sepia.vercel.app">Demo</a>
+        </nav>
+      </footer>
+    </div>
+  </body>
+</html>
