@@ -10,3 +10,7 @@ node C:\Users\carlo\.agents\skills\archify\bin\archify.mjs finalize lifecycle do
 ```
 
 Cada candidato fija la revisión del repositorio usada como evidencia. Al actualizar las fuentes o sus citas, actualiza también `meta.repository.revision` con el commit correspondiente y vuelve a finalizar los diagramas afectados. La página índice no depende de CDN y Pages publica directamente el contenido de `site/`.
+
+## Imágenes del README
+
+Los README muestran los diagramas como SVG en `images/en/` y `images/es/` (tema oscuro, con fondo y fuente embebidos), enlazados a su versión interactiva. Se exportan desde el visor de cada HTML de `site/` con **Export → SVG** en el tema oscuro y se guardan con el mismo nombre (`architecture.svg`, `upload-lifecycle.svg`). Al regenerar un diagrama, vuelve a exportar su imagen para que el README y la versión interactiva coincidan.

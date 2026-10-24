@@ -88,50 +88,13 @@ See [`Taskfile.yml`](Taskfile.yml) for all available tasks. Go tooling runs in D
 
 **Interactive diagrams:** [carlossv923.github.io/VideoExplorer](https://carlossv923.github.io/VideoExplorer/) — explorable versions of the two diagrams below (system architecture and upload job lifecycle), generated with [Archify](https://github.com/tt-a1i/archify) from [`docs/architecture/`](docs/architecture/).
 
-```mermaid
-flowchart LR
-  subgraph NAS["TrueNAS SCALE"]
-    direction TB
-    app["VideoExplorer<br/>Go binary + embedded React app"]
-    db[("SQLite + image cache<br/>/data")]
-    lib[("Media dataset<br/>/library: Movies · TV Shows · _unassigned")]
-    tools["7-Zip · ffprobe<br/>(child processes)"]
-    jf["Jellyfin"]
-    app --- db
-    app --- lib
-    app --- tools
-    jf -. "reads (read-only)" .- lib
-  end
-  browser["Browser<br/>desktop · phone · gamepad"] -- "HTTP · tus uploads · SSE" --> app
-  app -- "titles, posters, seasons" --> tmdb["TMDB"]
-  app -- "refresh affected folders" --> jf
-  pc["PC over SMB"] -- "copies files<br/>(detected with inotify)" --> lib
-  subgraph Vercel
-    demo["Demo<br/>same React app, in-memory adapters"]
-  end
-  visitor["Visitor"] --> demo
-```
+<p align="center"><a href="https://carlossv923.github.io/VideoExplorer/architecture.html"><img src="docs/architecture/images/en/architecture.svg" alt="VideoExplorer architecture: on TrueNAS SCALE, the Go binary with the embedded React app uses SQLite and an image cache in /data, organizes the media dataset (/library: Movies, TV Shows, _unassigned) and runs 7-Zip and ffprobe as child processes; Jellyfin reads the dataset and receives refreshes; the browser talks HTTP, tus uploads and SSE; TMDB provides metadata; SMB copies are detected with inotify; the Vercel demo runs the same React app with in-memory adapters" width="100%"></a></p>
 
 An upload is a job that follows this state machine (spec RF-10a); its result lands in **Unassigned**, and nothing reaches the library until the user confirms it in **Assign**:
 
-```mermaid
-stateDiagram-v2
-  [*] --> uploading
-  uploading --> uploaded
-  uploaded --> waiting_parts: multi-part archive
-  waiting_parts --> extracting
-  uploaded --> extracting: archive
-  extracting --> needs_password
-  needs_password --> extracting
-  extracting --> filtering
-  uploaded --> filtering: loose files
-  filtering --> done: kept videos and subtitles
-  filtering --> discarded: nothing kept
-  extracting --> failed
-  failed --> extracting: retry
-  uploading --> cancelled
-  done --> [*]
-```
+<p align="center"><a href="https://carlossv923.github.io/VideoExplorer/upload-lifecycle.html"><img src="docs/architecture/images/en/upload-lifecycle.svg" alt="Upload job lifecycle: uploading, uploaded, waiting for parts, extracting, needs password, filtering, and the outcomes done (in Unassigned), discarded, failed with retry, and cancelled" width="100%"></a></p>
+
+Click a diagram to open its interactive version.
 
 | | |
 |---|---|

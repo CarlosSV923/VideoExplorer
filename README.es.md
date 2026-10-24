@@ -88,50 +88,13 @@ Consulta [`Taskfile.yml`](Taskfile.yml) para ver todas las tareas. Las herramien
 
 **Diagramas interactivos:** [carlossv923.github.io/VideoExplorer/es/](https://carlossv923.github.io/VideoExplorer/es/) — versiones explorables de los dos diagramas de abajo (arquitectura del sistema y ciclo de vida de una subida), generadas con [Archify](https://github.com/tt-a1i/archify) desde [`docs/architecture/`](docs/architecture/).
 
-```mermaid
-flowchart LR
-  subgraph NAS["TrueNAS SCALE"]
-    direction TB
-    app["VideoExplorer<br/>binario Go + app React embebida"]
-    db[("SQLite + caché de imágenes<br/>/data")]
-    lib[("Dataset multimedia<br/>/library: Movies · TV Shows · _unassigned")]
-    tools["7-Zip · ffprobe<br/>(procesos hijos)"]
-    jf["Jellyfin"]
-    app --- db
-    app --- lib
-    app --- tools
-    jf -. "lee (solo lectura)" .- lib
-  end
-  browser["Navegador<br/>escritorio · móvil · gamepad"] -- "HTTP · subidas tus · SSE" --> app
-  app -- "títulos, pósters, temporadas" --> tmdb["TMDB"]
-  app -- "refrescar carpetas afectadas" --> jf
-  pc["PC por SMB"] -- "copia archivos<br/>(detectados con inotify)" --> lib
-  subgraph Vercel
-    demo["Demo<br/>la misma app React, adaptadores en memoria"]
-  end
-  visitor["Visitante"] --> demo
-```
+<p align="center"><a href="https://carlossv923.github.io/VideoExplorer/es/architecture.html"><img src="docs/architecture/images/es/architecture.svg" alt="Arquitectura de VideoExplorer: en TrueNAS SCALE, el binario Go con la app React embebida usa SQLite y una caché de imágenes en /data, organiza el dataset multimedia (/library: Movies, TV Shows, _unassigned) y ejecuta 7-Zip y ffprobe como procesos hijos; Jellyfin lee el dataset y recibe refrescos; el navegador usa HTTP, subidas tus y SSE; TMDB aporta los metadatos; las copias por SMB se detectan con inotify; la demo de Vercel ejecuta la misma app React con adaptadores en memoria" width="100%"></a></p>
 
 Una subida es un trabajo que sigue esta máquina de estados (spec RF-10a); su resultado llega a **No asignados**, y nada entra en la biblioteca sin que el usuario lo confirme en **Asignar**:
 
-```mermaid
-stateDiagram-v2
-  [*] --> uploading
-  uploading --> uploaded
-  uploaded --> waiting_parts: comprimido multiparte
-  waiting_parts --> extracting
-  uploaded --> extracting: comprimido
-  extracting --> needs_password
-  needs_password --> extracting
-  extracting --> filtering
-  uploaded --> filtering: archivos sueltos
-  filtering --> done: conserva videos y subtítulos
-  filtering --> discarded: no conserva nada
-  extracting --> failed
-  failed --> extracting: reintentar
-  uploading --> cancelled
-  done --> [*]
-```
+<p align="center"><a href="https://carlossv923.github.io/VideoExplorer/es/upload-lifecycle.html"><img src="docs/architecture/images/es/upload-lifecycle.svg" alt="Ciclo de vida de una subida: subiendo, subido, esperando partes, descomprimiendo, necesita contraseña, filtrando, y los resultados terminado (en No asignados), descartado, error con reintento y cancelado" width="100%"></a></p>
+
+Haz clic en un diagrama para abrir su versión interactiva.
 
 | | |
 |---|---|
