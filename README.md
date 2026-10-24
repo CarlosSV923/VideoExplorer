@@ -1,6 +1,6 @@
 # VideoExplorer
 
-[Español](README.es.md) · **Status: complete — latest release v1.0.1**
+[Español](README.es.md) · **Status: complete — latest release v1.0.2**
 
 [![CI](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml/badge.svg)](https://github.com/CarlosSV923/VideoExplorer/actions/workflows/ci.yml)
 
@@ -24,6 +24,8 @@ The detailed requirements and current work are in [`docs/spec.md`](docs/spec.md)
 ## Online demo
 
 **Live demo:** [video-explorer-sepia.vercel.app](https://video-explorer-sepia.vercel.app). The demo runs without a backend; its in-memory changes reset when the page reloads. TMDB images load from `image.tmdb.org`.
+
+**Interactive architecture:** [carlossv923.github.io/VideoExplorer](https://carlossv923.github.io/VideoExplorer/) — explore the system architecture and the upload job lifecycle.
 
 ## Screenshots
 
